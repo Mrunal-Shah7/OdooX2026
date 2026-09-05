@@ -240,8 +240,8 @@ export default function EmployeeFormPage() {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      const msg = 'Please resolve the highlighted validation errors before submitting.';
-      showToast({ type: 'error', title: 'Form Validation Failed', message: msg });
+      const msg = 'Please fill required details before submitting.';
+      showToast({ type: 'error', title: 'Error', message: msg });
       setTimeout(() => {
         document.querySelector('.text-danger')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);

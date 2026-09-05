@@ -22,7 +22,7 @@ const router: Router = Router();
 router.get(
   ['/employees', '/admin/employees'],
   requireAuth,
-  requireRole(USER_ROLE.admin),
+  requireRole(USER_ROLE.employee),
   validate({ query: listEmployeesQuerySchema }),
   async (req, res, next) => {
     try {
@@ -71,7 +71,7 @@ router.get(
 router.get(
   ['/employees/:id', '/admin/employees/:id'],
   requireAuth,
-  requireRole(USER_ROLE.admin),
+  requireRole(USER_ROLE.employee),
   validate({ params: idParamSchema }),
   async (req, res, next) => {
     try {

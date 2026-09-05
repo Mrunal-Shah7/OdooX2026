@@ -1,25 +1,23 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { PageHeader } from '../../components/layout/PageHeader';
-import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
-import { Select } from '../../components/ui/Select';
-import { Amount } from '../../components/ui/Amount';
-import { BarChartCard } from '../../components/charts/BarChartCard';
-import { LineChartCard } from '../../components/charts/LineChartCard';
-import { Amount } from '../../components/ui/Amount';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
-import { ErrorState } from '../../components/ui/ErrorState';
-import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
-import { formatMoney } from '../../lib/format';
-import { cn } from '../../lib/cn';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { PageHeader } from "../../components/layout/PageHeader";
+import { PayrollNavTabs } from "../../components/layout/PayrollNavTabs";
+import { Select } from "../../components/ui/Select";
+import { BarChartCard } from "../../components/charts/BarChartCard";
+import { LineChartCard } from "../../components/charts/LineChartCard";
+import { Amount } from "../../components/ui/Amount";
+import { Card, CardBody, CardHeader } from "../../components/ui/Card";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { Spinner } from "../../components/ui/Spinner";
+import { formatMoney } from "../../lib/format";
+import { cn } from "../../lib/cn";
 
 type PayrollDashboardData = {
   period: string;
   kpis: {
     totalNetPaid: string;
-    currency: 'INR' | 'USD';
+    currency: "INR" | "USD";
     netChangePercent: string;
     payslipsGenerated: number;
     payslipsPaid: number;
@@ -65,7 +63,7 @@ type PayrollDashboardData = {
       name: string;
       code: string;
       color: string;
-      unit: 'days' | 'hours';
+      unit: "days" | "hours";
     };
     approvedDays: string;
     pending: number;
@@ -73,52 +71,57 @@ type PayrollDashboardData = {
   }[];
 };
 
-async function fetchPayrollDashboard(params: Record<string, string>): Promise<PayrollDashboardData> {
+async function fetchPayrollDashboard(
+  params: Record<string, string>,
+): Promise<PayrollDashboardData> {
   const searchParams = new URLSearchParams(params);
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const userId = sessionStorage.getItem('pp360_user_id');
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const userId = sessionStorage.getItem("pp360_user_id");
   if (userId) {
-    headers.set('x-user-id', userId);
+    headers.set("x-user-id", userId);
   }
   const res = await fetch(`/api/dashboard/payroll?${searchParams.toString()}`, {
     headers,
-    credentials: 'include',
+    credentials: "include",
   });
   if (!res.ok) {
-    throw new Error('Failed to load payroll dashboard');
+    throw new Error("Failed to load payroll dashboard");
   }
   const json = await res.json();
   return json.data;
 }
 
 async function fetchDepartments(): Promise<{ id: string; name: string }[]> {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const userId = sessionStorage.getItem('pp360_user_id');
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const userId = sessionStorage.getItem("pp360_user_id");
   if (userId) {
-    headers.set('x-user-id', userId);
+    headers.set("x-user-id", userId);
   }
-  const res = await fetch('/api/departments?pageSize=100', { headers, credentials: 'include' });
+  const res = await fetch("/api/departments?pageSize=100", {
+    headers,
+    credentials: "include",
+  });
   if (!res.ok) return [];
   const json = await res.json();
   return json.data;
 }
 
 export default function PayrollDashboardPage() {
-  const [period, setPeriod] = useState('2026-09');
-  const [departmentId, setDepartmentId] = useState('all');
-  const [employeeType, setEmployeeType] = useState('all');
+  const [period, setPeriod] = useState("2026-09");
+  const [departmentId, setDepartmentId] = useState("all");
+  const [employeeType, setEmployeeType] = useState("all");
 
   const { data: departments = [] } = useQuery({
-    queryKey: ['departments', 'options'],
+    queryKey: ["departments", "options"],
     queryFn: fetchDepartments,
   });
 
   const queryParams: Record<string, string> = { period };
-  if (departmentId !== 'all') queryParams['departmentId'] = departmentId;
-  if (employeeType !== 'all') queryParams['employeeType'] = employeeType;
+  if (departmentId !== "all") queryParams["departmentId"] = departmentId;
+  if (employeeType !== "all") queryParams["employeeType"] = employeeType;
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['dashboard', 'payroll', queryParams],
+    queryKey: ["dashboard", "payroll", queryParams],
     queryFn: () => fetchPayrollDashboard(queryParams),
   });
 
@@ -144,7 +147,10 @@ export default function PayrollDashboardPage() {
           subtitle="Payments, staffing impact, leave patterns and attendance quality"
         />
         <div className="px-5 py-12">
-          <ErrorState message="Could not load payroll dashboard" onRetry={() => refetch()} />
+          <ErrorState
+            message="Could not load payroll dashboard"
+            onRetry={() => refetch()}
+          />
         </div>
       </>
     );
@@ -157,9 +163,9 @@ export default function PayrollDashboardPage() {
   }));
 
   const trendChartData = data.monthlyTrend.map((trend) => {
-    const parts = trend.period.split('-');
+    const parts = trend.period.split("-");
     const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
-    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    const monthName = date.toLocaleDateString("en-US", { month: "short" });
     return {
       name: monthName,
       value: Number(trend.totalNet),
@@ -167,7 +173,10 @@ export default function PayrollDashboardPage() {
     };
   });
 
-  const totalHeadcount = data.salaryByDepartment.reduce((sum, d) => sum + d.headcount, 0);
+  const totalHeadcount = data.salaryByDepartment.reduce(
+    (sum, d) => sum + d.headcount,
+    0,
+  );
   const totalSalaryNum = Number(data.kpis.totalNetPaid);
   const netChangeNum = Number(data.kpis.netChangePercent);
 
@@ -177,46 +186,70 @@ export default function PayrollDashboardPage() {
       <PageHeader title="Payroll dashboard" subtitle="September 2026" />
       <div className="space-y-5 px-5 pb-6">
         <div className="flex gap-3">
-          <Select options={[{ value: '2026-09', label: 'September 2026' }]} value="2026-09" />
-          <Select options={[{ value: 'all', label: 'All departments' }]} value="all" />
+          <Select
+            options={[{ value: "2026-09", label: "September 2026" }]}
+            value="2026-09"
+          />
+          <Select
+            options={[{ value: "all", label: "All departments" }]}
+            value="all"
+          />
         </div>
 
         {/* 5 KPI Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardBody>
-              <span className="text-label font-medium text-text-muted">Total net paid</span>
+              <span className="text-label font-medium text-text-muted">
+                Total net paid
+              </span>
               <div className="mt-1 font-mono text-metric font-semibold text-text">
-                <Amount value={data.kpis.totalNetPaid} currency={data.kpis.currency} />
+                <Amount
+                  value={data.kpis.totalNetPaid}
+                  currency={data.kpis.currency}
+                />
               </div>
               <span
                 className={cn(
-                  'mt-1 block text-caption',
-                  netChangeNum >= 0 ? 'font-medium text-success' : 'font-medium text-danger',
+                  "mt-1 block text-caption",
+                  netChangeNum >= 0
+                    ? "font-medium text-success"
+                    : "font-medium text-danger",
                 )}
               >
-                {netChangeNum >= 0 ? `+${data.kpis.netChangePercent}%` : `${data.kpis.netChangePercent}%`} vs prior month
+                {netChangeNum >= 0
+                  ? `+${data.kpis.netChangePercent}%`
+                  : `${data.kpis.netChangePercent}%`}{" "}
+                vs prior month
               </span>
             </CardBody>
           </Card>
 
           <Card>
             <CardBody>
-              <span className="text-label font-medium text-text-muted">Payslips generated</span>
+              <span className="text-label font-medium text-text-muted">
+                Payslips generated
+              </span>
               <div className="mt-1 font-mono text-metric font-semibold text-text">
                 {data.kpis.payslipsGenerated}
               </div>
               <span className="mt-1 block text-caption text-text-muted">
-                {data.kpis.payslipsPaid} paid · {data.kpis.payslipsPending} pending
+                {data.kpis.payslipsPaid} paid · {data.kpis.payslipsPending}{" "}
+                pending
               </span>
             </CardBody>
           </Card>
 
           <Card>
             <CardBody>
-              <span className="text-label font-medium text-text-muted">Average salary</span>
+              <span className="text-label font-medium text-text-muted">
+                Average salary
+              </span>
               <div className="mt-1 font-mono text-metric font-semibold text-text">
-                <Amount value={data.kpis.averageSalary} currency={data.kpis.currency} />
+                <Amount
+                  value={data.kpis.averageSalary}
+                  currency={data.kpis.currency}
+                />
               </div>
               <span className="mt-1 block text-caption text-text-muted">
                 Across selected filters
@@ -226,7 +259,9 @@ export default function PayrollDashboardPage() {
 
           <Card>
             <CardBody>
-              <span className="text-label font-medium text-text-muted">Approved time off</span>
+              <span className="text-label font-medium text-text-muted">
+                Approved time off
+              </span>
               <div className="mt-1 font-mono text-metric font-semibold text-text">
                 {data.kpis.approvedTimeOffDays}
               </div>
@@ -238,7 +273,9 @@ export default function PayrollDashboardPage() {
 
           <Card>
             <CardBody>
-              <span className="text-label font-medium text-text-muted">Attendance health</span>
+              <span className="text-label font-medium text-text-muted">
+                Attendance health
+              </span>
               <div className="mt-1 font-mono text-metric font-semibold text-text">
                 {data.kpis.attendanceHealthPercent}%
               </div>
@@ -270,12 +307,17 @@ export default function PayrollDashboardPage() {
             <CardHeader title="Payroll alerts" />
             <CardBody className="p-0">
               {data.alerts.length === 0 ? (
-                <div className="p-4 text-body-sm text-text-muted">No active payroll alerts</div>
+                <div className="p-4 text-body-sm text-text-muted">
+                  No active payroll alerts
+                </div>
               ) : (
                 <table className="w-full border-collapse text-body-sm">
                   <tbody>
                     {data.alerts.map((alert) => (
-                      <tr key={alert.code} className="border-b border-border last:border-b-0">
+                      <tr
+                        key={alert.code}
+                        className="border-b border-border last:border-b-0"
+                      >
                         <td className="px-4 py-3 text-text">
                           {alert.linkPath ? (
                             <Link
@@ -367,7 +409,10 @@ export default function PayrollDashboardPage() {
                 </thead>
                 <tbody>
                   {data.timeOffOverview.map((row) => (
-                    <tr key={row.timeOffType.id} className="border-b border-border last:border-b-0">
+                    <tr
+                      key={row.timeOffType.id}
+                      className="border-b border-border last:border-b-0"
+                    >
                       <td className="px-4 py-3 text-text">
                         <span className="flex items-center gap-1.5">
                           <span
@@ -384,9 +429,10 @@ export default function PayrollDashboardPage() {
                         {row.pending}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-text">
-                        {row.remainingBalance !== null && row.remainingBalance !== ''
+                        {row.remainingBalance !== null &&
+                        row.remainingBalance !== ""
                           ? row.remainingBalance
-                          : '—'}
+                          : "—"}
                       </td>
                     </tr>
                   ))}
@@ -408,9 +454,15 @@ export default function PayrollDashboardPage() {
                 <thead>
                   <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
                     <th className="px-4 py-3">Department</th>
-                    <th className="px-4 py-3 text-right font-mono">Headcount</th>
-                    <th className="px-4 py-3 text-right font-mono">Monthly salary</th>
-                    <th className="px-4 py-3 text-right font-mono">Share of cost</th>
+                    <th className="px-4 py-3 text-right font-mono">
+                      Headcount
+                    </th>
+                    <th className="px-4 py-3 text-right font-mono">
+                      Monthly salary
+                    </th>
+                    <th className="px-4 py-3 text-right font-mono">
+                      Share of cost
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -418,9 +470,12 @@ export default function PayrollDashboardPage() {
                     const share =
                       totalSalaryNum > 0
                         ? `${Math.round((Number(dept.totalNet) / totalSalaryNum) * 100)}%`
-                        : '0%';
+                        : "0%";
                     return (
-                      <tr key={dept.departmentId} className="border-b border-border">
+                      <tr
+                        key={dept.departmentId}
+                        className="border-b border-border"
+                      >
                         <td className="px-4 py-3 font-medium text-text">
                           {dept.departmentName}
                         </td>
@@ -428,7 +483,10 @@ export default function PayrollDashboardPage() {
                           {dept.headcount}
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-text">
-                          <Amount value={dept.totalNet} currency={data.kpis.currency} />
+                          <Amount
+                            value={dept.totalNet}
+                            currency={data.kpis.currency}
+                          />
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-text">
                           {share}
@@ -442,9 +500,14 @@ export default function PayrollDashboardPage() {
                       {totalHeadcount}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-text">
-                      <Amount value={data.kpis.totalNetPaid} currency={data.kpis.currency} />
+                      <Amount
+                        value={data.kpis.totalNetPaid}
+                        currency={data.kpis.currency}
+                      />
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-text">100%</td>
+                    <td className="px-4 py-3 text-right font-mono text-text">
+                      100%
+                    </td>
                   </tr>
                 </tbody>
               </table>

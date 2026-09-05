@@ -11,7 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
-import { getStoredAuthToken } from '../../lib/session';
+import { getStoredAuthToken, useSession } from '../../lib/session';
 
 type EmployeeDetailResponse = {
   employee: {
@@ -280,11 +280,30 @@ export default function EmployeeFormPage() {
     return <ErrorState onRetry={() => employeeQuery.refetch()} />;
   }
 
+  const { user } = useSession();
+  const isAdmin = user?.role === 'admin' || user?.role === 'hr_manager';
+
+  if (isNew && !isAdmin) {
+    return (
+      <div className="p-8 text-center">
+        <Card className="max-w-md mx-auto p-6 space-y-4">
+          <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
+          <p className="text-body-sm text-text-muted">
+            Only administrators and HR managers can create new employees.
+          </p>
+          <Button variant="secondary" onClick={() => navigate({ to: '/employees' })}>
+            Back to Employee Directory
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   const counts = employeeQuery.data?.counts ?? { contracts: 0, attendance: 0, timeOff: 0, allocations: 0 };
   const empTitle = isNew ? 'New employee' : `${form.firstName} ${form.lastName}`;
   const empSubtitle = isNew
     ? undefined
-    : `${form.jobPosition || 'Employee'} · ${employeeQuery.data?.employee?.department?.name ?? 'Department'}`;
+    : `${form.jobPosition || 'Employee'} · ${employeeQuery.data?.employee?.department?.name ?? 'Department'}${!isAdmin ? ' (Read-only)' : ''}`;
 
   return (
     <>
@@ -294,15 +313,17 @@ export default function EmployeeFormPage() {
         actions={
           <>
             <Button variant="secondary" onClick={() => navigate({ to: '/employees' })}>
-              Cancel
+              {isAdmin ? 'Cancel' : 'Back'}
             </Button>
-            <Button
-              variant="accent"
-              onClick={handleSubmit}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? 'Saving...' : 'Save employee'}
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="accent"
+                onClick={handleSubmit}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? 'Saving...' : 'Save employee'}
+              </Button>
+            )}
           </>
         }
       />
@@ -338,6 +359,7 @@ export default function EmployeeFormPage() {
                     value={form.firstName}
                     onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
                     required
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -346,6 +368,7 @@ export default function EmployeeFormPage() {
                     value={form.lastName}
                     onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
                     required
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -355,6 +378,7 @@ export default function EmployeeFormPage() {
                     value={form.workEmail}
                     onChange={(e) => setForm((f) => ({ ...f, workEmail: e.target.value }))}
                     required
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -363,6 +387,7 @@ export default function EmployeeFormPage() {
                     type="email"
                     value={form.personalEmail}
                     onChange={(e) => setForm((f) => ({ ...f, personalEmail: e.target.value }))}
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -370,6 +395,7 @@ export default function EmployeeFormPage() {
                   <Input
                     value={form.phone}
                     onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -379,6 +405,7 @@ export default function EmployeeFormPage() {
                     value={form.joiningDate}
                     onChange={(e) => setForm((f) => ({ ...f, joiningDate: e.target.value }))}
                     required
+                    disabled={!isAdmin}
                   />
                 </Field>
               </div>
@@ -396,6 +423,7 @@ export default function EmployeeFormPage() {
                     value={form.departmentId}
                     onValueChange={(val) => setForm((f) => ({ ...f, departmentId: val }))}
                     placeholder="Select department..."
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -404,6 +432,7 @@ export default function EmployeeFormPage() {
                     value={form.jobPosition}
                     onChange={(e) => setForm((f) => ({ ...f, jobPosition: e.target.value }))}
                     required
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -414,6 +443,7 @@ export default function EmployeeFormPage() {
                     value={form.managerId}
                     onValueChange={(val) => setForm((f) => ({ ...f, managerId: val }))}
                     placeholder="Select manager..."
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -424,6 +454,7 @@ export default function EmployeeFormPage() {
                     value={form.workingScheduleId}
                     onValueChange={(val) => setForm((f) => ({ ...f, workingScheduleId: val }))}
                     placeholder="Select schedule..."
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -435,6 +466,7 @@ export default function EmployeeFormPage() {
                     onValueChange={(val) =>
                       setForm((f) => ({ ...f, employeeType: val as any }))
                     }
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -442,6 +474,7 @@ export default function EmployeeFormPage() {
                   <Input
                     value={form.workLocation}
                     onChange={(e) => setForm((f) => ({ ...f, workLocation: e.target.value }))}
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -453,6 +486,7 @@ export default function EmployeeFormPage() {
                       onValueChange={(val) =>
                         setForm((f) => ({ ...f, status: val as any }))
                       }
+                      disabled={!isAdmin}
                     />
                   </Field>
                 )}
@@ -468,6 +502,7 @@ export default function EmployeeFormPage() {
                   <Input
                     value={form.bankName}
                     onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))}
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -475,6 +510,7 @@ export default function EmployeeFormPage() {
                   <Input
                     value={form.bankAccountHolder}
                     onChange={(e) => setForm((f) => ({ ...f, bankAccountHolder: e.target.value }))}
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -483,6 +519,7 @@ export default function EmployeeFormPage() {
                     value={form.bankAccountNumber}
                     onChange={(e) => setForm((f) => ({ ...f, bankAccountNumber: e.target.value }))}
                     placeholder="Enter bank account number"
+                    disabled={!isAdmin}
                   />
                 </Field>
 
@@ -490,6 +527,7 @@ export default function EmployeeFormPage() {
                   <Input
                     value={form.bankIfsc}
                     onChange={(e) => setForm((f) => ({ ...f, bankIfsc: e.target.value }))}
+                    disabled={!isAdmin}
                   />
                 </Field>
               </div>

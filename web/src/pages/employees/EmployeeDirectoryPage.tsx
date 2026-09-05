@@ -13,6 +13,8 @@ import { ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
 import { getStoredAuthToken } from '../../lib/session';
 
+import { useSession } from '../../lib/session';
+
 export type EmployeeListItem = {
   id: string;
   firstName: string;
@@ -94,6 +96,8 @@ async function deleteEmployee(id: string): Promise<void> {
 
 export default function EmployeeDirectoryPage() {
   const queryClient = useQueryClient();
+  const { user } = useSession();
+  const isAdmin = user?.role === 'admin' || user?.role === 'hr_manager';
   const [page, setPage] = useState(1);
 
   const [deletingEmp, setDeletingEmp] = useState<EmployeeListItem | null>(null);
@@ -124,7 +128,7 @@ export default function EmployeeDirectoryPage() {
     },
   });
 
-  const columns: ColumnDef<EmployeeListItem>[] = [
+  const baseColumns: ColumnDef<EmployeeListItem>[] = [
     {
       accessorKey: 'firstName',
       header: 'Employee',
@@ -173,34 +177,37 @@ export default function EmployeeDirectoryPage() {
         </Badge>
       ),
     },
-    {
-      id: 'actions',
-      header: 'Actions',
-      enableColumnFilter: false,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Link to="/employees/$id" params={{ id: row.original.id }}>
-            <Button variant="secondary" size="sm" className="flex items-center gap-1">
-              <Pencil className="size-3.5" />
-              <span>Edit</span>
-            </Button>
-          </Link>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => {
-              setDeletingEmp(row.original);
-              setDeleteError(null);
-            }}
-            className="flex items-center gap-1"
-          >
-            <Trash2 className="size-3.5" />
-            <span>Delete</span>
-          </Button>
-        </div>
-      ),
-    },
   ];
+
+  const actionColumn: ColumnDef<EmployeeListItem> = {
+    id: 'actions',
+    header: 'Actions',
+    enableColumnFilter: false,
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Link to="/employees/$id" params={{ id: row.original.id }}>
+          <Button variant="secondary" size="sm" className="flex items-center gap-1">
+            <Pencil className="size-3.5" />
+            <span>Edit</span>
+          </Button>
+        </Link>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={() => {
+            setDeletingEmp(row.original);
+            setDeleteError(null);
+          }}
+          className="flex items-center gap-1"
+        >
+          <Trash2 className="size-3.5" />
+          <span>Delete</span>
+        </Button>
+      </div>
+    ),
+  };
+
+  const columns = isAdmin ? [...baseColumns, actionColumn] : baseColumns;
 
   const employees = employeesQuery.data?.data ?? [];
   const meta = employeesQuery.data?.meta;
@@ -212,12 +219,14 @@ export default function EmployeeDirectoryPage() {
         title="Employees"
         subtitle={`${total} ${total === 1 ? 'employee' : 'employees'} found`}
         actions={
-          <Link to="/employees/$id" params={{ id: 'new' }}>
-            <Button variant="accent" className="flex items-center gap-1.5">
-              <Plus className="size-4" />
-              <span>Create Employee</span>
-            </Button>
-          </Link>
+          isAdmin ? (
+            <Link to="/employees/$id" params={{ id: 'new' }}>
+              <Button variant="accent" className="flex items-center gap-1.5">
+                <Plus className="size-4" />
+                <span>Create Employee</span>
+              </Button>
+            </Link>
+          ) : undefined
         }
       />
       <div className="space-y-4 px-5 pb-6">

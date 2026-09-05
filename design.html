@@ -20,6 +20,7 @@
     --color-canvas: #f4f6f8;
     --color-surface: #ffffff;
     --color-surface-raised: #ffffff;
+    --color-surface-subtle: #f7f9fb;
     --color-surface-sunken: #eceff3;
     --color-text: #111a24;
     --color-text-muted: #5b6672;
@@ -109,6 +110,7 @@
     --z-dropdown: 200;
     --z-modal: 300;
     --z-toast: 400;
+    --z-popover: 500;
   }
 
   /* ==================================================================
@@ -241,6 +243,31 @@
                  font-size: var(--text-caption); }
   .table tr.total td { border-top: var(--border-width-strong) solid var(--color-border-strong);
                        font-weight: var(--weight-semibold); }
+  /* Sortable column head. The glyph is always present so the row does not
+     reflow on sort; it goes accent-coloured once the column is the sort key. */
+  .table th.sortable { cursor: pointer; }
+  .table__sort { margin-left: var(--space-1); opacity: 0.5; font-size: var(--text-caption); }
+  .table__sort--on { opacity: 1; color: var(--color-accent); }
+  /* Second header row: one filter control per filterable column.
+     This replaced the single free-text search box above the table. */
+  .table tr.table__filters th { padding: var(--space-2) var(--space-3);
+                                font-weight: var(--weight-regular); }
+  .table__filter { width: 100%; padding: var(--space-1) var(--space-2);
+                   font-family: inherit; font-size: var(--text-caption);
+                   color: var(--color-text); background: var(--color-surface);
+                   border: var(--border-width) solid var(--color-border);
+                   border-radius: var(--radius-sm); }
+  /* Row actions live in a trailing column, admin-only on most tables. */
+  .table__actions { display: flex; gap: var(--space-2); }
+
+  /* Table footer pager. Range on the left, prev/next on the right. */
+  .pager { display: flex; align-items: center; justify-content: space-between;
+           gap: var(--space-4); padding: var(--space-3) var(--space-4);
+           font-size: var(--text-body-sm); color: var(--color-text-muted);
+           border-top: var(--border-width) solid var(--color-border); }
+  .pager__range { font-family: var(--font-numeric); font-size: var(--text-caption); }
+  .pager__nav { display: flex; gap: var(--space-2); }
+
   .neg { color: var(--color-danger); }
   .num-strong { font-family: var(--font-numeric); font-weight: var(--weight-semibold); }
 
@@ -262,17 +289,44 @@
     font-size: var(--text-h3); font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight); color: var(--color-on-primary);
   }
-  .nav__menu { display: flex; gap: var(--space-4); flex: 1; }
-  .nav__item { font-size: var(--text-label); color: var(--color-on-primary); opacity: 0.85; }
-  .nav__item--active { opacity: 1; font-weight: var(--weight-semibold); }
-  .nav__right { display: flex; align-items: center; gap: var(--space-3);
+  .nav__menu { display: flex; gap: var(--space-2); flex: 1; }
+  /* Menu items are pills: the active one is filled, not merely bolder.
+     Payroll and Reports are hidden for roles without payroll read access. */
+  .nav__item { font-size: var(--text-label); color: var(--color-on-primary); opacity: 0.8;
+               padding: var(--space-1) var(--space-3); border-radius: var(--radius-md);
+               font-weight: var(--weight-medium); }
+  .nav__item--active { opacity: 1; font-weight: var(--weight-semibold);
+                       background: var(--color-primary-hover); box-shadow: var(--shadow-sm); }
+  .nav__right { display: flex; align-items: center; gap: var(--space-4);
                 font-size: var(--text-label); }
   .nav__dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full);
               background: var(--color-success); display: inline-block; }
-  .nav__dot--off { background: var(--color-danger); }
+  .nav__dot--off { background: var(--color-text-muted); }
   .nav__count { font-family: var(--font-numeric); font-size: var(--text-caption);
                 background: var(--color-accent); color: var(--color-on-accent);
                 border-radius: var(--radius-full); padding: 0 var(--space-2); }
+
+  /* Attendance check-in/out control: a light pill on the dark bar, showing
+     live elapsed time while checked in. Opens .popover--attendance. */
+  .nav__punch { display: inline-flex; align-items: center; gap: var(--space-2);
+                height: var(--control-height); padding: 0 var(--space-3);
+                background: var(--color-surface); color: var(--color-text);
+                border: var(--border-width) solid var(--color-border-strong);
+                border-radius: var(--radius-md); font-size: var(--text-body-sm); }
+  .nav__punch-label { font-weight: var(--weight-medium); }
+  .nav__punch-time { font-family: var(--font-numeric); font-size: var(--text-caption);
+                     color: var(--color-text-subtle); }
+  /* Notification bell: opens .popover--notifications, does not navigate. */
+  .nav__bell { display: inline-flex; align-items: center; gap: var(--space-1);
+               height: var(--control-height-sm); padding: 0 var(--space-2);
+               background: var(--color-primary-hover); color: var(--color-on-primary);
+               border: var(--border-width) solid var(--color-primary-subtle);
+               border-radius: var(--radius-md); }
+  .nav__user { display: inline-flex; align-items: center; gap: var(--space-2);
+               padding: var(--space-1) var(--space-2); border-radius: var(--radius-md);
+               font-weight: var(--weight-medium); }
+  .nav__caret { font-size: var(--text-caption); opacity: 0.7; }
+  .ico { width: 1em; height: 1em; vertical-align: -0.125em; }
 
   .page { padding: var(--space-6) var(--space-5); }
   .page--narrow { max-width: var(--container-narrow); }
@@ -297,17 +351,30 @@
                          padding-bottom: var(--space-2);
                          border-bottom: var(--border-width) solid var(--color-border); }
 
-  .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
-  .kanban__card { background: var(--color-surface);
-                  border: var(--border-width) solid var(--color-border);
-                  border-radius: var(--radius-lg); padding: var(--space-4); }
-  .kanban__avatar { width: var(--space-7); height: var(--space-7);
-                    border-radius: var(--radius-full); background: var(--color-primary-subtle);
-                    color: var(--color-primary); font-family: var(--font-numeric);
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: var(--text-body-sm); margin-bottom: var(--space-3); }
-  .kanban__name { font-weight: var(--weight-semibold); }
-  .kanban__meta { font-size: var(--text-body-sm); color: var(--color-text-muted); }
+  /* Initials avatar. Directory rows use the base size; the profile hero uses --lg. */
+  .avatar { width: var(--space-7); height: var(--space-7);
+            border-radius: var(--radius-full); background: var(--color-primary-subtle);
+            color: var(--color-primary); font-family: var(--font-numeric);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: var(--text-body-sm); flex: none; }
+  .avatar--lg { width: var(--space-8); height: var(--space-8);
+                background: var(--color-accent); color: var(--color-on-accent);
+                font-family: var(--font-body); font-size: var(--text-h2);
+                font-weight: var(--weight-bold); box-shadow: var(--shadow-md); }
+
+  /* Profile hero: identity block sitting on a sunken band at the top of the
+     profile card, above the tabbed body. */
+  .hero { display: flex; align-items: center; justify-content: space-between;
+          gap: var(--space-5); padding: var(--space-5);
+          background: var(--color-surface-subtle);
+          border-bottom: var(--border-width) solid var(--color-border); }
+  .hero__id { display: flex; align-items: center; gap: var(--space-4); }
+  .hero__name { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+                margin: 0; font-size: var(--text-h2); font-weight: var(--weight-bold); }
+  .hero__meta { margin: var(--space-1) 0 0; font-size: var(--text-body-sm);
+                color: var(--color-text-muted); }
+  .hero__email { margin: var(--space-1) 0 0; font-family: var(--font-numeric);
+                 font-size: var(--text-caption); color: var(--color-text-muted); }
 
   .smart-buttons { display: flex; gap: var(--space-3); margin-bottom: var(--space-5); }
   .smart-btn { background: var(--color-surface);
@@ -387,11 +454,37 @@
   .popover { width: 280px; background: var(--color-surface-raised);
              border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
              padding: var(--space-4); }
-  .popover__row { display: flex; justify-content: space-between; font-size: var(--text-body-sm);
-                  margin-bottom: var(--space-2); }
-  .popover__time { font-family: var(--font-numeric); font-size: var(--text-h2);
-                   font-weight: var(--weight-semibold); color: var(--color-primary);
-                   text-align: center; margin: var(--space-3) 0; }
+  .popover__row { display: flex; justify-content: space-between; align-items: center;
+                  font-size: var(--text-body-sm); margin-bottom: var(--space-2); }
+  .popover__time { font-family: var(--font-numeric); font-size: var(--text-h1);
+                   font-weight: var(--weight-semibold); color: var(--color-text);
+                   text-align: center; margin: var(--space-3) 0 0; }
+  .popover__caption { display: block; text-align: center; font-family: var(--font-numeric);
+                      font-size: var(--text-caption); color: var(--color-text-muted);
+                      margin-bottom: var(--space-3); }
+  /* Notification bell popover. Wider, unpadded: it owns a head, a scrolling
+     list and a footer link. Replaced navigating straight to /notifications. */
+  .popover--notifications { width: 320px; padding: 0; }
+  .popover__head { display: flex; align-items: center; justify-content: space-between;
+                   gap: var(--space-3); padding: var(--space-3) var(--space-4);
+                   border-bottom: var(--border-width) solid var(--color-border); }
+  .popover__title { font-size: var(--text-body); font-weight: var(--weight-semibold); margin: 0; }
+  .popover__list { list-style: none; margin: 0; padding: 0; max-height: 384px; overflow-y: auto; }
+  .popover__note { padding: var(--space-3) var(--space-4);
+                   border-bottom: var(--border-width) solid var(--color-border); }
+  .popover__note--unread { background: var(--color-accent-subtle); }
+  .popover__note-title { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); }
+  .popover__note-body { font-size: var(--text-body-sm); color: var(--color-text-muted); }
+  .popover__note-foot { display: flex; align-items: center; justify-content: space-between;
+                        margin-top: var(--space-2); font-size: var(--text-body-sm); }
+  .popover__foot { padding: var(--space-3) var(--space-4); text-align: center;
+                   font-size: var(--text-body-sm);
+                   border-top: var(--border-width) solid var(--color-border); }
+  /* Account menu hanging off the user name in the top bar. */
+  .popover--menu { width: 180px; padding: var(--space-2); }
+  .popover__menu-item { display: block; padding: var(--space-2) var(--space-3);
+                        font-size: var(--text-body-sm); border-radius: var(--radius-md); }
+  .popover__menu-item--active { background: var(--color-surface-sunken); }
 
   .auth-wrap { display: flex; justify-content: center; padding: var(--space-8) var(--space-5); }
   .auth-card { width: 100%; max-width: 380px; background: var(--color-surface);
@@ -429,12 +522,16 @@
                     border-radius: var(--radius-sm); margin-right: var(--space-1);
                     vertical-align: middle; }
 
-  .tabs { display: flex; gap: var(--space-4); border-bottom: var(--border-width) solid var(--color-border);
+  .tabs { display: flex; gap: var(--space-5); border-bottom: var(--border-width) solid var(--color-border);
           margin-bottom: var(--space-4); }
   .tabs__item { padding: var(--space-2) 0; font-size: var(--text-label);
                 color: var(--color-text-muted); cursor: pointer; }
   .tabs__item--active { color: var(--color-text); font-weight: var(--weight-semibold);
                         box-shadow: inset 0 calc(-1 * var(--border-width-strong)) 0 var(--color-accent); }
+  /* Module sub-navigation: the same tab strip, but a routing tier that sits
+     directly under the page head on every screen inside a module.
+     Employees, Time off and Payroll each carry one. */
+  .tabs--subnav { margin-bottom: var(--space-5); }
 
   .dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4);
         margin-bottom: var(--space-5); }
@@ -443,12 +540,41 @@
   .dl__v--num { font-family: var(--font-numeric); }
 
   @media (max-width: 900px) {
-    .kanban, .kpi-grid, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-grid, .grid-3 { grid-template-columns: repeat(2, 1fr); }
     .form-grid, .form-grid--3, .grid-2, .dl { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
+
+<!-- ====================================================================
+     APP SHELL — how navigation is layered
+
+     Tier 1  .nav__menu    Employees | Attendance | Time off | Payroll | Reports
+                           Payroll and Reports are rendered only for roles with
+                           payroll/report read access. Employees stays active for
+                           everything under it: /departments, /contracts,
+                           /schedules, /holidays, /users.
+
+     Tier 2  .tabs--subnav A per-module strip under the page head. Three exist:
+                           Employees   Directory | Contracts | Working schedules |
+                                       Public holidays | User management
+                                       (User management is admin-only)
+                           Time off    Overview | Requests | Allocations | Leave types
+                           Payroll     Dashboard | Pay runs | Payslips |
+                                       Salary structures | Salary rules
+
+                           Payroll carries the strip on its form screens too;
+                           the Employees and Time off form screens do not, and
+                           /departments and /attendance carry no strip at all.
+
+     Tier 3  .tabs         In-page panel switching, not routing. Used by
+                           /reports and /profile.
+
+     Top-bar right: attendance check-in pill (hidden for users with no employee
+     record), notification bell with unread count, account menu. All three open
+     popovers in place rather than navigating.
+     ==================================================================== -->
 
 <!-- ====================================================================
      SCREEN: /login
@@ -542,9 +668,9 @@
 </div>
 
 <!-- ====================================================================
-     SCREEN: /employees — Kanban view (default)
+     SCREEN: /employees — Employee directory (the only view; Kanban was dropped)
      ==================================================================== -->
-<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory, Kanban &nbsp;·&nbsp; module: employees</div>
+<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory &nbsp;·&nbsp; module: employees</div>
 <div class="screen">
   <nav class="nav">
     <span class="nav__brand">PeoplePay360</span>
@@ -556,116 +682,124 @@
       <span class="nav__item">Reports</span>
     </div>
     <div class="nav__right">
-      <span class="nav__dot"></span>
-      <span>Check out</span>
-      <span class="nav__count">3</span>
-      <span>Nisha Rao</span>
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Nisha Rao<span class="nav__caret">&#9662;</span></span>
     </div>
   </nav>
   <main class="page">
     <div class="page__head">
       <div>
         <h1 class="page__title">Employees</h1>
-        <p class="page__sub">38 active across 5 departments</p>
+        <p class="page__sub">38 employees found</p>
       </div>
       <div class="page__actions">
-        <button class="btn btn--secondary">List</button>
-        <button class="btn btn--secondary">Kanban</button>
         <button class="btn btn--accent">New employee</button>
       </div>
     </div>
-    <div class="toolbar">
-      <div class="field"><input class="field__input" placeholder="Search employees"></div>
-      <div class="field"><select class="field__input"><option>All departments</option><option>Finance</option></select></div>
-      <div class="field"><select class="field__input"><option>All types</option><option>Full time</option></select></div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item tabs__item--active">Directory</span>
+      <span class="tabs__item">Contracts</span>
+      <span class="tabs__item">Working schedules</span>
+      <span class="tabs__item">Public holidays</span>
+      <span class="tabs__item">User management</span>
     </div>
-    <div class="kanban">
-      <div class="kanban__card">
-        <div class="kanban__avatar">AM</div>
-        <div class="kanban__name">Aarav Mehta</div>
-        <div class="kanban__meta">Payroll Specialist</div>
-        <div class="kanban__meta">Finance</div>
-        <div style="margin-top:var(--space-3)"><span class="badge badge--success">active</span></div>
-      </div>
-      <div class="kanban__card">
-        <div class="kanban__avatar">SK</div>
-        <div class="kanban__name">Sara Khan</div>
-        <div class="kanban__meta">HR Officer</div>
-        <div class="kanban__meta">HR</div>
-        <div style="margin-top:var(--space-3)"><span class="badge badge--success">active</span></div>
-      </div>
-      <div class="kanban__card">
-        <div class="kanban__avatar">JD</div>
-        <div class="kanban__name">John Dsouza</div>
-        <div class="kanban__meta">Developer</div>
-        <div class="kanban__meta">Engineering</div>
-        <div style="margin-top:var(--space-3)"><span class="badge badge--success">active</span></div>
-      </div>
-      <div class="kanban__card">
-        <div class="kanban__avatar">NP</div>
-        <div class="kanban__name">Neha Patel</div>
-        <div class="kanban__meta">Recruiter</div>
-        <div class="kanban__meta">HR</div>
-        <div style="margin-top:var(--space-3)"><span class="badge badge--neutral">inactive</span></div>
+    <!-- Standard data table: sortable heads, a per-column filter row, and a
+         pager. The Actions column is rendered for admins only. -->
+    <div class="card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="sortable">Employee<span class="table__sort table__sort--on">&#9650;</span></th>
+            <th class="sortable">Work email<span class="table__sort">&#8645;</span></th>
+            <th class="sortable">Department<span class="table__sort">&#8645;</span></th>
+            <th class="sortable">Position<span class="table__sort">&#8645;</span></th>
+            <th class="sortable">Type<span class="table__sort">&#8645;</span></th>
+            <th class="sortable">Status<span class="table__sort">&#8645;</span></th>
+            <th>Actions</th>
+          </tr>
+          <tr class="table__filters">
+            <th><input class="table__filter" placeholder="Filter..."></th>
+            <th><input class="table__filter" placeholder="Filter..."></th>
+            <th><input class="table__filter" value="Finance"></th>
+            <th><input class="table__filter" placeholder="Filter..."></th>
+            <th><input class="table__filter" placeholder="Filter..."></th>
+            <th><input class="table__filter" placeholder="Filter..."></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="#">Aarav Mehta</a></td><td class="code">aarav.mehta@oxp.test</td>
+              <td>Finance</td><td>Payroll Specialist</td><td>Full time</td>
+              <td><span class="badge badge--success">active</span></td>
+              <td><span class="table__actions"><button class="btn btn--secondary btn--sm">Edit</button>
+                  <button class="btn btn--danger btn--sm">Delete</button></span></td></tr>
+          <tr><td><a href="#">Sara Khan</a></td><td class="code">sara.khan@oxp.test</td>
+              <td>HR</td><td>HR Officer</td><td>Full time</td>
+              <td><span class="badge badge--success">active</span></td>
+              <td><span class="table__actions"><button class="btn btn--secondary btn--sm">Edit</button>
+                  <button class="btn btn--danger btn--sm">Delete</button></span></td></tr>
+          <tr><td><a href="#">John Dsouza</a></td><td class="code">john.dsouza@oxp.test</td>
+              <td>Engineering</td><td>Developer</td><td>Full time</td>
+              <td><span class="badge badge--success">active</span></td>
+              <td><span class="table__actions"><button class="btn btn--secondary btn--sm">Edit</button>
+                  <button class="btn btn--danger btn--sm">Delete</button></span></td></tr>
+          <tr><td><a href="#">Priya Nair</a></td><td class="code">priya.nair@oxp.test</td>
+              <td>Support</td><td>Support Lead</td><td>Part time</td>
+              <td><span class="badge badge--success">active</span></td>
+              <td><span class="table__actions"><button class="btn btn--secondary btn--sm">Edit</button>
+                  <button class="btn btn--danger btn--sm">Delete</button></span></td></tr>
+          <tr><td><a href="#">Neha Patel</a></td><td class="code">neha.patel@oxp.test</td>
+              <td>HR</td><td>Recruiter</td><td>Contract</td>
+              <td><span class="badge badge--neutral">inactive</span></td>
+              <td><span class="table__actions"><button class="btn btn--secondary btn--sm">Edit</button>
+                  <button class="btn btn--danger btn--sm">Delete</button></span></td></tr>
+        </tbody>
+      </table>
+      <div class="pager">
+        <span class="pager__range">1&#8211;10 of 38</span>
+        <span class="pager__nav">
+          <button class="btn btn--secondary btn--sm">Previous</button>
+          <button class="btn btn--secondary btn--sm">Next</button>
+        </span>
       </div>
     </div>
   </main>
 </div>
 
 <!-- ====================================================================
-     SCREEN: /employees — List view
+     SCREEN: /employees — delete confirmation (modal open)
+
+     The shared destructive-confirm pattern. The same modal, with the noun
+     swapped, guards deletes on departments, holidays, users, time off types
+     and salary rules. A server refusal renders inside the modal body.
      ==================================================================== -->
-<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory, List &nbsp;·&nbsp; module: employees</div>
+<div class="screen-label">/employees &nbsp;·&nbsp; Confirm delete &nbsp;·&nbsp; module: employees</div>
 <div class="screen">
-  <nav class="nav">
-    <span class="nav__brand">PeoplePay360</span>
-    <div class="nav__menu">
-      <span class="nav__item nav__item--active">Employees</span>
-      <span class="nav__item">Attendance</span>
-      <span class="nav__item">Time off</span>
-      <span class="nav__item">Payroll</span>
-      <span class="nav__item">Reports</span>
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span></div>
+    <div class="nav__right">
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Admin<span class="nav__caret">&#9662;</span></span>
     </div>
-    <div class="nav__right"><span class="nav__dot"></span><span>Nisha Rao</span></div>
   </nav>
-  <main class="page">
-    <div class="page__head">
-      <div><h1 class="page__title">Employees</h1></div>
-      <div class="page__actions">
-        <button class="btn btn--secondary">Kanban</button>
-        <button class="btn btn--accent">New employee</button>
+  <div class="modal-scrim">
+    <div class="modal">
+      <div class="modal__head">
+        <h2 class="modal__title">Confirm Delete Employee</h2>
+      </div>
+      <div class="modal__body">
+        <p>Are you sure you want to delete employee <strong>Neha Patel</strong>?
+           This action cannot be undone.</p>
+        <p class="field__help" style="color:var(--color-danger)">
+          Employee has payslips in a validated pay run and cannot be deleted.</p>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--danger">Delete Employee</button>
       </div>
     </div>
-    <div class="toolbar">
-      <div class="field"><input class="field__input" placeholder="Search employees"></div>
-      <div class="field"><select class="field__input"><option>Finance</option></select></div>
-    </div>
-    <div class="card">
-      <table class="table">
-        <thead>
-          <tr><th>Employee</th><th>Work email</th><th>Job position</th><th>Department</th>
-              <th>Type</th><th>Schedule</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Aarav Mehta</td><td class="code">aarav.mehta@oxp.test</td><td>Payroll Specialist</td>
-              <td>Finance</td><td>Full time</td><td class="code">40 Hours / Week</td>
-              <td><span class="badge badge--success">active</span></td></tr>
-          <tr><td>Sara Khan</td><td class="code">sara.khan@oxp.test</td><td>HR Officer</td>
-              <td>HR</td><td>Full time</td><td class="code">40 Hours / Week</td>
-              <td><span class="badge badge--success">active</span></td></tr>
-          <tr><td>John Dsouza</td><td class="code">john.dsouza@oxp.test</td><td>Developer</td>
-              <td>Engineering</td><td>Full time</td><td class="code">Flexible Hybrid</td>
-              <td><span class="badge badge--success">active</span></td></tr>
-          <tr><td>Priya Nair</td><td class="code">priya.nair@oxp.test</td><td>Support Lead</td>
-              <td>Support</td><td>Part time</td><td class="code">Part-time 20h</td>
-              <td><span class="badge badge--success">active</span></td></tr>
-          <tr><td>Neha Patel</td><td class="code">neha.patel@oxp.test</td><td>Recruiter</td>
-              <td>HR</td><td>Contract</td><td class="code">40 Hours / Week</td>
-              <td><span class="badge badge--neutral">inactive</span></td></tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
+  </div>
 </div>
 
 <!-- ====================================================================
@@ -715,7 +849,11 @@
       <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
       <span class="nav__item">Payroll</span><span class="nav__item">Reports</span>
     </div>
-    <div class="nav__right"><span class="nav__dot"></span><span>Nisha Rao</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Nisha Rao<span class="nav__caret">&#9662;</span></span>
+    </div>
   </nav>
   <main class="page">
     <div class="page__head">
@@ -779,6 +917,8 @@
       <div><h1 class="page__title">Departments</h1></div>
       <div class="page__actions"><button class="btn btn--accent">New department</button></div>
     </div>
+    <!-- New department and Edit both open the same modal in place; there is no
+         /departments/:id route and no sub-navigation strip on this screen. -->
     <div class="card">
       <table class="table">
         <thead><tr><th>Department</th><th>Code</th><th>Manager</th><th class="num">Headcount</th><th></th></tr></thead>
@@ -811,8 +951,15 @@
   <main class="page">
     <div class="page__head">
       <div><h1 class="page__title">Contracts</h1>
-        <p class="page__sub">Filtered to Aarav Mehta</p></div>
+        <p class="page__sub">All employee contracts</p></div>
       <div class="page__actions"><button class="btn btn--accent">New contract</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Directory</span>
+      <span class="tabs__item tabs__item--active">Contracts</span>
+      <span class="tabs__item">Working schedules</span>
+      <span class="tabs__item">Public holidays</span>
+      <span class="tabs__item">User management</span>
     </div>
     <div class="toolbar">
       <div class="field"><input class="field__input" placeholder="Search contracts"></div>
@@ -913,8 +1060,16 @@
       <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Working schedules</h1></div>
+      <div><h1 class="page__title">Working Schedules</h1>
+        <p class="page__sub">Weekly working hour patterns and shifts</p></div>
       <div class="page__actions"><button class="btn btn--accent">New schedule</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Directory</span>
+      <span class="tabs__item">Contracts</span>
+      <span class="tabs__item tabs__item--active">Working schedules</span>
+      <span class="tabs__item">Public holidays</span>
+      <span class="tabs__item">User management</span>
     </div>
     <div class="card">
       <table class="table">
@@ -991,9 +1146,16 @@
       <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Public holidays</h1>
-        <p class="page__sub">Excluded from scheduled working days everywhere they are counted</p></div>
+      <div><h1 class="page__title">Public Holidays</h1>
+        <p class="page__sub">Official statutory holidays</p></div>
       <div class="page__actions"><button class="btn btn--accent">Add holiday</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Directory</span>
+      <span class="tabs__item">Contracts</span>
+      <span class="tabs__item">Working schedules</span>
+      <span class="tabs__item tabs__item--active">Public holidays</span>
+      <span class="tabs__item">User management</span>
     </div>
     <div class="toolbar"><div class="field"><select class="field__input"><option>2026</option></select></div></div>
     <div class="card">
@@ -1026,21 +1188,28 @@
     <div class="nav__menu"><span class="nav__item">Employees</span>
       <span class="nav__item nav__item--active">Attendance</span><span class="nav__item">Time off</span>
       <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div>
-    <div class="nav__right"><span class="nav__dot"></span><span>Checked in</span><span>Aarav Mehta</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Aarav Mehta<span class="nav__caret">&#9662;</span></span>
+    </div>
   </nav>
   <main class="page">
     <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4)">
       <div class="popover">
-        <div class="popover__row"><span>Welcome back, Aarav</span><span class="badge badge--success">open</span></div>
+        <div class="popover__row" style="border-bottom:var(--border-width) solid var(--color-border); padding-bottom:var(--space-2)">
+          <span style="font-weight:var(--weight-medium)">Aarav Mehta</span>
+          <span class="badge badge--success">open</span>
+        </div>
         <div class="popover__row"><span>Checked in</span><span class="code">09:48</span></div>
         <div class="popover__time">06:56</div>
-        <div class="popover__row"><span>Today</span><span class="code">6.93 h</span></div>
+        <span class="popover__caption">elapsed today</span>
+        <div class="popover__row"><span>Worked hours</span><span class="code">6.93 h</span></div>
         <button class="btn btn--accent" style="width:100%">Check out</button>
       </div>
     </div>
     <div class="page__head">
-      <div><h1 class="page__title">Attendance</h1>
-        <p class="page__sub">September 2026</p></div>
+      <div><h1 class="page__title">Attendance records</h1></div>
       <div class="page__actions"><button class="btn btn--accent">New record</button></div>
     </div>
     <div class="toolbar">
@@ -1123,7 +1292,11 @@
     <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
       <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
       <span class="nav__item">Reports</span></div>
-    <div class="nav__right"><span class="nav__dot"></span><span>Aarav Mehta</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Aarav Mehta<span class="nav__caret">&#9662;</span></span>
+    </div>
   </nav>
   <main class="page">
     <div class="page__head">
@@ -1134,6 +1307,12 @@
         <button class="btn btn--secondary">2026</button>
         <button class="btn btn--accent">New request</button>
       </div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item tabs__item--active">Overview</span>
+      <span class="tabs__item">Requests</span>
+      <span class="tabs__item">Allocations</span>
+      <span class="tabs__item">Leave types</span>
     </div>
 
     <div class="card" style="margin-bottom:var(--space-4)">
@@ -1231,6 +1410,12 @@
       <div><h1 class="page__title">Time off requests</h1></div>
       <div class="page__actions"><button class="btn btn--accent">New request</button></div>
     </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Overview</span>
+      <span class="tabs__item tabs__item--active">Requests</span>
+      <span class="tabs__item">Allocations</span>
+      <span class="tabs__item">Leave types</span>
+    </div>
     <div class="toolbar">
       <div class="field"><select class="field__input"><option>All employees</option></select></div>
       <div class="field"><select class="field__input"><option>All types</option></select></div>
@@ -1311,6 +1496,12 @@
         <p class="page__sub">Policies, not employee transactions</p></div>
       <div class="page__actions"><button class="btn btn--accent">New type</button></div>
     </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Overview</span>
+      <span class="tabs__item">Requests</span>
+      <span class="tabs__item">Allocations</span>
+      <span class="tabs__item tabs__item--active">Leave types</span>
+    </div>
     <div class="card">
       <table class="table">
         <thead><tr><th>Type</th><th>Code</th><th>Unit</th><th>Allocation</th><th>Paid</th>
@@ -1377,6 +1568,12 @@
       <div><h1 class="page__title">Allocations</h1>
         <p class="page__sub">A balance is available only once the allocation is approved</p></div>
       <div class="page__actions"><button class="btn btn--accent">New allocation</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Overview</span>
+      <span class="tabs__item">Requests</span>
+      <span class="tabs__item tabs__item--active">Allocations</span>
+      <span class="tabs__item">Leave types</span>
     </div>
     <div class="toolbar">
       <div class="field"><select class="field__input"><option>All employees</option></select></div>
@@ -1449,13 +1646,23 @@
     <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
       <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
       <span class="nav__item">Reports</span></div>
-    <div class="nav__right"><span class="nav__dot nav__dot--off"></span><span>Check in</span>
-      <span class="nav__count">3</span><span>Nisha Rao</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot nav__dot--off"></span><span class="nav__punch-label">Check in</span><span class="nav__punch-time">0.00h</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Nisha Rao<span class="nav__caret">&#9662;</span></span>
+    </div>
   </nav>
   <main class="page">
     <div class="page__head">
       <div><h1 class="page__title">Payroll dashboard</h1>
         <p class="page__sub">Payments, staffing impact, leave patterns and attendance quality</p></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item tabs__item--active">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
     </div>
     <div class="toolbar">
       <div class="field"><label class="field__label">Period</label><select class="field__input"><option>2026-09</option></select></div>
@@ -1584,9 +1791,15 @@
       <span class="nav__item">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Pay runs</h1>
-        <p class="page__sub">One pay run per payroll period</p></div>
+      <div><h1 class="page__title">Pay runs</h1></div>
       <div class="page__actions"><button class="btn btn--accent">New pay run</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item tabs__item--active">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
     </div>
     <div class="toolbar">
       <div class="field"><select class="field__input"><option>2026</option></select></div>
@@ -1622,7 +1835,7 @@
   <div class="modal-scrim">
     <div class="modal">
       <div class="modal__head">
-        <h2 class="modal__title">New pay run</h2>
+        <h2 class="modal__title">New pay run &#8212; Step 1: Configuration</h2>
         <span class="modal__step">Step 1 / 2 · scope</span>
       </div>
       <div class="modal__body">
@@ -1658,7 +1871,7 @@
   <div class="modal-scrim">
     <div class="modal">
       <div class="modal__head">
-        <h2 class="modal__title">Select employee records</h2>
+        <h2 class="modal__title">New pay run &#8212; Step 2: Employee Selection</h2>
         <span class="modal__step">Step 2 / 2 · 5 of 22 selected</span>
       </div>
       <div class="modal__body">
@@ -1710,6 +1923,13 @@
         <button class="btn btn--secondary" disabled>Send payslips</button>
         <button class="btn btn--accent">Validate</button>
       </div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item tabs__item--active">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
     </div>
     <div class="banner banner--danger">
       <span>1 payslip has a blocking warning. Resolve it before validating this pay run.</span>
@@ -1811,7 +2031,15 @@
       <span class="nav__item">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Payslips</h1></div>
+      <div><h1 class="page__title">Payslips</h1>
+        <p class="page__sub">Individual payslips history across all pay runs</p></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item tabs__item--active">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
     </div>
     <div class="toolbar">
       <div class="field"><select class="field__input"><option>2026-09</option></select></div>
@@ -1856,7 +2084,7 @@
       <span class="nav__item">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Aarav Mehta · September 2026</h1>
+      <div><h1 class="page__title">Payslip · Aarav Mehta</h1>
         <p class="page__sub">Regular Salary · CON/2026/0042 · <span class="badge badge--warning">computed</span></p></div>
       <div class="page__actions">
         <button class="btn btn--danger">Archive</button>
@@ -1864,19 +2092,46 @@
         <button class="btn btn--accent">Print payslip</button>
       </div>
     </div>
-    <div class="dl">
-      <div><span class="dl__k">Period</span><span class="dl__v dl__v--num">2026-09-01 — 2026-09-30</span></div>
-      <div><span class="dl__k">Scheduled days</span><span class="dl__v dl__v--num">21.00</span></div>
-      <div><span class="dl__k">Worked days</span><span class="dl__v dl__v--num num-strong">20.50</span></div>
-      <div><span class="dl__k">Proration</span><span class="dl__v dl__v--num">0.976190</span></div>
-      <div><span class="dl__k">Paid leave</span><span class="dl__v dl__v--num">2.50</span></div>
-      <div><span class="dl__k">Unpaid leave</span><span class="dl__v dl__v--num">0.00</span></div>
-      <div><span class="dl__k">Absent</span><span class="dl__v dl__v--num">1.00</span></div>
-      <div><span class="dl__k">Overtime</span><span class="dl__v dl__v--num">1.50 h</span></div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item tabs__item--active">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
+    </div>
+    <!-- The payslip body is three titled cards, not one flat run of facts. -->
+    <div class="card" style="margin-bottom:var(--space-5)">
+      <div class="card__head"><h2 class="card__title">Employee &amp; Contract Details</h2></div>
+      <div class="card__body">
+        <div class="dl">
+          <div><span class="dl__k">Employee</span><span class="dl__v">Aarav Mehta</span></div>
+          <div><span class="dl__k">Department</span><span class="dl__v">Finance</span></div>
+          <div><span class="dl__k">Contract</span><span class="dl__v dl__v--num">CON/2026/0042</span></div>
+          <div><span class="dl__k">Structure</span><span class="dl__v">Regular Salary</span></div>
+          <div><span class="dl__k">Period</span><span class="dl__v dl__v--num">2026-09-01 — 2026-09-30</span></div>
+          <div><span class="dl__k">Currency</span><span class="dl__v dl__v--num">INR</span></div>
+          <div><span class="dl__k">Payout currency</span><span class="dl__v dl__v--num">INR</span></div>
+          <div><span class="dl__k">Exchange rate</span><span class="dl__v dl__v--num">1.000000</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:var(--space-5)">
+      <div class="card__head"><h2 class="card__title">Worked Days &amp; Proration Breakdown</h2></div>
+      <div class="card__body">
+        <div class="dl">
+          <div><span class="dl__k">Scheduled days</span><span class="dl__v dl__v--num">21.00</span></div>
+          <div><span class="dl__k">Worked days</span><span class="dl__v dl__v--num num-strong">20.50</span></div>
+          <div><span class="dl__k">Proration</span><span class="dl__v dl__v--num">0.976190</span></div>
+          <div><span class="dl__k">Paid leave</span><span class="dl__v dl__v--num">2.50</span></div>
+          <div><span class="dl__k">Unpaid leave</span><span class="dl__v dl__v--num">0.00</span></div>
+          <div><span class="dl__k">Absent</span><span class="dl__v dl__v--num">1.00</span></div>
+          <div><span class="dl__k">Overtime</span><span class="dl__v dl__v--num">1.50 h</span></div>
+        </div>
+      </div>
     </div>
     <div class="card">
-      <div class="card__head"><h2 class="card__title">Salary computation</h2>
-        <span class="card__sub">12 rules · sequence order</span></div>
+      <div class="card__head"><h2 class="card__title">Financial Summary</h2>
+        <span class="card__sub">Values in ₹ · 12 rules in sequence order</span></div>
       <table class="table">
         <thead><tr><th class="num">Seq</th><th>Rule</th><th>Code</th><th>Category</th>
                    <th class="num">Amount (INR)</th><th class="num">Payout (INR)</th></tr></thead>
@@ -1923,8 +2178,15 @@
   <main class="page">
     <div class="page__head">
       <div><h1 class="page__title">Salary structures</h1>
-        <p class="page__sub">The structure chosen on a pay run decides which rules calculate each payslip</p></div>
+        <p class="page__sub">Manage payroll salary structures and rule sequences</p></div>
       <div class="page__actions"><button class="btn btn--accent">New structure</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item tabs__item--active">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
     </div>
     <div class="card">
       <table class="table">
@@ -1959,6 +2221,13 @@
         <button class="btn btn--secondary">Cancel</button>
         <button class="btn btn--accent">Save structure</button>
       </div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item tabs__item--active">Salary structures</span>
+      <span class="tabs__item">Salary rules</span>
     </div>
     <div class="card" style="margin-bottom:var(--space-4)"><div class="card__body">
       <div class="form-grid--3 form-grid">
@@ -2003,8 +2272,16 @@
       <span class="nav__item">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Salary rules</h1></div>
+      <div><h1 class="page__title">Salary rules</h1>
+        <p class="page__sub">Manage individual salary calculation rules, sequence order, and formulas</p></div>
       <div class="page__actions"><button class="btn btn--accent">New rule</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item tabs__item--active">Salary rules</span>
     </div>
     <div class="toolbar">
       <div class="field"><select class="field__input"><option>Regular Salary</option></select></div>
@@ -2050,6 +2327,13 @@
         <button class="btn btn--danger">Delete</button>
         <button class="btn btn--accent">Save rule</button>
       </div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Dashboard</span>
+      <span class="tabs__item">Pay runs</span>
+      <span class="tabs__item">Payslips</span>
+      <span class="tabs__item">Salary structures</span>
+      <span class="tabs__item tabs__item--active">Salary rules</span>
     </div>
     <div class="card"><div class="card__body">
       <div class="form-grid">
@@ -2110,7 +2394,8 @@
       <span class="nav__item nav__item--active">Reports</span></div></nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Reports</h1></div>
+      <div><h1 class="page__title">Reports</h1>
+        <p class="page__sub">Exportable HR and Payroll analytics</p></div>
       <div class="page__actions"><button class="btn btn--accent">Export CSV</button></div>
     </div>
     <div class="tabs">
@@ -2152,15 +2437,26 @@
 <div class="screen-label">/users &nbsp;·&nbsp; User management &nbsp;·&nbsp; module: users</div>
 <div class="screen">
   <nav class="nav"><span class="nav__brand">PeoplePay360</span>
-    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span><span class="nav__item">Attendance</span>
       <span class="nav__item">Time off</span><span class="nav__item">Payroll</span>
       <span class="nav__item">Reports</span></div>
-    <div class="nav__right"><span>Admin</span></div></nav>
+    <div class="nav__right">
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Admin<span class="nav__caret">&#9662;</span></span>
+    </div>
+  </nav>
   <main class="page">
     <div class="page__head">
-      <div><h1 class="page__title">Users</h1>
-        <p class="page__sub">Accounts are created here and linked to an employee record</p></div>
+      <div><h1 class="page__title">User management</h1>
+        <p class="page__sub">Manage system user accounts, roles and employee linkages</p></div>
       <div class="page__actions"><button class="btn btn--accent">New user</button></div>
+    </div>
+    <div class="tabs tabs--subnav">
+      <span class="tabs__item">Directory</span>
+      <span class="tabs__item">Contracts</span>
+      <span class="tabs__item">Working schedules</span>
+      <span class="tabs__item">Public holidays</span>
+      <span class="tabs__item tabs__item--active">User management</span>
     </div>
     <div class="toolbar">
       <div class="field"><input class="field__input" placeholder="Search users or email"></div>
@@ -2198,8 +2494,12 @@
 <div class="screen-label">/users &nbsp;·&nbsp; Create user &nbsp;·&nbsp; module: users</div>
 <div class="screen">
   <nav class="nav"><span class="nav__brand">PeoplePay360</span>
-    <div class="nav__menu"><span class="nav__item">Employees</span></div>
-    <div class="nav__right"><span>Admin</span></div></nav>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span></div>
+    <div class="nav__right">
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Admin<span class="nav__caret">&#9662;</span></span>
+    </div>
+  </nav>
   <div class="modal-scrim">
     <div class="modal">
       <div class="modal__head">
@@ -2234,6 +2534,87 @@
 </div>
 
 <!-- ====================================================================
+     SCREEN: /* — notification bell popover (open)
+
+     The bell opens this panel in place instead of navigating. /notifications
+     still exists as a full page and is reachable from the footer link.
+     ==================================================================== -->
+<div class="screen-label">any screen &nbsp;·&nbsp; Notification popover &nbsp;·&nbsp; module: notifications</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications, 3 unread"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Nisha Rao<span class="nav__caret">&#9662;</span></span>
+    </div>
+  </nav>
+  <main class="page">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4)">
+      <div class="popover popover--notifications">
+        <div class="popover__head">
+          <p class="popover__title">Notifications</p>
+          <span style="color:var(--color-text-muted); font-size:var(--text-body-sm)">Clear all</span>
+        </div>
+        <ul class="popover__list">
+          <li class="popover__note popover__note--unread">
+            <div class="popover__note-title">Pay run ready for validation</div>
+            <div class="popover__note-body">September 2026 computed 22 payslips.</div>
+            <div class="popover__note-foot"><a href="#">View</a><span class="code">12m ago</span></div>
+          </li>
+          <li class="popover__note popover__note--unread">
+            <div class="popover__note-title">Time off request awaiting approval</div>
+            <div class="popover__note-body">Aarav Mehta &#183; 2026-09-14 to 2026-09-16.</div>
+            <div class="popover__note-foot"><a href="#">View</a><span class="code">1h ago</span></div>
+          </li>
+          <li class="popover__note popover__note--unread">
+            <div class="popover__note-title">Contract expiring in 30 days</div>
+            <div class="popover__note-body">Neha Patel &#183; CON-2025-0043.</div>
+            <div class="popover__note-foot"><a href="#">View</a><span class="code">3h ago</span></div>
+          </li>
+          <li class="popover__note">
+            <div class="popover__note-title">Payslip published</div>
+            <div class="popover__note-body">August 2026 payslip is available.</div>
+            <div class="popover__note-foot"><a href="#">View</a><span class="code">6d ago</span></div>
+          </li>
+        </ul>
+        <div class="popover__foot"><a href="#">See all notifications &#8594;</a></div>
+      </div>
+    </div>
+    <p class="field__help">Read state is per notification. Clear all marks every unread item read
+      without leaving the page. Unread rows carry the accent tint.</p>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /* — account menu (open)
+     ==================================================================== -->
+<div class="screen-label">any screen &nbsp;·&nbsp; Account menu &nbsp;·&nbsp; module: shell</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications, 3 unread"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Nisha Rao<span class="nav__caret">&#9662;</span></span>
+    </div>
+  </nav>
+  <main class="page">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4)">
+      <div class="popover popover--menu">
+        <span class="popover__menu-item popover__menu-item--active">My profile</span>
+        <span class="popover__menu-item">Sign out</span>
+      </div>
+    </div>
+    <p class="field__help">My profile routes to /profile. Sign out clears the session and returns to /login.</p>
+  </main>
+</div>
+
+<!-- ====================================================================
      SCREEN: /notifications
      ==================================================================== -->
 <div class="screen-label">/notifications &nbsp;·&nbsp; Notifications &nbsp;·&nbsp; module: notifications</div>
@@ -2242,7 +2623,12 @@
     <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
       <span class="nav__item">Time off</span><span class="nav__item">Payroll</span>
       <span class="nav__item">Reports</span></div>
-    <div class="nav__right"><span class="nav__count">3</span><span>Nisha Rao</span></div></nav>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot nav__dot--off"></span><span class="nav__punch-label">Check in</span><span class="nav__punch-time">0.00h</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Nisha Rao<span class="nav__caret">&#9662;</span></span>
+    </div>
+  </nav>
   <main class="page">
     <div class="page__head">
       <div><h1 class="page__title">Notifications</h1>
@@ -2268,6 +2654,97 @@
         </tbody>
       </table>
     </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /profile
+
+     Reached from the account menu. Not part of the top-level nav, so no
+     nav__item is active. Own tab strip (.tabs, not .tabs--subnav): these
+     switch panels in place, they are not routes.
+     ==================================================================== -->
+<div class="screen-label">/profile &nbsp;·&nbsp; User profile &nbsp;·&nbsp; module: profile</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div>
+    <div class="nav__right">
+      <span class="nav__punch"><span class="nav__dot"></span><span class="nav__punch-label">Checked in</span><span class="nav__punch-time">02:15</span></span>
+      <span class="nav__bell" aria-label="Notifications"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="nav__count">3</span></span>
+      <span class="nav__user"><span class="nav__dot"></span>Aarav Mehta<span class="nav__caret">&#9662;</span></span>
+    </div>
+  </nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">User Profile</h1>
+        <p class="page__sub">Manage your personal information, contact preferences, and account security</p></div>
+    </div>
+
+    <div class="card" style="margin-bottom:var(--space-5)">
+      <div class="hero">
+        <div class="hero__id">
+          <span class="avatar avatar--lg">AM</span>
+          <div>
+            <h2 class="hero__name">Aarav Mehta
+              <span class="badge badge--success">active</span>
+              <span class="badge badge--info">employee</span>
+            </h2>
+            <p class="hero__meta">Payroll Specialist &#183; Finance &#183; Mumbai HQ</p>
+            <p class="hero__email">Email: aarav.mehta@oxp.test</p>
+          </div>
+        </div>
+        <div class="page__actions"><button class="btn btn--accent">Edit profile</button></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <span class="tabs__item tabs__item--active">Personal &amp; Contact Info</span>
+      <span class="tabs__item">Employment &amp; Structure</span>
+      <span class="tabs__item">Security &amp; Password</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card__head">
+          <h2 class="card__title">Contact &amp; Personal Details</h2>
+          <p class="card__sub">Your personal contact information and work location</p>
+        </div>
+        <div class="card__body">
+          <div class="form-grid">
+            <div class="field"><label class="field__label">Personal email</label>
+              <input class="field__input" value="aarav.mehta@gmail.test"></div>
+            <div class="field"><label class="field__label">Phone</label>
+              <input class="field__input field__input--num" value="+91 98200 11223"></div>
+            <div class="field"><label class="field__label">Work location</label>
+              <input class="field__input" value="Mumbai HQ"></div>
+            <div class="field"><label class="field__label">Work email</label>
+              <input class="field__input field__input--derived" value="aarav.mehta@oxp.test" disabled>
+              <span class="field__help">Work email is managed by an administrator.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head">
+          <h2 class="card__title">Bank Account Payout</h2>
+          <p class="card__sub">Salary payout account details</p>
+        </div>
+        <div class="card__body">
+          <div class="dl" style="grid-template-columns:repeat(2,1fr)">
+            <div><span class="dl__k">Bank</span><span class="dl__v">HDFC Bank</span></div>
+            <div><span class="dl__k">Account holder</span><span class="dl__v">Aarav Mehta</span></div>
+            <div><span class="dl__k">Account</span><span class="dl__v dl__v--num">&#8226;&#8226;&#8226;&#8226; 4417</span></div>
+            <div><span class="dl__k">IFSC</span><span class="dl__v dl__v--num">HDFC0001234</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="field__help" style="margin-top:var(--space-4)">
+      Employment &amp; Structure shows read-only organisation, position and working-schedule
+      facts. Security &amp; Password holds the change-password form: current, new (min. 8
+      characters) and confirm.</p>
   </main>
 </div>
 

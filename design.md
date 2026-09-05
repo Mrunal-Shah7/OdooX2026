@@ -14,6 +14,7 @@ colors:
   canvas: "#f4f6f8"
   surface: "#ffffff"
   surface-raised: "#ffffff"
+  surface-subtle: "#f7f9fb"
   surface-sunken: "#eceff3"
   text: "#111a24"
   text-muted: "#5b6672"
@@ -145,6 +146,7 @@ z-index:
   z-dropdown: 200
   z-modal: 300
   z-toast: 400
+  z-popover: 500
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
@@ -290,17 +292,35 @@ complete a task is smaller than 14px.
 
 A full-bleed top navigation bar 56px tall, then a single content column capped at 1280px with a
 24px gutter. Forms and single-column reading views use the 640px narrow variant. There is no
-sidebar; the top nav with its dropdown menus is the whole navigation model, matching how the
-product's screens were specified.
+sidebar. Navigation is three tiers deep, and they are not interchangeable:
+
+- **Tier 1, the top bar.** Employees, Attendance, Time off, Payroll, Reports. Items are pills; the
+  active one takes a `primary-hover` fill rather than merely turning semibold. Payroll and Reports
+  render only for roles with payroll read access. Employees stays lit for everything filed under
+  it — departments, contracts, schedules, holidays and users.
+- **Tier 2, the module sub-navigation.** A tab strip under the page header, carried by three
+  modules: Employees (Directory, Contracts, Working schedules, Public holidays, and User
+  management for admins only), Time off (Overview, Requests, Allocations, Leave types) and Payroll
+  (Dashboard, Pay runs, Payslips, Salary structures, Salary rules). These are routes, not panels.
+  Payroll carries the strip on its form screens too; the other two drop it once you are inside a
+  record.
+- **Tier 3, in-page tabs.** The same strip used to switch panels without changing route. Only
+  Reports and the profile page use it.
+
+The right end of the top bar holds three controls that open panels in place rather than
+navigating: the attendance check-in pill, the notification bell, and the account menu. The pill is
+absent for accounts with no employee record.
 
 Spacing uses only the named 4px steps. Page sections are separated by `space-6`; groups within a
 section by `space-5`; elements within a group by `space-2` or `space-3`. Card interiors use
 `space-5`. Table cells use `space-3` vertical and `space-4` horizontal.
 
-Tables are the dominant layout. Every list view is: page header, then a filter row, then a full-width
-table inside a bordered card. Form views are a two-column grid of label-above-field pairs at
-desktop, collapsing to one column below 900px. The dashboard is a four-column grid of KPI cards
-above a two-column grid of chart and table cards.
+Tables are the dominant layout. Every list view is: page header, then the module sub-navigation,
+then a full-width table inside a bordered card. Filtering lives inside the table's own header — a
+second header row of one control per column — and the pager sits in the card footer, so the card
+holds the whole interaction and nothing floats above it. Form views are a two-column grid of
+label-above-field pairs at desktop, collapsing to one column below 900px. The dashboard is a
+four-column grid of KPI cards above a two-column grid of chart and table cards.
 
 ## Elevation & Depth
 
@@ -313,6 +333,11 @@ popovers (`shadow-md`), and toasts (`shadow-md`). Only those.
 
 Never combine a border and a shadow on the same element.
 
+Stacking order runs nav, dropdown, modal, toast, popover. The last of those is deliberately the
+highest: a modal can contain a select or a menu, so anything portalled out of the document flow
+has to clear the modal that opened it. `z-dropdown` is for menus that stay in flow; portalled
+overlays take `z-popover`.
+
 ## Shapes
 
 Corners are restrained to the point of being nearly square: 4px on buttons and inputs, 6px on
@@ -324,6 +349,10 @@ Charts use square-cornered bars. Donut rings are the only circular geometry in t
 
 ## Components
 
+- **Sub-navigation.** A tab strip directly under the page header, separated from the content by a
+  hairline that runs the full width. The active tab takes a 2px accent underline and semibold text;
+  the rest are muted and underline in `border-strong` on hover. It is navigation, so it looks
+  identical to in-page tabs on purpose — the tier is told apart by position, not by styling.
 - **Buttons.** Four variants. Primary is the ink navy fill, for the main action on a screen.
   Accent is the blue fill and appears at most once per screen, reserved for the action the user
   came to perform — "Create pay run", "Approve", "Compute". Secondary is white with a strong
@@ -340,7 +369,17 @@ Charts use square-cornered bars. Donut rings are the only circular geometry in t
 - **Tables.** Header row on the sunken fill with `label` type in muted; body rows on surface with
   a hairline between them and no zebra striping. Text columns left-aligned in Inter; every numeric
   column right-aligned in mono. A totals row, where present, sits under a strong hairline and is
-  set semibold. Row hover fills with `primary-subtle`. Clicking anywhere in a row opens the record.
+  set semibold. Row hover fills with `primary-subtle`. The row itself is not a click target: the
+  first cell carries a link to the record, and destructive or editing actions live in a trailing
+  Actions column that is rendered for admins only.
+- **Sortable heads and column filters.** Sortable heads carry their direction glyph at all times —
+  muted when idle, accent when the column is the sort key — so the header never reflows on click.
+  Under them sits a second header row holding one filter control per filterable column: a text box
+  by default, a date input or a select where the column warrants it, each on surface at `caption`
+  size. A column with nothing to filter leaves its cell empty rather than borrowing a neighbour's.
+- **Pager.** Sits inside the card, under the table, above a hairline. The range reads `1–10 of 38`
+  in mono on the left; Previous and Next are small secondary buttons on the right, disabled rather
+  than hidden at the ends. Page size is fixed and never offered as a control.
 - **Amounts.** Mono, tabular, right-aligned. Deductions and negative values render with a leading
   minus in the danger colour. Currency symbol is part of the string, not a separate element.
   When a payslip is shown in a payout currency, the converted value sits below the original in
@@ -361,7 +400,23 @@ Charts use square-cornered bars. Donut rings are the only circular geometry in t
   and a secondary "Try again" button. Never a raw error code in the user-facing line.
 - **Modals.** 640px max width, surface raised, `shadow-lg`, `space-5` padding, a hairline-separated
   header and footer, dismissible by Escape and by an explicit Cancel button. The pay run wizard is
-  two modals in sequence, each with its step indicated in the header.
+  two modals in sequence, each with its step named in the title. Destructive actions share one
+  confirm modal: the record named in bold, the sentence "This action cannot be undone", Cancel and
+  a danger button naming the deletion. A server refusal renders inside the modal body in danger
+  `caption`; the modal stays open.
+- **Popovers.** Three hang off the top bar, all `shadow-md` on surface raised, all anchored to
+  their trigger and closed by Escape or an outside click. The **attendance** popover shows the
+  employee, an open/off-duty badge, the check-in time, the running elapsed clock in mono at `h1`,
+  the day's worked hours, and a full-width accent button to punch the other way. The
+  **notification** popover is wider and unpadded, owning a header with a Clear all control, a
+  scrolling list where unread items take the `accent-subtle` tint, and a footer link through to
+  the full page — the bell never navigates on its own. The **account** menu is a short list of
+  destinations: profile, then sign out.
+- **Avatars.** Initials only, never a photograph. Mono on `primary-subtle` at list size; on the
+  profile hero it grows to `space-8`, takes the accent fill and sets its initials in Inter bold.
+- **Profile hero.** A `surface-subtle` band across the top of the profile card: avatar, name, the
+  status and role badges inline with it, then position, department and location on one muted line,
+  and the account email in mono beneath. Editing controls sit at the far right of the band.
 - **Charts.** Recharts, drawing every colour from the chart tokens. No gridline heavier than
   `border`, no drop shadows, no gradient fills, no 3D. Axis labels in `caption` mono. A bar chart
   labels its values directly above each bar rather than relying on the axis.
@@ -376,6 +431,8 @@ Charts use square-cornered bars. Donut rings are the only circular geometry in t
 - Do right-align every numeric table column
 - Do use the accent colour for exactly one action per screen
 - Do give every list a loading, an empty and an error state
+- Do keep a list's filters, rows and pager inside the one card
+- Do let the bell, the check-in pill and the account menu open in place rather than navigating
 - Do show the original currency alongside any converted amount
 - Do label chart values directly rather than relying on the legend colour alone
 - Don't put a shadow and a border on the same element
@@ -384,5 +441,6 @@ Charts use square-cornered bars. Donut rings are the only circular geometry in t
 - Don't set all-caps tracked-out labels above headings
 - Don't introduce a colour, a font size or a spacing value that is not a token
 - Don't animate anything the user did not trigger
-- Don't use an icon where a word fits
+- Don't use an icon where a word fits — icons pair with a label (Edit, Delete) or carry an
+  accessible name when the control is genuinely iconic, as the notification bell is
 - Don't let a derived field look editable

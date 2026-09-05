@@ -21,6 +21,7 @@
     --color-canvas:               #f4f6f8;   /* page background */
     --color-surface:              #ffffff;   /* cards, panels, table bodies */
     --color-surface-raised:       #ffffff;   /* modals, popovers, dropdowns */
+    --color-surface-subtle:       #f7f9fb;   /* hero bands, soft wells, quiet link rows */
     --color-surface-sunken:       #eceff3;   /* table headers, wells, inset areas */
   
     /* ---- Colour: text ---------------------------------------------------- */
@@ -128,4 +129,8 @@
     --z-dropdown:                 200;
     --z-modal:                    300;
     --z-toast:                    400;
+    /* Portalled overlays (Radix dropdown, select, popover) must clear a modal,
+       because a modal can contain them. --z-dropdown sits below --z-modal and
+       is for in-flow menus only; anything portalled uses this instead. */
+    --z-popover:                  500;
   }

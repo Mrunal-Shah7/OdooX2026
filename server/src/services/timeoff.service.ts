@@ -70,14 +70,39 @@ function mapTimeOffType(type: {
   };
 }
 
-type AllocationWithRelations = Prisma.TimeOffAllocationGetPayload<{
-  include: {
-    employee: { include: { department: true } };
-    timeOffType: true;
-    approver: { include: { department: true } };
-    requests: true;
-  };
-}>;
+type EmployeeRefRecord = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  workEmail: string;
+  jobPosition: string;
+  department: { name: string } | null;
+};
+
+type TimeOffTypeRefRecord = {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+  color: string;
+};
+
+type AllocationWithRelations = {
+  id: string;
+  allocated: Prisma.Decimal;
+  validFrom: Date;
+  validTo: Date;
+  status: string;
+  description: string | null;
+  employee: EmployeeRefRecord;
+  timeOffType: TimeOffTypeRefRecord;
+  approver: EmployeeRefRecord | null;
+  requests: {
+    status: string;
+    durationDays: Prisma.Decimal;
+    durationHours: Prisma.Decimal;
+  }[];
+};
 
 function mapAllocation(
   allocation: AllocationWithRelations,
@@ -116,21 +141,59 @@ function mapAllocation(
   };
 }
 
-type RequestWithRelations = Prisma.TimeOffRequestGetPayload<{
-  include: {
-    employee: { include: { department: true } };
-    timeOffType: true;
-    approver: { include: { department: true } };
-    allocation: {
-      include: {
-        employee: { include: { department: true } };
-        timeOffType: true;
-        approver: { include: { department: true } };
-        requests: true;
-      };
-    };
-  };
-}>;
+type RequestWithRelations = {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  durationType: string;
+  requestedHours: Prisma.Decimal | null;
+  durationDays: Prisma.Decimal;
+  durationHours: Prisma.Decimal;
+  status: string;
+  reason: string | null;
+  refusalReason: string | null;
+  employee: EmployeeRefRecord;
+  timeOffType: TimeOffTypeRefRecord;
+  approver: EmployeeRefRecord | null;
+  allocation: AllocationWithRelations | null;
+};
+
+const employeeRefSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  workEmail: true,
+  jobPosition: true,
+  department: { select: { name: true } },
+} as const;
+
+const timeOffTypeRefSelect = {
+  id: true,
+  name: true,
+  code: true,
+  unit: true,
+  color: true,
+} as const;
+
+const allocationMapInclude = {
+  employee: { select: employeeRefSelect },
+  timeOffType: { select: timeOffTypeRefSelect },
+  approver: { select: employeeRefSelect },
+  requests: {
+    select: {
+      status: true,
+      durationDays: true,
+      durationHours: true,
+    },
+  },
+} as const;
+
+const requestMapInclude = {
+  employee: { select: employeeRefSelect },
+  timeOffType: { select: timeOffTypeRefSelect },
+  approver: { select: employeeRefSelect },
+  allocation: { include: allocationMapInclude },
+} as const;
 
 function mapRequest(req: RequestWithRelations) {
   return {
@@ -342,12 +405,7 @@ export async function listAllocations(
       skip,
       take,
       orderBy: { createdAt: 'desc' },
-      include: {
-        employee: { include: { department: true } },
-        timeOffType: true,
-        approver: { include: { department: true } },
-        requests: true,
-      },
+      include: allocationMapInclude,
     }),
   ]);
 
@@ -732,19 +790,7 @@ export async function listTimeOffRequests(
       skip,
       take,
       orderBy: { startDate: 'desc' },
-      include: {
-        employee: { include: { department: true } },
-        timeOffType: true,
-        approver: { include: { department: true } },
-        allocation: {
-          include: {
-            employee: { include: { department: true } },
-            timeOffType: true,
-            approver: { include: { department: true } },
-            requests: true,
-          },
-        },
-      },
+      include: requestMapInclude,
     }),
   ]);
 
@@ -1238,23 +1284,22 @@ export async function getTimeOffDashboard(
     employeeId = firstEmp.id;
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    include: {
-      department: true,
-      workingSchedule: {
-        include: { days: true },
-      },
-    },
-  });
-
-  if (!employee) throw ApiError.notFound('Employee not found');
-
   const year = queryYear ?? new Date().getFullYear();
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
+  const rangeStart = new Date(`${yearStart}T00:00:00.000Z`);
+  const rangeEnd = new Date(`${yearEnd}T00:00:00.000Z`);
 
-  const [types, holidays, approvedRequests, pendingRequests, allocations] = await Promise.all([
+  const [employee, types, holidays, requests, allocations] = await Promise.all([
+    prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: {
+        department: true,
+        workingSchedule: {
+          include: { days: true },
+        },
+      },
+    }),
     prisma.timeOffType.findMany({
       where: { active: true },
       orderBy: { name: 'asc' },
@@ -1262,8 +1307,8 @@ export async function getTimeOffDashboard(
     prisma.publicHoliday.findMany({
       where: {
         date: {
-          gte: new Date(`${yearStart}T00:00:00.000Z`),
-          lte: new Date(`${yearEnd}T00:00:00.000Z`),
+          gte: rangeStart,
+          lte: rangeEnd,
         },
       },
       orderBy: { date: 'asc' },
@@ -1271,18 +1316,9 @@ export async function getTimeOffDashboard(
     prisma.timeOffRequest.findMany({
       where: {
         employeeId,
-        status: 'approved',
-        startDate: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
-        endDate: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
-      },
-      include: { timeOffType: true },
-    }),
-    prisma.timeOffRequest.findMany({
-      where: {
-        employeeId,
-        status: 'to_approve',
-        startDate: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
-        endDate: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
+        status: { in: ['approved', 'to_approve'] },
+        startDate: { lte: rangeEnd },
+        endDate: { gte: rangeStart },
       },
       include: { timeOffType: true },
     }),
@@ -1290,11 +1326,16 @@ export async function getTimeOffDashboard(
       where: {
         employeeId,
         status: 'approved',
-        validFrom: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
-        validTo: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
+        validFrom: { lte: rangeEnd },
+        validTo: { gte: rangeStart },
       },
     }),
   ]);
+
+  if (!employee) throw ApiError.notFound('Employee not found');
+
+  const approvedRequests = requests.filter((request) => request.status === 'approved');
+  const pendingRequests = requests.filter((request) => request.status === 'to_approve');
 
   const scheduleDays = employee.workingSchedule?.days ?? [];
   const scheduledWeekdays = new Set(scheduleDays.map((d) => d.dayOfWeek));

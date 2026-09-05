@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TimeOffNavTabs } from "../../components/layout/TimeOffNavTabs";
 import { useNavigate } from "@tanstack/react-router";
@@ -13,6 +13,7 @@ import { PageSkeleton } from "../../components/ui/Skeleton";
 
 import { isHrManagerOrAbove } from "../../lib/permissions";
 import { useSession } from "../../lib/session";
+import { showToast } from "../../lib/toast";
 import {
   YearCalendar,
   YearCalendarSkeleton,
@@ -75,18 +76,6 @@ type TimeOffDashboardData = {
     remaining: string;
     pending: string;
   }[];
-};
-
-type PendingTimeOffRequest = {
-  id: string;
-  timeOffType: {
-    id: string;
-    name: string;
-    color: string;
-  };
-  startDate: string;
-  endDate: string;
-  durationType: "full_day" | "half_day" | "hours";
 };
 
 async function apiRequest<T>(path: string): Promise<T> {
@@ -171,52 +160,7 @@ export default function TimeOffDashboardPage() {
       placeholderData: (previousData) => previousData,
     });
 
-  const calendarEmployeeId =
-    selectedEmployeeId && selectedEmployeeId !== "my_records"
-      ? selectedEmployeeId
-      : data?.employee.id;
-
-  const { data: pendingRequests, isFetching: isFetchingPendingRequests } =
-    useQuery<PendingTimeOffRequest[]>({
-      queryKey: ["timeOff", "requests", "pending", year, calendarEmployeeId],
-      queryFn: () => {
-        const query = new URLSearchParams({
-          status: "to_approve",
-          dateFrom: `${year}-01-01`,
-          dateTo: `${year}-12-31`,
-          pageSize: "100",
-          ...(calendarEmployeeId ? { employeeId: calendarEmployeeId } : {}),
-        });
-        return apiRequest<PendingTimeOffRequest[]>(
-          `/api/time-off/requests?${query.toString()}`,
-        );
-      },
-      enabled: Boolean(calendarEmployeeId),
-    });
-
-  const calendarDays = useMemo(() => {
-    const requests = pendingRequests ?? [];
-    return (data?.days ?? []).map((day) => {
-      const pendingRequest = requests.find(
-        (request) =>
-          day.kind === "working" &&
-          day.date >= request.startDate &&
-          day.date <= request.endDate,
-      );
-
-      if (!pendingRequest) return day;
-
-      return {
-        ...day,
-        kind: "leave" as const,
-        timeOffTypeId: pendingRequest.timeOffType.id,
-        color: pendingRequest.timeOffType.color,
-        fraction: pendingRequest.durationType === "half_day" ? "0.50" : "1.00",
-        label: pendingRequest.timeOffType.name,
-        isPending: true,
-      };
-    });
-  }, [data?.days, pendingRequests]);
+  const calendarDays = data?.days ?? [];
 
   if (isLoading) {
     return <PageSkeleton />;
@@ -299,7 +243,7 @@ export default function TimeOffDashboardPage() {
     setSelectedEndDate(null);
   };
 
-  const isCalendarRefreshing = isFetching || isFetchingPendingRequests;
+  const isCalendarRefreshing = isFetching;
 
   return (
     <>

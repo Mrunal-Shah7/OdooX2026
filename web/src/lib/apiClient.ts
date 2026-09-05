@@ -1,8 +1,8 @@
 import type { UserRole, UserStatus } from '../../../shared/constants';
 import type { AuthUser } from './session';
-import { getStoredAuthToken, getStoredUserId } from './session';
 
-const baseUrl = import.meta.env.VITE_API_URL ?? '';
+/** Same-origin `/api` via Vite proxy so httpOnly cookies stay on the app origin. */
+const baseUrl = '';
 
 type ApiErrorBody = {
   error: {
@@ -42,16 +42,6 @@ async function request<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-
-  const token = getStoredAuthToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  const userId = getStoredUserId();
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
 
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,

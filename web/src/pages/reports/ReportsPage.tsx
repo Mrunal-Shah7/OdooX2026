@@ -11,7 +11,6 @@ import { Select } from '../../components/ui/Select';
 import { Tabs, type TabItem } from '../../components/ui/Tabs';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
-import { getStoredAuthToken } from '../../lib/session';
 
 type ReportColumn = {
   key: string;
@@ -131,10 +130,9 @@ export default function ReportsPage() {
       if (v) cleanParams[k] = String(v);
     });
 
-    const token = getStoredAuthToken();
     const queryString = new URLSearchParams(cleanParams).toString();
     const res = await fetch(`/api${endpoint}?${queryString}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
     });
 
     const blob = await res.blob();

@@ -1,24 +1,64 @@
 import { prisma } from '../db/client.js';
 import { ApiError } from '../lib/apiError.js';
 import { verifyPassword } from '../lib/password.js';
-import { signAccessToken } from '../lib/tokens.js';
+import {
+  generateOpaqueToken,
+  hashToken,
+  REFRESH_TOKEN_MAX_AGE_MS,
+  signAccessToken,
+} from '../lib/tokens.js';
 import type { UserRole } from '../../../shared/constants.js';
+
+const employeeInclude = {
+  employee: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      workEmail: true,
+      jobPosition: true,
+      department: { select: { name: true } },
+    },
+  },
+} as const;
+
+type UserWithEmployee = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  employeeId: string | null;
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    jobPosition: string | null;
+    department: { name: string } | null;
+  } | null;
+};
+
+async function issueTokenPair(user: UserWithEmployee) {
+  const accessToken = signAccessToken({
+    sub: user.id,
+    role: user.role as UserRole,
+    employeeId: user.employeeId,
+  });
+  const refreshToken = generateOpaqueToken();
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashToken(refreshToken),
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
+    },
+  });
+  return { accessToken, refreshToken };
+}
 
 export async function login(body: { email: string; password: string }) {
   const user = await prisma.user.findUnique({
     where: { email: body.email.toLowerCase() },
-    include: {
-      employee: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          workEmail: true,
-          jobPosition: true,
-          department: { select: { name: true } },
-        },
-      },
-    },
+    include: employeeInclude,
   });
   if (!user || user.status !== 'active' || !user.passwordHash) {
     throw ApiError.unauthenticated('Invalid email or password');
@@ -28,76 +68,78 @@ export async function login(body: { email: string; password: string }) {
     throw ApiError.unauthenticated('Invalid email or password');
   }
 
-  const token = signAccessToken({
-    sub: user.id,
-    role: user.role as UserRole,
-    employeeId: user.employeeId,
+  const tokens = await issueTokenPair(user);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+  return { user: toSessionUser(user), ...tokens };
+}
+
+export async function logout(userId: string, rawRefreshToken: string | undefined) {
+  if (rawRefreshToken) {
+    await prisma.refreshToken.updateMany({
+      where: { userId, tokenHash: hashToken(rawRefreshToken), revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+}
+
+export async function refreshSession(rawRefreshToken: string | undefined) {
+  if (!rawRefreshToken) {
+    throw ApiError.unauthenticated('Missing refresh token');
+  }
+  const tokenHash = hashToken(rawRefreshToken);
+  const existing = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+  if (!existing) {
+    throw ApiError.unauthenticated('Invalid refresh token');
+  }
+  if (existing.revokedAt) {
+    await prisma.refreshToken.updateMany({
+      where: { userId: existing.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    throw ApiError.unauthenticated('Refresh token reuse detected');
+  }
+  if (existing.expiresAt.getTime() <= Date.now()) {
+    throw ApiError.unauthenticated('Refresh token expired');
+  }
+
+  await prisma.refreshToken.update({
+    where: { id: existing.id },
+    data: { revokedAt: new Date() },
   });
 
-  return {
-    ...toSessionUser(user),
-    token,
-  };
-}
+  const user = await prisma.user.findUnique({
+    where: { id: existing.userId },
+    include: employeeInclude,
+  });
+  if (!user || user.status !== 'active') {
+    throw ApiError.unauthenticated('Invalid or inactive session');
+  }
 
-export async function logout(_userId: string) {
-  // TODO: STUB
-}
-
-export async function refreshSession() {
-  // TODO: STUB
-  return {
-    id: '44444444-4444-4444-8444-444444444444',
-    email: 'admin@peoplepay360.com',
-    role: 'admin' as UserRole,
-    status: 'active' as const,
-    employee: null,
-  };
+  const tokens = await issueTokenPair(user);
+  return { user: toSessionUser(user), ...tokens };
 }
 
 export async function getCurrentUser(userId: string) {
-  // TODO: STUB
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
-      employee: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          workEmail: true,
-          jobPosition: true,
-          department: { select: { name: true } },
-        },
-      },
-    },
+    include: employeeInclude,
   });
   if (!user) throw ApiError.notFound('User not found');
   return toSessionUser(user);
 }
 
 export async function requestPasswordReset(_body: { email: string }) {
-  // TODO: STUB
+  // TODO: STUB — auth_tokens + email
 }
 
 export async function setPassword(_body: { token: string; password: string }) {
-  // TODO: STUB
+  // TODO: STUB — consume auth_tokens
 }
 
-function toSessionUser(user: {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
-  employee: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    workEmail: string;
-    jobPosition: string | null;
-    department: { name: string } | null;
-  } | null;
-}) {
+function toSessionUser(user: UserWithEmployee) {
   return {
     id: user.id,
     email: user.email,

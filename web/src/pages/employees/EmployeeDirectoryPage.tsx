@@ -11,7 +11,6 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
-import { getStoredAuthToken } from '../../lib/session';
 
 import { useSession } from '../../lib/session';
 
@@ -62,12 +61,8 @@ async function fetchEmployees(params: {
   if (params.page) query.set('page', String(params.page));
   if (params.pageSize) query.set('pageSize', String(params.pageSize));
 
-  const headers: Record<string, string> = {};
-  const token = getStoredAuthToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
   const url = `/api/employees${query.toString() ? `?${query.toString()}` : ''}`;
-  const res = await fetch(url, { headers, credentials: 'include' });
+  const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) {
     throw new Error('Failed to fetch employees');
   }
@@ -75,13 +70,8 @@ async function fetchEmployees(params: {
 }
 
 async function deleteEmployee(id: string): Promise<void> {
-  const headers: Record<string, string> = {};
-  const token = getStoredAuthToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
   const res = await fetch(`/api/employees/${id}`, {
     method: 'DELETE',
-    headers,
     credentials: 'include',
   });
 

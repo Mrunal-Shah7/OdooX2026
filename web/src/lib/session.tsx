@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import type { UserRole, UserStatus } from '../../../shared/constants';
 
 const SESSION_KEY = 'pp360_user_id';
-const SESSION_TOKEN_KEY = 'pp360_jwt_token';
 
 export type AuthUser = {
   id: string;
@@ -10,7 +9,6 @@ export type AuthUser = {
   role: UserRole;
   status: UserStatus;
   employee: { id: string; firstName: string; lastName: string } | null;
-  token?: string;
 };
 
 type SessionContextValue = {
@@ -33,18 +31,9 @@ export function getStoredUserId(): string | null {
   return readStoredUserId();
 }
 
-export function getStoredAuthToken(): string | null {
-  try {
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
 export function clearStoredUserId(): void {
   try {
     sessionStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(SESSION_TOKEN_KEY);
   } catch {
     /* ignore */
   }
@@ -65,12 +54,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       if (next) {
         sessionStorage.setItem(SESSION_KEY, next.id);
-        if (next.token) {
-          sessionStorage.setItem(SESSION_TOKEN_KEY, next.token);
-        }
       } else {
         sessionStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
       }
     } catch {
       /* ignore storage errors */

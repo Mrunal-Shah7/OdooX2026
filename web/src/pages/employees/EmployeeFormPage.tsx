@@ -11,7 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
-import { getStoredAuthToken, useSession } from '../../lib/session';
+import { useSession } from '../../lib/session';
 
 type EmployeeDetailResponse = {
   employee: {
@@ -49,12 +49,8 @@ type WorkingScheduleOption = {
 };
 
 async function fetchEmployeeDetail(id: string): Promise<EmployeeDetailResponse> {
-  const headers: Record<string, string> = {};
-  const token = getStoredAuthToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
   const url = id === 'profile' ? '/api/profile' : `/api/employees/${id}`;
-  const res = await fetch(url, { headers, credentials: 'include' });
+  const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) {
     const err = await res.json().catch(() => null);
     throw new ApiClientError(
@@ -67,22 +63,14 @@ async function fetchEmployeeDetail(id: string): Promise<EmployeeDetailResponse> 
 }
 
 async function fetchSchedules(): Promise<WorkingScheduleOption[]> {
-  const headers: Record<string, string> = {};
-  const token = getStoredAuthToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch('/api/working-schedules', { headers, credentials: 'include' });
+  const res = await fetch('/api/working-schedules', { credentials: 'include' });
   if (!res.ok) return [];
   const body = await res.json();
   return body.data ?? [];
 }
 
 async function fetchAllEmployees(): Promise<{ id: string; firstName: string; lastName: string }[]> {
-  const headers: Record<string, string> = {};
-  const token = getStoredAuthToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch('/api/employees?pageSize=100', { headers, credentials: 'include' });
+  const res = await fetch('/api/employees?pageSize=100', { credentials: 'include' });
   if (!res.ok) return [];
   const body = await res.json();
   return body.data ?? [];
@@ -190,13 +178,9 @@ export default function EmployeeFormPage() {
       const url = isNew ? '/api/employees' : `/api/employees/${id}`;
       const method = isNew ? 'POST' : 'PATCH';
 
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const token = getStoredAuthToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const res = await fetch(url, {
         method,
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(isNew ? payload : { ...payload, status: form.status }),
       });

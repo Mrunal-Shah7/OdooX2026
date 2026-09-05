@@ -151,11 +151,11 @@ export default function PayrollDashboardPage() {
   if (isLoading) {
     return (
       <>
-        <PayrollNavTabs />
         <PageHeader
           title="Payroll dashboard"
           subtitle="Payments, staffing impact, leave patterns and attendance quality"
         />
+        <PayrollNavTabs />
         <div className="flex justify-center py-24">
           <Spinner />
         </div>
@@ -166,11 +166,11 @@ export default function PayrollDashboardPage() {
   if (isError || !data) {
     return (
       <>
-        <PayrollNavTabs />
         <PageHeader
           title="Payroll dashboard"
           subtitle="Payments, staffing impact, leave patterns and attendance quality"
         />
+        <PayrollNavTabs />
         <div className="px-5 py-12">
           <ErrorState
             message="Could not load payroll dashboard"

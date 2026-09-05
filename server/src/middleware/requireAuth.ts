@@ -1,10 +1,8 @@
-import jwt from 'jsonwebtoken';
 import type { NextFunction, Request, Response } from 'express';
 import type { UserRole } from '../../../shared/constants.js';
 import { prisma } from '../db/client.js';
-import { env } from '../env.js';
 import { ApiError } from '../lib/apiError.js';
-import type { AccessTokenPayload } from '../lib/tokens.js';
+import { ACCESS_COOKIE, verifyAccessToken } from '../lib/tokens.js';
 
 export type AuthUser = {
   id: string;
@@ -23,44 +21,21 @@ declare global {
 }
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  let userId: string | undefined;
-
-  // 1. Check Authorization: Bearer <jwt>
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    try {
-      const decoded = jwt.verify(token, env.JWT_SECRET) as AccessTokenPayload & { sub: string };
-      userId = decoded.sub;
-    } catch {
-      next(ApiError.unauthenticated('Invalid or expired JWT token'));
-      return;
-    }
-  }
-
-  // 2. Check Cookie (pp_at)
-  if (!userId && req.cookies?.pp_at) {
-    try {
-      const decoded = jwt.verify(req.cookies.pp_at, env.JWT_SECRET) as AccessTokenPayload & {
-        sub: string;
-      };
-      userId = decoded.sub;
-    } catch {
-      // Ignore cookie verify error, try fallback
-    }
-  }
-
-  // 3. Fallback to x-user-id header
-  if (!userId) {
-    userId = req.header('x-user-id') || undefined;
-  }
-
-  if (!userId) {
+  const token = req.cookies?.[ACCESS_COOKIE];
+  if (typeof token !== 'string' || token.length === 0) {
     next(ApiError.unauthenticated());
     return;
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  let payload;
+  try {
+    payload = verifyAccessToken(token);
+  } catch {
+    next(ApiError.unauthenticated('Invalid or expired access token'));
+    return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user || user.status !== 'active') {
     next(ApiError.unauthenticated('Invalid or inactive session'));
     return;

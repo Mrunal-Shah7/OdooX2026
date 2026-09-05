@@ -1,5 +1,3 @@
-import { getStoredAuthToken, getStoredUserId } from '../../lib/session';
-
 export type SalaryStructure = {
   id: string;
   name: string;
@@ -68,21 +66,11 @@ export type PayrunDetailResponse = {
   payslips: PayslipSummary[];
 };
 
-const baseUrl = import.meta.env.VITE_API_URL ?? '';
+const baseUrl = '';
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-
-  const token = getStoredAuthToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  const userId = getStoredUserId();
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
 
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,

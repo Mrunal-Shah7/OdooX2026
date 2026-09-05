@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { AppShell } from './components/layout/AppShell';
 import { apiClient } from './lib/apiClient';
-import { clearStoredUserId, getStoredUserId, homePathForRole } from './lib/session';
+import { clearStoredUserId, homePathForRole } from './lib/session';
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import SetPasswordPage from './pages/auth/SetPasswordPage';
@@ -43,12 +43,8 @@ import ReportsPage from './pages/reports/ReportsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
-/** Validate the stored session against the API. Clears storage on failure. */
+/** Validate session cookies via /me. Clears local hint on failure. */
 async function requireAuthUser() {
-  const storedId = getStoredUserId();
-  if (!storedId) {
-    throw redirect({ to: '/login' });
-  }
   try {
     return await apiClient.getCurrentUser();
   } catch {
@@ -65,7 +61,6 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   beforeLoad: async () => {
-    if (!getStoredUserId()) return;
     try {
       const user = await apiClient.getCurrentUser();
       throw redirect({ to: homePathForRole(user.role) });

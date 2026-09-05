@@ -139,7 +139,8 @@ export default function PayrollDashboardPage() {
           <Card className="max-w-md mx-auto p-6 space-y-4">
             <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
             <p className="text-body-sm text-text-muted">
-              Only payroll administrators and payroll users can access the payroll dashboard.
+              Only payroll administrators and payroll users can access the
+              payroll dashboard.
             </p>
           </Card>
         </div>
@@ -150,6 +151,7 @@ export default function PayrollDashboardPage() {
   if (isLoading) {
     return (
       <>
+        <PayrollNavTabs />
         <PageHeader
           title="Payroll dashboard"
           subtitle="Payments, staffing impact, leave patterns and attendance quality"
@@ -164,6 +166,7 @@ export default function PayrollDashboardPage() {
   if (isError || !data) {
     return (
       <>
+        <PayrollNavTabs />
         <PageHeader
           title="Payroll dashboard"
           subtitle="Payments, staffing impact, leave patterns and attendance quality"

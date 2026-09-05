@@ -1,7 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { apiClient } from '../../lib/apiClient';
-import { getStoredUserId, useSession } from '../../lib/session';
+import { useSession } from '../../lib/session';
 import { TopNav } from './TopNav';
 
 export function AppShell() {
@@ -9,8 +9,6 @@ export function AppShell() {
 
   useEffect(() => {
     if (user) return;
-    const id = getStoredUserId();
-    if (!id) return;
     let cancelled = false;
     apiClient
       .getCurrentUser()

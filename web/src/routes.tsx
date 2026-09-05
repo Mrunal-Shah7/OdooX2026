@@ -3,12 +3,10 @@ import {
   createRoute,
   createRouter,
   redirect,
-  isRedirect,
   Outlet,
 } from '@tanstack/react-router';
 import { AppShell } from './components/layout/AppShell';
-import { apiClient } from './lib/apiClient';
-import { clearStoredUserId, homePathForRole } from './lib/session';
+import { getStoredUser, homePathForRole } from './lib/session';
 import { isHrManagerOrAbove } from './lib/permissions';
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
@@ -46,18 +44,14 @@ import ProfilePage from './pages/profile/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AuthSkeleton, PageSkeleton } from './components/ui/Skeleton';
 
-/** Validate session cookies via /me. Clears local hint on failure. */
-async function requireAuthUser() {
-  try {
-    return await apiClient.getCurrentUser();
-  } catch {
-    clearStoredUserId();
-    throw redirect({ to: '/login' });
-  }
+function requireAuthUser() {
+  const user = getStoredUser();
+  if (!user) throw redirect({ to: '/login' });
+  return user;
 }
 
-async function requireTimeOffManagementAccess() {
-  const user = await requireAuthUser();
+function requireTimeOffManagementAccess() {
+  const user = requireAuthUser();
   if (!isHrManagerOrAbove(user.role)) {
     throw redirect({ to: '/time-off' });
   }
@@ -70,14 +64,8 @@ const rootRoute = createRootRoute({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
-  beforeLoad: async () => {
-    try {
-      await apiClient.getCurrentUser();
-      throw redirect({ to: '/profile' });
-    } catch (err) {
-      if (isRedirect(err)) throw err;
-      clearStoredUserId();
-    }
+  beforeLoad: () => {
+    if (getStoredUser()) throw redirect({ to: '/profile' });
   },
   pendingMs: 0,
   pendingComponent: AuthSkeleton,
@@ -102,8 +90,8 @@ const setPasswordRoute = createRoute({
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: async () => {
-    const user = await requireAuthUser();
+  beforeLoad: () => {
+    const user = requireAuthUser();
     throw redirect({ to: homePathForRole(user.role) });
   },
 });
@@ -111,8 +99,8 @@ const homeRoute = createRoute({
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
-  beforeLoad: async () => {
-    await requireAuthUser();
+  beforeLoad: () => {
+    requireAuthUser();
   },
   pendingMs: 0,
   pendingComponent: PageSkeleton,

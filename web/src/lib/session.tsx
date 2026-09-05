@@ -27,6 +27,25 @@ function readStoredUserId(): string | null {
   }
 }
 
+export function getStoredUserId(): string | null {
+  return readStoredUserId();
+}
+
+export function clearStoredUserId(): void {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Role home paths from TRD §9. */
+export function homePathForRole(role: UserRole): '/employees' | '/payroll' | '/time-off' {
+  if (role === 'admin' || role === 'hr_manager') return '/employees';
+  if (role === 'hr_payroll_user' || role === 'hr_payroll_manager') return '/payroll';
+  return '/time-off';
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
 
@@ -59,8 +78,4 @@ export function useSession(): SessionContextValue {
   const ctx = useContext(SessionContext);
   if (!ctx) throw new Error('useSession must be used within SessionProvider');
   return ctx;
-}
-
-export function getStoredUserId(): string | null {
-  return readStoredUserId();
 }

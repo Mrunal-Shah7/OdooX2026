@@ -52,6 +52,7 @@ async function request<T>(
     ...init,
     headers,
     credentials: 'include',
+    cache: 'no-store',
   });
 
   if (response.status === 204) {
@@ -67,6 +68,10 @@ async function request<T>(
       err?.error?.message ?? 'Request failed',
       err?.error?.details ?? [],
     );
+  }
+
+  if (!body || typeof body !== 'object' || !('data' in body)) {
+    throw new ApiClientError('INTERNAL', 'Malformed API response');
   }
 
   const envelope = body as SuccessEnvelope<T>;

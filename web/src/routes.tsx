@@ -3,11 +3,12 @@ import {
   createRoute,
   createRouter,
   redirect,
+  isRedirect,
   Outlet,
 } from '@tanstack/react-router';
 import { AppShell } from './components/layout/AppShell';
 import { apiClient } from './lib/apiClient';
-import { getStoredUserId } from './lib/session';
+import { clearStoredUserId, getStoredUserId, homePathForRole } from './lib/session';
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import SetPasswordPage from './pages/auth/SetPasswordPage';
@@ -42,6 +43,20 @@ import ReportsPage from './pages/reports/ReportsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
+/** Validate the stored session against the API. Clears storage on failure. */
+async function requireAuthUser() {
+  const storedId = getStoredUserId();
+  if (!storedId) {
+    throw redirect({ to: '/login' });
+  }
+  try {
+    return await apiClient.getCurrentUser();
+  } catch {
+    clearStoredUserId();
+    throw redirect({ to: '/login' });
+  }
+}
+
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
 });
@@ -49,6 +64,16 @@ const rootRoute = createRootRoute({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
+  beforeLoad: async () => {
+    if (!getStoredUserId()) return;
+    try {
+      const user = await apiClient.getCurrentUser();
+      throw redirect({ to: homePathForRole(user.role) });
+    } catch (err) {
+      if (isRedirect(err)) throw err;
+      clearStoredUserId();
+    }
+  },
   component: LoginPage,
 });
 
@@ -71,29 +96,17 @@ const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   beforeLoad: async () => {
-    const storedId = getStoredUserId();
-    if (!storedId) {
-      throw redirect({ to: '/login' });
-    }
-    try {
-      const user = await apiClient.getCurrentUser();
-      if (user.role === 'admin' || user.role === 'hr_manager') {
-        throw redirect({ to: '/employees' });
-      }
-      if (user.role === 'hr_payroll_user' || user.role === 'hr_payroll_manager') {
-        throw redirect({ to: '/payroll' });
-      }
-      throw redirect({ to: '/time-off' });
-    } catch (err) {
-      if (err && typeof err === 'object' && 'to' in err) throw err;
-      throw redirect({ to: '/login' });
-    }
+    const user = await requireAuthUser();
+    throw redirect({ to: homePathForRole(user.role) });
   },
 });
 
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
+  beforeLoad: async () => {
+    await requireAuthUser();
+  },
   component: AppShell,
 });
 

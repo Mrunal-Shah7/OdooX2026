@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
-import { useSession } from '../../lib/session';
+import { homePathForRole, useSession } from '../../lib/session';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
@@ -22,7 +22,7 @@ export default function LoginPage() {
     try {
       const user = await apiClient.login(email, password);
       setUser(user);
-      navigate({ to: '/' });
+      await navigate({ to: homePathForRole(user.role) });
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : 'Sign in failed');
     } finally {

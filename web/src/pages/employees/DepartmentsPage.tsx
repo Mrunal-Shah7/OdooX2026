@@ -138,7 +138,7 @@ export default function DepartmentsPage() {
       <PageHeader title="Departments" actions={<Button variant="accent" onClick={openCreate}>New department</Button>} />
       <div className="px-5 pb-6">
         <Card>
-          {departmentsQuery.isLoading ? (
+          {departmentsQuery.isLoading || departmentsQuery.isFetching ? (
             <Skeleton className="skeleton--panel" />
           ) : departmentsQuery.isError ? (
             <ErrorState onRetry={() => departmentsQuery.refetch()} />

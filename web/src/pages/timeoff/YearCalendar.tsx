@@ -97,7 +97,13 @@ export function YearCalendar({
     return map;
   }, [days]);
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -133,6 +139,13 @@ export function YearCalendar({
               />
               <span>Comp Off</span>
             </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block size-3 rounded-sm"
+                style={{ background: 'var(--color-chart-3)' }}
+              />
+              <span>Unpaid Leave</span>
+            </span>
           </>
         )}
         <span className="flex items-center gap-1.5">
@@ -156,6 +169,10 @@ export function YearCalendar({
         <span className="flex items-center gap-1.5">
           <span className="inline-block size-3 rounded-sm outline outline-2 outline-accent -outline-offset-1" />
           <span>Today</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block size-3 rounded-sm bg-accent/20 ring-1 ring-accent" />
+          <span>Selected range</span>
         </span>
       </div>
 
@@ -274,7 +291,7 @@ export function YearCalendar({
                           }
                           className={`flex h-6 w-6 items-center justify-center rounded-sm font-mono text-[11px] transition-colors ${bgClass} ${textClass} ${extraClasses} ${
                             isToday ? 'outline outline-2 outline-accent -outline-offset-1 font-bold' : ''
-                          } ${isSelected ? 'ring-2 ring-accent ring-inset cursor-pointer' : canClick ? 'cursor-pointer' : isOffDay ? 'cursor-not-allowed opacity-80' : ''}`}
+                          } ${isSelected ? 'bg-accent/20 text-accent font-semibold ring-1 ring-accent ring-inset cursor-pointer' : canClick ? 'cursor-pointer' : isOffDay ? 'cursor-not-allowed opacity-80' : ''}`}
                         >
                           {dayNum}
                         </div>

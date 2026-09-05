@@ -223,7 +223,7 @@ export default function EmployeeDirectoryPage() {
           <DataTable
             columns={columns}
             data={employees}
-            isLoading={employeesQuery.isLoading}
+            isLoading={employeesQuery.isLoading || employeesQuery.isFetching}
             emptyMessage="No employees found."
             searchPlaceholder="Search employees..."
             globalFilter={search}

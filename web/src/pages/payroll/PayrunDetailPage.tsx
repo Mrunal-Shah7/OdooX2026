@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { PageSkeleton } from '../../components/ui/Skeleton';
 import {
   payrollApi,
   type PayrunDetailResponse,
@@ -43,6 +44,10 @@ export default function PayrunDetailPage() {
 
   if (!id) {
     return <div className="p-6 text-danger">Invalid pay run ID.</div>;
+  }
+
+  if (loading && !data) {
+    return <PageSkeleton />;
   }
 
   const payrun = data?.payrun;

@@ -26,7 +26,7 @@ export default function SchedulesPage() {
   const pageSize = 10;
   const [search, setSearch] = useState('');
 
-  const { data: response, isLoading } = useQuery({
+  const { data: response, isLoading, isFetching } = useQuery({
     queryKey: ['schedules', 'list', page, pageSize, search],
     queryFn: () => {
       const q = new URLSearchParams({
@@ -125,7 +125,7 @@ export default function SchedulesPage() {
           <DataTable
             columns={columns}
             data={response?.data ?? []}
-            isLoading={isLoading}
+            isLoading={isLoading || isFetching}
             searchPlaceholder="Search schedules..."
             globalFilter={search}
             onGlobalFilterChange={(val) => {

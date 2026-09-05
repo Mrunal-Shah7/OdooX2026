@@ -73,11 +73,11 @@ export default function PayrunsPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title="Pay runs"
         actions={<PayrunWizard onSuccess={fetchPayruns} />}
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6">
         <Card>

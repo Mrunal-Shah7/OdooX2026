@@ -134,7 +134,6 @@ export default function PayrunDetailPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title={payrun?.name || 'Pay run processing'}
         subtitle={
@@ -185,6 +184,7 @@ export default function PayrunDetailPage() {
           </div>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

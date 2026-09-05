@@ -21,7 +21,7 @@ export function NavMenu() {
   ];
 
   return (
-    <nav className="flex flex-1 items-center gap-5">
+    <nav className="flex flex-1 items-center gap-1.5">
       {items.map((item) => {
         const active = item.prefixes.some(
           (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -31,8 +31,10 @@ export function NavMenu() {
             key={item.to}
             to={item.to}
             className={cn(
-              'text-label text-on-primary opacity-85 transition-opacity no-underline hover:opacity-100',
-              active && 'font-semibold opacity-100',
+              'rounded-md px-3 py-1.5 text-label font-medium transition-all duration-150 no-underline',
+              active
+                ? 'bg-primary-hover font-semibold text-on-primary shadow-sm'
+                : 'text-on-primary/80 hover:bg-primary-hover/60 hover:text-on-primary',
             )}
           >
             {item.label}

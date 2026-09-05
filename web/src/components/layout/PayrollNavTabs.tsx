@@ -1,39 +1,13 @@
-import { Link, useRouterState } from '@tanstack/react-router';
-import { cn } from '../../lib/cn';
+import { NavTabs, type NavTabItem } from './NavTabs';
 
-const tabs = [
-  { label: 'Dashboard', to: '/payroll' },
+const tabs: NavTabItem[] = [
+  { label: 'Dashboard', to: '/payroll', isExact: true },
   { label: 'Pay runs', to: '/payroll/payruns' },
   { label: 'Payslips', to: '/payroll/payslips' },
   { label: 'Salary structures', to: '/payroll/structures' },
   { label: 'Salary rules', to: '/payroll/rules' },
-] as const;
+];
 
 export function PayrollNavTabs() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-
-  return (
-    <div className="mb-5 flex gap-5 border-b border-border px-5 text-label">
-      {tabs.map((tab) => {
-        const isExact = pathname === tab.to;
-        const isSub = tab.to !== '/payroll' && pathname.startsWith(tab.to);
-        const active = isExact || isSub;
-
-        return (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            className={cn(
-              'border-b-2 pb-2 transition-colors no-underline',
-              active
-                ? 'border-accent font-semibold text-text'
-                : 'border-transparent text-text-muted hover:border-border-strong hover:text-text',
-            )}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
+  return <NavTabs tabs={tabs} />;
 }

@@ -78,8 +78,8 @@ export default function StructuresPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader title="Salary structures" actions={<Button variant="accent">New structure</Button>} />
+      <PayrollNavTabs />
       <div className="px-5 pb-6">
         <Card className="p-0 overflow-hidden">
           {isError ? (

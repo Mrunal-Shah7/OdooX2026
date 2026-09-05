@@ -83,8 +83,8 @@ export default function RulesPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader title="Salary rules" actions={<Button variant="accent">New rule</Button>} />
+      <PayrollNavTabs />
       <div className="px-5 pb-6">
         <Card className="p-0 overflow-hidden">
           {isError ? (

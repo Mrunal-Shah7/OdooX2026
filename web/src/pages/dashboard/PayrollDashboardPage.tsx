@@ -207,8 +207,8 @@ export default function PayrollDashboardPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader title="Payroll dashboard" subtitle="September 2026" />
+      <PayrollNavTabs />
       <div className="space-y-5 px-5 pb-6">
         <div className="flex gap-3">
           <Select

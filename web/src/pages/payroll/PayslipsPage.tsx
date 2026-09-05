@@ -68,7 +68,6 @@ export default function PayslipsPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title="Payslips"
         subtitle="Individual payslips history across all pay runs"
@@ -97,6 +96,7 @@ export default function PayslipsPage() {
           </div>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

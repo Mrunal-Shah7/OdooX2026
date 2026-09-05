@@ -13,6 +13,9 @@ type YearCalendarProps = {
   year: number;
   days: TimeOffCalendarDay[];
   types?: { id: string; name: string; color: string }[];
+  selectedStartDate?: string | null;
+  selectedEndDate?: string | null;
+  onDateClick?: (date: string) => void;
 };
 
 const MONTH_NAMES = [
@@ -30,10 +33,17 @@ const MONTH_NAMES = [
   'Dec',
 ];
 
-export function YearCalendar({ year, days, types = [] }: YearCalendarProps) {
+export function YearCalendar({
+  year,
+  days = [],
+  types = [],
+  selectedStartDate = null,
+  selectedEndDate = null,
+  onDateClick,
+}: YearCalendarProps) {
   const dayMap = useMemo(() => {
     const map = new Map<string, TimeOffCalendarDay>();
-    for (const d of days) {
+    for (const d of (days ?? [])) {
       map.set(d.date, d);
     }
     return map;
@@ -72,6 +82,13 @@ export function YearCalendar({ year, days, types = [] }: YearCalendarProps) {
                     const dateStr = `${year}-${String(mIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                     const dayData = dayMap.get(dateStr);
                     const isToday = dateStr === todayStr;
+                    const isSelected =
+                      dateStr === selectedStartDate ||
+                      dateStr === selectedEndDate ||
+                      (selectedStartDate !== null &&
+                        selectedEndDate !== null &&
+                        dateStr > selectedStartDate &&
+                        dateStr < selectedEndDate);
 
                     let bgClass = 'bg-surface hover:bg-surface-sunken';
                     let textClass = 'text-text';
@@ -102,11 +119,24 @@ export function YearCalendar({ year, days, types = [] }: YearCalendarProps) {
                     return (
                       <td key={dayNum} className="p-0.5">
                         <div
+                          role={onDateClick ? 'button' : undefined}
+                          tabIndex={onDateClick ? 0 : undefined}
                           title={`${dateStr}${dayData?.label ? `: ${dayData.label}` : ` (${dayData?.kind ?? 'working'})`}`}
                           style={inlineStyle}
+                          onClick={onDateClick ? () => onDateClick(dateStr) : undefined}
+                          onKeyDown={
+                            onDateClick
+                              ? (event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    onDateClick(dateStr);
+                                  }
+                                }
+                              : undefined
+                          }
                           className={`flex h-6 w-6 items-center justify-center rounded-sm font-mono text-[11px] transition-colors ${bgClass} ${textClass} ${
                             isToday ? 'outline outline-2 outline-accent -outline-offset-1 font-bold' : ''
-                          }`}
+                          } ${isSelected ? 'ring-2 ring-accent ring-inset cursor-pointer' : onDateClick ? 'cursor-pointer' : ''}`}
                         >
                           {dayNum}
                         </div>
@@ -122,8 +152,8 @@ export function YearCalendar({ year, days, types = [] }: YearCalendarProps) {
 
       {/* Legend matching design.html */}
       <div className="flex flex-wrap items-center gap-4 border-t border-border pt-3 text-body-sm text-text-muted">
-        {types.length > 0 ? (
-          types.map((t) => (
+        {(types ?? []).length > 0 ? (
+          (types ?? []).map((t) => (
             <span key={t.id} className="flex items-center gap-1.5">
               <span className="inline-block size-3 rounded-sm" style={{ background: t.color }} />
               <span>{t.name}</span>

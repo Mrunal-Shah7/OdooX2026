@@ -67,9 +67,14 @@ export default function AttendanceFormPage() {
   const canEdit = user ? isHrManagerOrAbove(user.role) : false;
 
   // For new record: fetch employees list
-  const { data: employeesData } = useQuery<{ data: EmployeeOption[] }>({
+  const { data: employeesData } = useQuery<EmployeeOption[]>({
     queryKey: ['employees', { pageSize: '100' }],
-    queryFn: () => apiRequest('/api/employees?pageSize=100'),
+    queryFn: async () => {
+      const res = await apiRequest<any>('/api/employees?pageSize=100');
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
+    },
     enabled: isNew && canEdit,
   });
 
@@ -217,10 +222,13 @@ export default function AttendanceFormPage() {
                 {isNew ? (
                   <Select
                     options={
-                      employeesData?.data.map((e) => ({
+                      (Array.isArray(employeesData)
+                        ? employeesData
+                        : (employeesData as any)?.data ?? []
+                      ).map((e: any) => ({
                         value: e.id,
                         label: `${e.firstName} ${e.lastName}`,
-                      })) ?? []
+                      }))
                     }
                     value={employeeId}
                     onValueChange={setEmployeeId}

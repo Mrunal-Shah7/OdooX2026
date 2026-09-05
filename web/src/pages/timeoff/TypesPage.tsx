@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Pencil } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { Pagination } from '../../components/ui/Pagination';
-import { Spinner } from '../../components/ui/Spinner';
+import { isHrManagerOrAbove } from '../../lib/permissions';
+import { useSession } from '../../lib/session';
 
 type TimeOffTypeItem = {
   id: string;
@@ -66,14 +68,117 @@ function formatRole(role: string): string {
 }
 
 export default function TypesPage() {
+  const { user } = useSession();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  const canManage = user ? isHrManagerOrAbove(user.role) : false;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['timeOff', 'types', page, pageSize],
     queryFn: () => fetchTypes(page, pageSize),
   });
+
+  const baseColumns = useMemo<ColumnDef<TimeOffTypeItem>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Type',
+        accessorKey: 'name',
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <Link
+            to="/time-off/types/$id"
+            params={{ id: row.original.id }}
+            className="flex items-center gap-2 font-semibold text-accent no-underline hover:underline"
+          >
+            <span
+              className="inline-block size-2.5 rounded-full"
+              style={{ background: row.original.color }}
+            />
+            <span>{row.original.name}</span>
+          </Link>
+        ),
+      },
+      {
+        accessorKey: 'code',
+        header: 'Code',
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'unit',
+        header: 'Unit',
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <span className="capitalize">{row.original.unit}</span>
+        ),
+      },
+      {
+        id: 'requiresAllocation',
+        header: 'Allocation',
+        accessorFn: (row) => (row.requiresAllocation ? 'Required' : 'Not required'),
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <span>{row.original.requiresAllocation ? 'Required' : 'Not required'}</span>
+        ),
+      },
+      {
+        id: 'isPaid',
+        header: 'Paid',
+        accessorFn: (row) => (row.isPaid ? 'Yes' : 'No'),
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <span>{row.original.isPaid ? 'Yes' : 'No'}</span>
+        ),
+      },
+      {
+        id: 'approvalRole',
+        header: 'Approval',
+        accessorFn: (row) => formatRole(row.approvalRole),
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <span>{formatRole(row.original.approvalRole)}</span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessorFn: (row) => (row.active ? 'active' : 'inactive'),
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <Badge variant={row.original.active ? 'success' : 'neutral'}>
+            {row.original.active ? 'active' : 'inactive'}
+          </Badge>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const actionColumn = useMemo<ColumnDef<TimeOffTypeItem>>(
+    () => ({
+      id: 'actions',
+      header: 'Actions',
+      enableColumnFilter: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Link to="/time-off/types/$id" params={{ id: row.original.id }}>
+            <Button variant="secondary" size="sm" className="flex items-center gap-1">
+              <Pencil className="size-3.5" />
+              <span>Edit</span>
+            </Button>
+          </Link>
+        </div>
+      ),
+    }),
+    [],
+  );
+
+  const columns = useMemo(
+    () => (canManage ? [...baseColumns, actionColumn] : baseColumns),
+    [canManage, baseColumns, actionColumn],
+  );
 
   return (
     <>
@@ -81,103 +186,49 @@ export default function TypesPage() {
         title="Time off types"
         subtitle="Policies, not employee transactions"
         actions={
-          <Button
-            variant="accent"
-            onClick={() =>
-              navigate({ to: '/time-off/types/$id', params: { id: 'new' } })
-            }
-          >
-            New type
-          </Button>
+          canManage ? (
+            <Button
+              variant="accent"
+              onClick={() =>
+                navigate({ to: '/time-off/types/$id', params: { id: 'new' } })
+              }
+            >
+              New type
+            </Button>
+          ) : undefined
         }
       />
 
       <TimeOffNavTabs />
       <div className="space-y-4 px-5 pb-6">
-
-        <Card>
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Spinner />
-            </div>
-          ) : isError ? (
+        {isError ? (
+          <Card>
             <ErrorState message="Could not load time off types" onRetry={() => refetch()} />
-          ) : !data || data.data.length === 0 ? (
-            <EmptyState
-              title="No time off types"
-              message="No time off types have been configured yet."
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <DataTable
+              columns={columns}
+              data={data?.data ?? []}
+              isLoading={isLoading}
+              emptyMessage="No time off types have been configured yet."
+              manualPagination={true}
+              totalCount={data?.meta?.total ?? 0}
+              pageCount={data?.meta ? Math.ceil(data.meta.total / pageSize) : 1}
+              pagination={{
+                pageIndex: page - 1,
+                pageSize,
+              }}
+              onPaginationChange={(updater) => {
+                const nextState =
+                  typeof updater === 'function'
+                    ? updater({ pageIndex: page - 1, pageSize })
+                    : updater;
+                setPage(nextState.pageIndex + 1);
+              }}
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3 font-mono">Code</th>
-                    <th className="px-4 py-3">Unit</th>
-                    <th className="px-4 py-3">Allocation</th>
-                    <th className="px-4 py-3">Paid</th>
-                    <th className="px-4 py-3">Approval</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.data.map((item) => (
-                    <tr
-                      key={item.id}
-                      onClick={() =>
-                        navigate({
-                          to: '/time-off/types/$id',
-                          params: { id: item.id },
-                        })
-                      }
-                      className="cursor-pointer border-b border-border transition-colors hover:bg-primary-subtle"
-                    >
-                      <td className="px-4 py-3 font-medium text-text">
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block size-2.5 rounded-full"
-                            style={{ background: item.color }}
-                          />
-                          <span>{item.name}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text">
-                        {item.code}
-                      </td>
-                      <td className="px-4 py-3 capitalize text-text">
-                        {item.unit}
-                      </td>
-                      <td className="px-4 py-3 text-text">
-                        {item.requiresAllocation ? 'Required' : 'Not required'}
-                      </td>
-                      <td className="px-4 py-3 text-text">
-                        {item.isPaid ? 'Yes' : 'No'}
-                      </td>
-                      <td className="px-4 py-3 text-text">
-                        {formatRole(item.approvalRole)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={item.active ? 'success' : 'neutral'}>
-                          {item.active ? 'active' : 'inactive'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="border-t border-border px-4">
-                <Pagination
-                  page={data.meta.page}
-                  pageSize={data.meta.pageSize}
-                  total={data.meta.total}
-                  onPageChange={setPage}
-                />
-              </div>
-            </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
     </>
   );

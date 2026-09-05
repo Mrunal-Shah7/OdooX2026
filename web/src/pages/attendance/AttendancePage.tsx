@@ -1,16 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Pencil } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { Input } from '../../components/ui/Input';
-import { Pagination } from '../../components/ui/Pagination';
-import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 
@@ -82,7 +80,6 @@ function getStatusBadgeVariant(status: string) {
     case 'absent':
       return 'danger';
     case 'half_day':
-      return 'info';
     case 'on_leave':
     default:
       return 'neutral';
@@ -92,178 +89,151 @@ function getStatusBadgeVariant(status: string) {
 export default function AttendancePage() {
   const { user } = useSession();
   const navigate = useNavigate();
-  const searchParams = useSearch({ strict: false }) as Record<string, string>;
 
   const [page, setPage] = useState(1);
-  const [employeeIdFilter, setEmployeeIdFilter] = useState(searchParams?.['employeeId'] ?? '');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('2026-09-01');
-  const [dateTo, setDateTo] = useState('2026-09-30');
+  const pageSize = 20;
+
+  const canCreate = user ? isHrManagerOrAbove(user.role) : false;
 
   const queryParams: Record<string, string> = {
     page: String(page),
-    pageSize: '20',
+    pageSize: String(pageSize),
   };
-  if (employeeIdFilter) queryParams['employeeId'] = employeeIdFilter;
-  if (statusFilter) queryParams['status'] = statusFilter;
-  if (dateFrom) queryParams['dateFrom'] = dateFrom;
-  if (dateTo) queryParams['dateTo'] = dateTo;
-
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['attendance', queryParams],
+    queryKey: ['attendance', 'list', queryParams],
     queryFn: () => fetchAttendance(queryParams),
   });
 
-  const canCreate = user ? isHrManagerOrAbove(user.role) : false;
+  const baseColumns = useMemo<ColumnDef<AttendanceItem>[]>(
+    () => [
+      {
+        id: 'employee',
+        header: 'Employee',
+        accessorFn: (row) => `${row.employee.firstName} ${row.employee.lastName}`,
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <Link
+            to="/attendance/$id"
+            params={{ id: row.original.id }}
+            className="font-medium text-text no-underline hover:text-accent"
+          >
+            {row.original.employee.firstName} {row.original.employee.lastName}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: 'date',
+        header: 'Date',
+        meta: { code: true, filterVariant: 'date' } as ColumnMeta,
+      },
+      {
+        id: 'checkIn',
+        header: 'Check in',
+        accessorFn: (row) => formatTime(row.checkIn),
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        id: 'checkOut',
+        header: 'Check out',
+        accessorFn: (row) => formatTime(row.checkOut),
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'workedHours',
+        header: 'Worked hours',
+        meta: { align: 'right', filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'overtimeHours',
+        header: 'Overtime',
+        meta: { align: 'right', filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <Badge variant={getStatusBadgeVariant(row.original.status)}>
+            {row.original.status.replace('_', ' ')}
+          </Badge>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const actionColumn = useMemo<ColumnDef<AttendanceItem>>(
+    () => ({
+      id: 'actions',
+      header: 'Actions',
+      enableColumnFilter: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Link to="/attendance/$id" params={{ id: row.original.id }}>
+            <Button variant="secondary" size="sm" className="flex items-center gap-1">
+              <Pencil className="size-3.5" />
+              <span>Edit</span>
+            </Button>
+          </Link>
+        </div>
+      ),
+    }),
+    [],
+  );
+
+  const canManage = user ? isHrManagerOrAbove(user.role) : false;
+  const columns = useMemo(
+    () => (canManage ? [...baseColumns, actionColumn] : baseColumns),
+    [canManage, baseColumns, actionColumn],
+  );
 
   return (
     <>
       <PageHeader
-        title="Attendance"
-        subtitle="September 2026"
+        title="Attendance records"
         actions={
           canCreate ? (
             <Button
               variant="accent"
-              onClick={() => navigate({ to: '/attendance/$id', params: { id: 'new' } })}
+              onClick={() =>
+                navigate({ to: '/attendance/$id', params: { id: 'new' } })
+              }
             >
-              New record
+              Log attendance
             </Button>
           ) : undefined
         }
       />
 
       <div className="space-y-4 px-5 pb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-48">
-            <Input
-              placeholder="Filter by Employee ID"
-              value={employeeIdFilter}
-              onChange={(e) => {
-                setEmployeeIdFilter(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <div className="w-36">
-            <Input
-              type="text"
-              placeholder="From (YYYY-MM-DD)"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <div className="w-36">
-            <Input
-              type="text"
-              placeholder="To (YYYY-MM-DD)"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <div className="w-40">
-            <Select
-              options={[
-                { value: '', label: 'All statuses' },
-                { value: 'present', label: 'Present' },
-                { value: 'late', label: 'Late' },
-                { value: 'absent', label: 'Absent' },
-                { value: 'half_day', label: 'Half day' },
-                { value: 'on_leave', label: 'On leave' },
-              ]}
-              value={statusFilter}
-              onValueChange={(val: string) => {
-                setStatusFilter(val);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <Card>
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Spinner />
-            </div>
-          ) : isError ? (
+        {isError ? (
+          <Card>
             <ErrorState message="Could not load attendance records" onRetry={() => refetch()} />
-          ) : !data || data.data.length === 0 ? (
-            <EmptyState
-              title="No attendance records"
-              message="No attendance records match your current filters."
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <DataTable
+              columns={columns}
+              data={data?.data ?? []}
+              isLoading={isLoading}
+              emptyMessage="No attendance records match your current filters."
+              manualPagination={true}
+              totalCount={data?.meta?.total ?? 0}
+              pageCount={data?.meta ? Math.ceil(data.meta.total / pageSize) : 1}
+              pagination={{
+                pageIndex: page - 1,
+                pageSize,
+              }}
+              onPaginationChange={(updater) => {
+                const nextState =
+                  typeof updater === 'function'
+                    ? updater({ pageIndex: page - 1, pageSize })
+                    : updater;
+                setPage(nextState.pageIndex + 1);
+              }}
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                    <th className="px-4 py-3">Employee</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Check in</th>
-                    <th className="px-4 py-3">Check out</th>
-                    <th className="px-4 py-3 text-right font-mono">Worked hours</th>
-                    <th className="px-4 py-3 text-right font-mono">Overtime</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Edited</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.data.map((item) => (
-                    <tr
-                      key={item.id}
-                      onClick={() =>
-                        navigate({ to: '/attendance/$id', params: { id: item.id } })
-                      }
-                      className="cursor-pointer border-b border-border transition-colors hover:bg-primary-subtle"
-                    >
-                      <td className="px-4 py-3 font-medium text-text">
-                        {item.employee.firstName} {item.employee.lastName}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text">
-                        {item.date}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text">
-                        {formatTime(item.checkIn)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text">
-                        {formatTime(item.checkOut)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {item.workedHours}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {item.overtimeHours}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={getStatusBadgeVariant(item.status)}>
-                          {item.status.replace('_', ' ')}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text-muted">
-                        {item.isManualEdit ? 'manual' : ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="border-t border-border px-4">
-                <Pagination
-                  page={data.meta.page}
-                  pageSize={data.meta.pageSize}
-                  total={data.meta.total}
-                  onPageChange={setPage}
-                />
-              </div>
-            </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
     </>
   );

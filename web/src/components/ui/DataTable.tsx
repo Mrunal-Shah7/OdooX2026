@@ -22,7 +22,7 @@ import { Spinner } from './Spinner';
 export type ColumnMeta = {
   align?: 'left' | 'right' | 'center';
   code?: boolean;
-  filterVariant?: 'text' | 'select';
+  filterVariant?: 'text' | 'date' | 'select';
   filterOptions?: { label: string; value: string }[];
   filterPlaceholder?: string;
 };
@@ -199,7 +199,7 @@ export function DataTable<T>({
                           />
                         ) : (
                           <input
-                            type="text"
+                            type={colMeta.filterVariant === 'date' ? 'date' : 'text'}
                             value={filterValue}
                             onChange={(e) => header.column.setFilterValue(e.target.value || undefined)}
                             placeholder={colMeta.filterPlaceholder ?? 'Filter...'}

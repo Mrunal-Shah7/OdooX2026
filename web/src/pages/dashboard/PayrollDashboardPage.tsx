@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { PayrollNavTabs } from "../../components/layout/PayrollNavTabs";
 import { Select } from "../../components/ui/Select";
@@ -8,6 +9,7 @@ import { BarChartCard } from "../../components/charts/BarChartCard";
 import { LineChartCard } from "../../components/charts/LineChartCard";
 import { Amount } from "../../components/ui/Amount";
 import { Card, CardBody, CardHeader } from "../../components/ui/Card";
+import { DataTable, type ColumnMeta } from "../../components/ui/DataTable";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Spinner } from "../../components/ui/Spinner";
 import { formatMoney } from "../../lib/format";
@@ -204,6 +206,82 @@ export default function PayrollDashboardPage() {
   );
   const totalSalaryNum = Number(data.kpis.totalNetPaid);
   const netChangeNum = Number(data.kpis.netChangePercent);
+
+  const deptColumns = useMemo<ColumnDef<PayrollDashboardData['salaryByDepartment'][number]>[]>(
+    () => [
+      {
+        accessorKey: 'departmentName',
+        header: 'Department',
+        cell: ({ row }) => (
+          <span className="font-medium text-text">{row.original.departmentName}</span>
+        ),
+      },
+      {
+        accessorKey: 'headcount',
+        header: 'Headcount',
+        meta: { align: 'right', code: true } as ColumnMeta,
+      },
+      {
+        accessorKey: 'totalNet',
+        header: 'Monthly salary',
+        meta: { align: 'right', code: true } as ColumnMeta,
+        cell: ({ row }) => (
+          <Amount value={row.original.totalNet} currency={data.kpis.currency} />
+        ),
+      },
+      {
+        id: 'share',
+        header: 'Share of cost',
+        meta: { align: 'right', code: true } as ColumnMeta,
+        cell: ({ row }) => {
+          const share =
+            totalSalaryNum > 0
+              ? `${Math.round((Number(row.original.totalNet) / totalSalaryNum) * 100)}%`
+              : '0%';
+          return share;
+        },
+      },
+    ],
+    [data.kpis.currency, totalSalaryNum],
+  );
+
+  const timeOffColumns = useMemo<ColumnDef<PayrollDashboardData['timeOffOverview'][number]>[]>(
+    () => [
+      {
+        id: 'type',
+        header: 'Type',
+        cell: ({ row }) => (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block size-2 rounded-full"
+              style={{ background: row.original.timeOffType.color }}
+            />
+            <span>{row.original.timeOffType.name}</span>
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'approvedDays',
+        header: 'Approved',
+        meta: { align: 'right', code: true } as ColumnMeta,
+      },
+      {
+        accessorKey: 'pending',
+        header: 'Pending',
+        meta: { align: 'right', code: true } as ColumnMeta,
+      },
+      {
+        accessorKey: 'remainingBalance',
+        header: 'Balance',
+        meta: { align: 'right', code: true } as ColumnMeta,
+        cell: ({ row }) =>
+          row.original.remainingBalance !== null && row.original.remainingBalance !== ''
+            ? row.original.remainingBalance
+            : '—',
+      },
+    ],
+    [],
+  );
 
   return (
     <>
@@ -428,46 +506,13 @@ export default function PayrollDashboardPage() {
           <Card>
             <CardHeader title="Time off overview" />
             <CardBody className="p-0">
-              <table className="w-full border-collapse text-body-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3 text-right font-mono">Approved</th>
-                    <th className="px-4 py-3 text-right font-mono">Pending</th>
-                    <th className="px-4 py-3 text-right font-mono">Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.timeOffOverview.map((row) => (
-                    <tr
-                      key={row.timeOffType.id}
-                      className="border-b border-border last:border-b-0"
-                    >
-                      <td className="px-4 py-3 text-text">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block size-2 rounded-full"
-                            style={{ background: row.timeOffType.color }}
-                          />
-                          <span>{row.timeOffType.name}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {row.approvedDays}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {row.pending}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {row.remainingBalance !== null &&
-                        row.remainingBalance !== ""
-                          ? row.remainingBalance
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={timeOffColumns}
+                data={data.timeOffOverview}
+                enablePagination={false}
+                enableFiltering={false}
+                enableSorting={false}
+              />
             </CardBody>
           </Card>
         </div>
@@ -479,68 +524,25 @@ export default function PayrollDashboardPage() {
             subtitle="employees + contracts + payslips"
           />
           <CardBody className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                    <th className="px-4 py-3">Department</th>
-                    <th className="px-4 py-3 text-right font-mono">
-                      Headcount
-                    </th>
-                    <th className="px-4 py-3 text-right font-mono">
-                      Monthly salary
-                    </th>
-                    <th className="px-4 py-3 text-right font-mono">
-                      Share of cost
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.salaryByDepartment.map((dept) => {
-                    const share =
-                      totalSalaryNum > 0
-                        ? `${Math.round((Number(dept.totalNet) / totalSalaryNum) * 100)}%`
-                        : "0%";
-                    return (
-                      <tr
-                        key={dept.departmentId}
-                        className="border-b border-border"
-                      >
-                        <td className="px-4 py-3 font-medium text-text">
-                          {dept.departmentName}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-text">
-                          {dept.headcount}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-text">
-                          <Amount
-                            value={dept.totalNet}
-                            currency={data.kpis.currency}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-text">
-                          {share}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="border-t-2 border-border font-semibold">
-                    <td className="px-4 py-3 text-text">Total</td>
-                    <td className="px-4 py-3 text-right font-mono text-text">
-                      {totalHeadcount}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-text">
-                      <Amount
-                        value={data.kpis.totalNetPaid}
-                        currency={data.kpis.currency}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-text">
-                      100%
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <DataTable
+              columns={deptColumns}
+              data={data.salaryByDepartment}
+              enablePagination={false}
+              enableFiltering={false}
+              enableSorting={false}
+            />
+            <div className="flex items-center justify-between border-t-2 border-border px-4 py-3 font-semibold text-body-sm">
+              <span className="text-text">Total</span>
+              <div className="flex items-center gap-16">
+                <span className="font-mono text-text">{totalHeadcount}</span>
+                <span className="font-mono text-text">
+                  <Amount
+                    value={data.kpis.totalNetPaid}
+                    currency={data.kpis.currency}
+                  />
+                </span>
+                <span className="font-mono text-text">100%</span>
+              </div>
             </div>
           </CardBody>
         </Card>

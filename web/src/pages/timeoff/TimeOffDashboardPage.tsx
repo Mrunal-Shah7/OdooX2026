@@ -71,13 +71,20 @@ export default function TimeOffDashboardPage() {
 
   const [year, setYear] = useState(2026);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedStartDate, setSelectedStartDate] = useState<string | null>(null);
+  const [selectedEndDate, setSelectedEndDate] = useState<string | null>(null);
 
   const canSwitchEmployee = user ? isHrManagerOrAbove(user.role) : false;
 
   // If HR/admin, fetch employees list for the employee switcher
-  const { data: employeesData } = useQuery<{ data: { id: string; firstName: string; lastName: string }[] }>({
+  const { data: employeesData } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
     queryKey: ['employees', { pageSize: '100' }],
-    queryFn: () => apiRequest('/api/employees?pageSize=100'),
+    queryFn: async () => {
+      const res = await apiRequest<any>('/api/employees?pageSize=100');
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
+    },
     enabled: canSwitchEmployee,
   });
 
@@ -106,14 +113,42 @@ export default function TimeOffDashboardPage() {
     );
   }
 
-  const ptoEntitlement = data.entitlements.find((e) => e.timeOffType.code === 'PTO');
+  const entitlements = data.entitlements ?? [];
+  const ptoEntitlement = entitlements.find((e) => e?.timeOffType?.code === 'PTO');
   const remainingDays = ptoEntitlement?.remaining ?? '0.00';
 
-  const typesForCalendar = data.entitlements.map((e) => ({
+  const typesForCalendar = entitlements.map((e) => ({
     id: e.timeOffType.id,
     name: e.timeOffType.name,
     color: e.timeOffType.color,
   }));
+
+  const employeeList: { id: string; firstName: string; lastName: string }[] = Array.isArray(employeesData)
+    ? employeesData
+    : Array.isArray((employeesData as any)?.data)
+    ? (employeesData as any).data
+    : [];
+
+  const handleCalendarDateClick = (date: string) => {
+    if (!selectedStartDate || selectedEndDate || date < selectedStartDate) {
+      setSelectedStartDate(date);
+      setSelectedEndDate(null);
+      return;
+    }
+    setSelectedEndDate(date);
+  };
+
+  const requestLeave = () => {
+    if (!selectedStartDate) return;
+    navigate({
+      to: '/time-off/requests/$id',
+      params: { id: 'new' },
+      search: {
+        startDate: selectedStartDate,
+        endDate: selectedEndDate ?? selectedStartDate,
+      },
+    });
+  };
 
   return (
     <>
@@ -127,10 +162,10 @@ export default function TimeOffDashboardPage() {
                 <Select
                   options={[
                     { value: '', label: 'My records' },
-                    ...(employeesData?.data.map((e) => ({
+                    ...employeeList.map((e) => ({
                       value: e.id,
                       label: `${e.firstName} ${e.lastName}`,
-                    })) ?? []),
+                    })),
                   ]}
                   value={selectedEmployeeId}
                   onValueChange={setSelectedEmployeeId}
@@ -149,13 +184,8 @@ export default function TimeOffDashboardPage() {
             >
               2026
             </Button>
-            <Button
-              variant="accent"
-              onClick={() =>
-                navigate({ to: '/time-off/requests/$id', params: { id: 'new' } })
-              }
-            >
-              New request
+            <Button variant="accent" onClick={requestLeave} disabled={!selectedStartDate}>
+              Request leave
             </Button>
           </div>
         }
@@ -170,7 +200,14 @@ export default function TimeOffDashboardPage() {
             subtitle={`${year}-01-01 — ${year}-12-31`}
           />
           <CardBody>
-            <YearCalendar year={year} days={data.days} types={typesForCalendar} />
+            <YearCalendar
+              year={year}
+              days={data.days ?? []}
+              types={typesForCalendar}
+              selectedStartDate={selectedStartDate}
+              selectedEndDate={selectedEndDate}
+              onDateClick={handleCalendarDateClick}
+            />
           </CardBody>
         </Card>
 
@@ -178,7 +215,7 @@ export default function TimeOffDashboardPage() {
           <Card>
             <CardHeader title="Entitlements" />
             <CardBody className="space-y-6">
-              {data.entitlements.map((e) => (
+              {entitlements.map((e) => (
                 <DonutRing
                   key={e.timeOffType.id}
                   label={e.timeOffType.name}

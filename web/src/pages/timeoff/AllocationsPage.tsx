@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Pencil } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { Pagination } from '../../components/ui/Pagination';
-import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+import { isHrManagerOrAbove } from '../../lib/permissions';
+import { useSession } from '../../lib/session';
 
 type AllocationItem = {
   id: string;
@@ -64,30 +65,6 @@ async function fetchAllocations(params: Record<string, string>): Promise<Allocat
   return res.json();
 }
 
-async function fetchEmployees(): Promise<{ id: string; firstName: string; lastName: string }[]> {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const userId = sessionStorage.getItem('pp360_user_id');
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
-  const res = await fetch('/api/employees?pageSize=100', { headers, credentials: 'include' });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json.data;
-}
-
-async function fetchTypes(): Promise<{ id: string; name: string }[]> {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const userId = sessionStorage.getItem('pp360_user_id');
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
-  const res = await fetch('/api/time-off/types?pageSize=100', { headers, credentials: 'include' });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json.data;
-}
-
 function getAllocationBadgeVariant(status: string) {
   switch (status) {
     case 'approved':
@@ -102,34 +79,120 @@ function getAllocationBadgeVariant(status: string) {
 }
 
 export default function AllocationsPage() {
+  const { user } = useSession();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [employeeId, setEmployeeId] = useState('');
-  const [timeOffTypeId, setTimeOffTypeId] = useState('');
-  const [status, setStatus] = useState('');
+  const pageSize = 20;
 
-  const { data: employees = [] } = useQuery({
-    queryKey: ['employees', 'options'],
-    queryFn: fetchEmployees,
-  });
-
-  const { data: types = [] } = useQuery({
-    queryKey: ['timeOff', 'types', 'options'],
-    queryFn: fetchTypes,
-  });
+  const canManage = user ? isHrManagerOrAbove(user.role) : false;
 
   const queryParams: Record<string, string> = {
     page: String(page),
-    pageSize: '20',
+    pageSize: String(pageSize),
   };
-  if (employeeId) queryParams['employeeId'] = employeeId;
-  if (timeOffTypeId) queryParams['timeOffTypeId'] = timeOffTypeId;
-  if (status) queryParams['status'] = status;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['timeOff', 'allocations', queryParams],
     queryFn: () => fetchAllocations(queryParams),
   });
+
+  const baseColumns = useMemo<ColumnDef<AllocationItem>[]>(
+    () => [
+      {
+        id: 'employee',
+        header: 'Employee',
+        accessorFn: (row) => `${row.employee.firstName} ${row.employee.lastName}`,
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <Link
+            to="/time-off/allocations/$id"
+            params={{ id: row.original.id }}
+            className="font-medium text-text no-underline hover:text-accent"
+          >
+            {row.original.employee.firstName} {row.original.employee.lastName}
+          </Link>
+        ),
+      },
+      {
+        id: 'type',
+        header: 'Type',
+        accessorFn: (row) => row.timeOffType.name,
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block size-2.5 rounded-full"
+              style={{ background: row.original.timeOffType.color }}
+            />
+            <span>{row.original.timeOffType.name}</span>
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'allocated',
+        header: 'Allocated',
+        meta: { align: 'right', code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'taken',
+        header: 'Taken',
+        meta: { align: 'right', code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'remaining',
+        header: 'Remaining',
+        cell: ({ row }) => (
+          <span className="font-semibold">{row.original.remaining}</span>
+        ),
+        meta: { align: 'right', code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'validFrom',
+        header: 'Valid from',
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'validTo',
+        header: 'Valid to',
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => (
+          <Badge variant={getAllocationBadgeVariant(row.original.status)}>
+            {row.original.status}
+          </Badge>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const actionColumn = useMemo<ColumnDef<AllocationItem>>(
+    () => ({
+      id: 'actions',
+      header: 'Actions',
+      enableColumnFilter: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Link to="/time-off/allocations/$id" params={{ id: row.original.id }}>
+            <Button variant="secondary" size="sm" className="flex items-center gap-1">
+              <Pencil className="size-3.5" />
+              <span>{row.original.status === 'draft' ? 'Review' : 'Edit'}</span>
+            </Button>
+          </Link>
+        </div>
+      ),
+    }),
+    [],
+  );
+
+  const columns = useMemo(
+    () => (canManage ? [...baseColumns, actionColumn] : baseColumns),
+    [canManage, baseColumns, actionColumn],
+  );
 
   return (
     <>
@@ -137,159 +200,50 @@ export default function AllocationsPage() {
         title="Allocations"
         subtitle="A balance is available only once the allocation is approved"
         actions={
-          <Button
-            variant="accent"
-            onClick={() =>
-              navigate({ to: '/time-off/allocations/$id', params: { id: 'new' } })
-            }
-          >
-            New allocation
-          </Button>
+          canManage ? (
+            <Button
+              variant="accent"
+              onClick={() =>
+                navigate({ to: '/time-off/allocations/$id', params: { id: 'new' } })
+              }
+            >
+              New allocation
+            </Button>
+          ) : undefined
         }
       />
 
       <TimeOffNavTabs />
       <div className="space-y-4 px-5 pb-6">
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-48">
-            <Select
-              options={[
-                { value: '', label: 'All employees' },
-                ...employees.map((e) => ({
-                  value: e.id,
-                  label: `${e.firstName} ${e.lastName}`,
-                })),
-              ]}
-              value={employeeId}
-              onValueChange={(v) => {
-                setEmployeeId(v);
-                setPage(1);
-              }}
-            />
-          </div>
-
-          <div className="w-48">
-            <Select
-              options={[
-                { value: '', label: 'All types' },
-                ...types.map((t) => ({
-                  value: t.id,
-                  label: t.name,
-                })),
-              ]}
-              value={timeOffTypeId}
-              onValueChange={(v) => {
-                setTimeOffTypeId(v);
-                setPage(1);
-              }}
-            />
-          </div>
-
-          <div className="w-40">
-            <Select
-              options={[
-                { value: '', label: 'All statuses' },
-                { value: 'draft', label: 'Draft' },
-                { value: 'approved', label: 'Approved' },
-                { value: 'refused', label: 'Refused' },
-              ]}
-              value={status}
-              onValueChange={(v) => {
-                setStatus(v);
-                setPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <Card>
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Spinner />
-            </div>
-          ) : isError ? (
+        {isError ? (
+          <Card>
             <ErrorState message="Could not load allocations" onRetry={() => refetch()} />
-          ) : !data || data.data.length === 0 ? (
-            <EmptyState
-              title="No allocations"
-              message="No allocations match your criteria."
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <DataTable
+              columns={columns}
+              data={data?.data ?? []}
+              isLoading={isLoading}
+              emptyMessage="No allocations match your criteria."
+              manualPagination={true}
+              totalCount={data?.meta?.total ?? 0}
+              pageCount={data?.meta ? Math.ceil(data.meta.total / pageSize) : 1}
+              pagination={{
+                pageIndex: page - 1,
+                pageSize,
+              }}
+              onPaginationChange={(updater) => {
+                const nextState =
+                  typeof updater === 'function'
+                    ? updater({ pageIndex: page - 1, pageSize })
+                    : updater;
+                setPage(nextState.pageIndex + 1);
+              }}
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                    <th className="px-4 py-3">Employee</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3 text-right font-mono">Allocated</th>
-                    <th className="px-4 py-3 text-right font-mono">Taken</th>
-                    <th className="px-4 py-3 text-right font-mono">Remaining</th>
-                    <th className="px-4 py-3 font-mono">Valid from</th>
-                    <th className="px-4 py-3 font-mono">Valid to</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.data.map((item) => (
-                    <tr
-                      key={item.id}
-                      onClick={() =>
-                        navigate({
-                          to: '/time-off/allocations/$id',
-                          params: { id: item.id },
-                        })
-                      }
-                      className="cursor-pointer border-b border-border transition-colors hover:bg-primary-subtle"
-                    >
-                      <td className="px-4 py-3 font-medium text-text">
-                        {item.employee.firstName} {item.employee.lastName}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block size-2.5 rounded-full"
-                            style={{ background: item.timeOffType.color }}
-                          />
-                          <span>{item.timeOffType.name}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {item.allocated}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-text">
-                        {item.taken}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono font-semibold text-text">
-                        {item.remaining}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text">
-                        {item.validFrom}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption text-text">
-                        {item.validTo}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={getAllocationBadgeVariant(item.status)}>
-                          {item.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="border-t border-border px-4">
-                <Pagination
-                  page={data.meta.page}
-                  pageSize={data.meta.pageSize}
-                  total={data.meta.total}
-                  onPageChange={setPage}
-                />
-              </div>
-            </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
     </>
   );

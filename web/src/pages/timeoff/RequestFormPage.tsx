@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -82,15 +82,24 @@ export default function RequestFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams({ strict: false }) as { id?: string };
+  const search = useSearch({ strict: false }) as {
+    startDate?: string;
+    endDate?: string;
+  };
   const id = params.id ?? 'new';
   const isNew = id === 'new';
 
   const canApprove = user ? isHrManagerOrAbove(user.role) : false;
 
   // Types list
-  const { data: typesData } = useQuery<{ data: TimeOffType[] }>({
+  const { data: typesData } = useQuery<TimeOffType[]>({
     queryKey: ['timeOff', 'types'],
-    queryFn: () => apiRequest('/api/time-off/types'),
+    queryFn: async () => {
+      const res = await apiRequest<any>('/api/time-off/types');
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
+    },
   });
 
   // Request detail if existing
@@ -106,8 +115,8 @@ export default function RequestFormPage() {
   });
 
   const [timeOffTypeId, setTimeOffTypeId] = useState('');
-  const [startDate, setStartDate] = useState('2026-09-12');
-  const [endDate, setEndDate] = useState('2026-09-12');
+  const [startDate, setStartDate] = useState(search.startDate ?? '2026-09-12');
+  const [endDate, setEndDate] = useState(search.endDate ?? search.startDate ?? '2026-09-12');
   const [durationType, setDurationType] = useState<'full_day' | 'half_day' | 'hours'>('full_day');
   const [requestedHours, setRequestedHours] = useState('');
   const [reason, setReason] = useState('');
@@ -123,8 +132,15 @@ export default function RequestFormPage() {
       setRequestedHours(request.requestedHours ?? '');
       setReason(request.reason ?? '');
       setRefusalReason(request.refusalReason ?? '');
-    } else if (typesData?.data && typesData.data.length > 0 && !timeOffTypeId) {
-      setTimeOffTypeId(typesData.data[0]?.id ?? '');
+    } else {
+      const typeList: TimeOffType[] = Array.isArray(typesData)
+        ? typesData
+        : Array.isArray((typesData as any)?.data)
+        ? (typesData as any).data
+        : [];
+      if (typeList.length > 0 && !timeOffTypeId) {
+        setTimeOffTypeId(typeList[0]?.id ?? '');
+      }
     }
   }, [request, typesData, timeOffTypeId]);
 
@@ -316,10 +332,15 @@ export default function RequestFormPage() {
                 {isNew ? (
                   <Select
                     options={
-                      typesData?.data.map((t) => ({
+                      (Array.isArray(typesData)
+                        ? typesData
+                        : Array.isArray((typesData as any)?.data)
+                        ? (typesData as any).data
+                        : []
+                      ).map((t: any) => ({
                         value: t.id,
                         label: `${t.name} (${t.unit})`,
-                      })) ?? []
+                      }))
                     }
                     value={timeOffTypeId}
                     onValueChange={setTimeOffTypeId}

@@ -1,7 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { apiClient } from '../lib/apiClient';
-import { getStoredUserId, useSession } from '../lib/session';
+import { apiClient } from '../../lib/apiClient';
+import { getStoredUserId, useSession } from '../../lib/session';
 import { TopNav } from './TopNav';
 
 export function AppShell() {

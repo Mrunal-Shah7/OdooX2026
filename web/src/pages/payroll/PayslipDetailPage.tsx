@@ -180,7 +180,6 @@ export default function PayslipDetailPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title={emp ? `Payslip · ${emp.firstName} ${emp.lastName}` : 'Payslip detail'}
         subtitle={
@@ -217,6 +216,7 @@ export default function PayslipDetailPage() {
           </div>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

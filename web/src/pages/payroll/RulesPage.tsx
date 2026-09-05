@@ -72,7 +72,6 @@ export default function RulesPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title="Salary rules"
         subtitle="Manage individual salary calculation rules, sequence order, and formulas"
@@ -104,6 +103,7 @@ export default function RulesPage() {
           </div>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

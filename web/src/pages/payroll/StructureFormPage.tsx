@@ -101,7 +101,6 @@ export default function StructureFormPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title={isNew ? 'New Salary Structure' : `Structure · ${name}`}
         subtitle={isNew ? 'Configure a new salary calculation structure' : `Code: ${code} · ${rules.length} Attached Rules`}
@@ -116,6 +115,7 @@ export default function StructureFormPage() {
           </div>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

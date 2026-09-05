@@ -172,7 +172,6 @@ export default function RuleFormPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title={isNew ? 'New Salary Rule' : `Rule · ${name}`}
         subtitle={isNew ? 'Define a new computation rule for salary calculation' : `Code: ${code} · Sequence: ${sequence}`}
@@ -192,6 +191,7 @@ export default function RuleFormPage() {
           </div>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

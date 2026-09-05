@@ -36,7 +36,6 @@ export default function StructuresPage() {
 
   return (
     <>
-      <PayrollNavTabs />
       <PageHeader
         title="Salary structures"
         subtitle="Manage payroll salary structures and rule sequences"
@@ -46,6 +45,7 @@ export default function StructuresPage() {
           </Button>
         }
       />
+      <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
         {error && (

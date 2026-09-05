@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
@@ -104,7 +105,7 @@ export default function HolidaysPage() {
     <>
       <PageHeader
         title="Public Holidays"
-        subtitle="Excluded from scheduled working days"
+        subtitle="Official statutory holidays"
         actions={
           <div className="flex items-center gap-3">
             <Select
@@ -122,6 +123,7 @@ export default function HolidaysPage() {
           </div>
         }
       />
+      <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
         <Card className="p-0 overflow-hidden">
           <DataTable

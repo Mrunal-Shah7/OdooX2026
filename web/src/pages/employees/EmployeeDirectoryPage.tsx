@@ -94,10 +94,12 @@ async function deleteEmployee(id: string): Promise<void> {
   }
 }
 
+import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
+
 export default function EmployeeDirectoryPage() {
   const queryClient = useQueryClient();
   const { user } = useSession();
-  const isAdmin = user?.role === 'admin' || user?.role === 'hr_manager';
+  const isAdmin = user?.role === 'admin';
   const [page, setPage] = useState(1);
 
   const [deletingEmp, setDeletingEmp] = useState<EmployeeListItem | null>(null);
@@ -229,6 +231,7 @@ export default function EmployeeDirectoryPage() {
           ) : undefined
         }
       />
+      <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
         <Card>
           <DataTable

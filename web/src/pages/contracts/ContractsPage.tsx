@@ -35,6 +35,8 @@ type ContractRow = {
   endDate: string | null;
 };
 
+import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
+
 export default function ContractsPage() {
   const navigate = useNavigate();
   const searchParams = useSearch({ strict: false }) as { employeeId?: string };
@@ -157,6 +159,7 @@ export default function ContractsPage() {
           </Button>
         }
       />
+      <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
         <Card className="p-0 overflow-hidden">
           <DataTable

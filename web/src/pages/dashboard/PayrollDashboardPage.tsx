@@ -106,24 +106,46 @@ async function fetchDepartments(): Promise<{ id: string; name: string }[]> {
   return json.data;
 }
 
+import { useSession } from "../../lib/session";
+import { isPayrollRole } from "../../lib/permissions";
+
 export default function PayrollDashboardPage() {
+  const { user } = useSession();
+  const canAccessPayroll = user && isPayrollRole(user.role);
+
   const [period, setPeriod] = useState("2026-09");
   const [departmentId, setDepartmentId] = useState("all");
-  const [employeeType, setEmployeeType] = useState("all");
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", "options"],
     queryFn: fetchDepartments,
+    enabled: !!canAccessPayroll,
   });
 
   const queryParams: Record<string, string> = { period };
   if (departmentId !== "all") queryParams["departmentId"] = departmentId;
-  if (employeeType !== "all") queryParams["employeeType"] = employeeType;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard", "payroll", queryParams],
     queryFn: () => fetchPayrollDashboard(queryParams),
+    enabled: !!canAccessPayroll,
   });
+
+  if (user && !canAccessPayroll) {
+    return (
+      <>
+        <PageHeader title="Payroll dashboard" />
+        <div className="p-8 text-center">
+          <Card className="max-w-md mx-auto p-6 space-y-4">
+            <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
+            <p className="text-body-sm text-text-muted">
+              Only payroll administrators and payroll users can access the payroll dashboard.
+            </p>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -188,11 +210,16 @@ export default function PayrollDashboardPage() {
         <div className="flex gap-3">
           <Select
             options={[{ value: "2026-09", label: "September 2026" }]}
-            value="2026-09"
+            value={period}
+            onValueChange={setPeriod}
           />
           <Select
-            options={[{ value: "all", label: "All departments" }]}
-            value="all"
+            options={[
+              { value: "all", label: "All departments" },
+              ...departments.map((d) => ({ value: d.id, label: d.name })),
+            ]}
+            value={departmentId}
+            onValueChange={setDepartmentId}
           />
         </div>
 

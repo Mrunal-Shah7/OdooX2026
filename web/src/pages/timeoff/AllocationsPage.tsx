@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -147,33 +148,8 @@ export default function AllocationsPage() {
         }
       />
 
+      <TimeOffNavTabs />
       <div className="space-y-4 px-5 pb-6">
-        <div className="flex gap-4 border-b border-border text-label">
-          <Link
-            to="/time-off"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Overview
-          </Link>
-          <Link
-            to="/time-off/requests"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Requests
-          </Link>
-          <Link
-            to="/time-off/allocations"
-            className="border-b-2 border-accent pb-2 font-semibold text-accent no-underline"
-          >
-            Allocations
-          </Link>
-          <Link
-            to="/time-off/types"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Types
-          </Link>
-        </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-48">

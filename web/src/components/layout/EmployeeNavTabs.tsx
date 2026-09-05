@@ -1,23 +1,27 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import { cn } from '../../lib/cn';
+import { useSession } from '../../lib/session';
 
-const tabs = [
-  { label: 'Dashboard', to: '/payroll' },
-  { label: 'Pay runs', to: '/payroll/payruns' },
-  { label: 'Payslips', to: '/payroll/payslips' },
-  { label: 'Salary structures', to: '/payroll/structures' },
-  { label: 'Salary rules', to: '/payroll/rules' },
-] as const;
-
-export function PayrollNavTabs() {
+export function EmployeeNavTabs() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user } = useSession();
+  const isAdmin = user?.role === 'admin';
+
+  const tabs = [
+    { label: 'Directory', to: '/employees' },
+    { label: 'Contracts', to: '/contracts' },
+    { label: 'Working schedules', to: '/schedules' },
+    { label: 'Public holidays', to: '/holidays' },
+    ...(isAdmin ? [{ label: 'User management', to: '/users' }] : []),
+  ];
 
   return (
     <div className="mb-5 flex gap-5 border-b border-border px-5 text-label">
       {tabs.map((tab) => {
-        const isExact = pathname === tab.to;
-        const isSub = tab.to !== '/payroll' && pathname.startsWith(tab.to);
-        const active = isExact || isSub;
+        const active =
+          tab.to === '/employees'
+            ? pathname === '/employees' || (pathname.startsWith('/employees/') && pathname !== '/employees/new')
+            : pathname === tab.to || pathname.startsWith(`${tab.to}/`);
 
         return (
           <Link

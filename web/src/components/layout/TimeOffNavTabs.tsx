@@ -2,22 +2,22 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import { cn } from '../../lib/cn';
 
 const tabs = [
-  { label: 'Dashboard', to: '/payroll' },
-  { label: 'Pay runs', to: '/payroll/payruns' },
-  { label: 'Payslips', to: '/payroll/payslips' },
-  { label: 'Salary structures', to: '/payroll/structures' },
-  { label: 'Salary rules', to: '/payroll/rules' },
+  { label: 'Overview', to: '/time-off' },
+  { label: 'Requests', to: '/time-off/requests' },
+  { label: 'Allocations', to: '/time-off/allocations' },
+  { label: 'Leave types', to: '/time-off/types' },
 ] as const;
 
-export function PayrollNavTabs() {
+export function TimeOffNavTabs() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
     <div className="mb-5 flex gap-5 border-b border-border px-5 text-label">
       {tabs.map((tab) => {
-        const isExact = pathname === tab.to;
-        const isSub = tab.to !== '/payroll' && pathname.startsWith(tab.to);
-        const active = isExact || isSub;
+        const active =
+          tab.to === '/time-off'
+            ? pathname === '/time-off'
+            : pathname === tab.to || pathname.startsWith(`${tab.to}/`);
 
         return (
           <Link

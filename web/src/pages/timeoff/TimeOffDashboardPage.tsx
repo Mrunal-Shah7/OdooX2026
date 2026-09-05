@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
+import { useNavigate } from '@tanstack/react-router';
 import { DonutRing } from '../../components/charts/DonutRing';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -160,33 +161,8 @@ export default function TimeOffDashboardPage() {
         }
       />
 
+      <TimeOffNavTabs />
       <div className="space-y-6 px-5 pb-6">
-        <div className="flex gap-4 border-b border-border text-label">
-          <Link
-            to="/time-off"
-            className="border-b-2 border-accent pb-2 font-semibold text-accent no-underline"
-          >
-            Overview
-          </Link>
-          <Link
-            to="/time-off/requests"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Requests
-          </Link>
-          <Link
-            to="/time-off/allocations"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Allocations
-          </Link>
-          <Link
-            to="/time-off/types"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Types
-          </Link>
-        </div>
 
         <Card>
           <CardHeader

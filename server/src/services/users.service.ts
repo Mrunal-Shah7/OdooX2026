@@ -1,28 +1,65 @@
+import { prisma } from '../db/client.js';
+import { ApiError } from '../lib/apiError.js';
 import { paginationMeta } from '../lib/pagination.js';
 import type { UserRole, UserStatus } from '../../../shared/constants.js';
 
-const stubUser = {
-  id: '44444444-4444-4444-8444-444444444444',
-  email: 'hr.manager@peoplepay360.com',
-  role: 'hr_manager' as UserRole,
-  status: 'active' as UserStatus,
-  lastLoginAt: '2026-01-15T09:30:00.000Z',
-  createdAt: '2025-06-01T08:00:00.000Z',
-  employee: {
-    id: '11111111-1111-4111-8111-111111111111',
-    firstName: 'Priya',
-    lastName: 'Sharma',
-    workEmail: 'priya.sharma@peoplepay360.com',
-    jobPosition: 'HR Manager',
-    departmentName: 'Human Resources',
-  },
-};
+export async function listUsers(query: { page: number; pageSize: number; q?: string; role?: UserRole }) {
+  const where: any = {};
+  if (query.role) {
+    where.role = query.role;
+  }
+  if (query.q) {
+    where.OR = [
+      { email: { contains: query.q, mode: 'insensitive' } },
+      { employee: { firstName: { contains: query.q, mode: 'insensitive' } } },
+      { employee: { lastName: { contains: query.q, mode: 'insensitive' } } },
+    ];
+  }
 
-export async function listUsers(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+  const [total, users] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            workEmail: true,
+            jobPosition: true,
+            department: { select: { name: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const formattedUsers = users.map((u) => ({
+    id: u.id,
+    email: u.email,
+    role: u.role as UserRole,
+    status: u.status as UserStatus,
+    lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+    createdAt: u.createdAt.toISOString(),
+    employee: u.employee
+      ? {
+          id: u.employee.id,
+          firstName: u.employee.firstName,
+          lastName: u.employee.lastName,
+          workEmail: u.employee.workEmail,
+          jobPosition: u.employee.jobPosition,
+          departmentName: u.employee.department?.name ?? '',
+        }
+      : null,
+  }));
+
   return {
-    data: [stubUser],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    data: formattedUsers,
+    meta: paginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -31,41 +68,147 @@ export async function createUser(body: {
   role: UserRole;
   employeeId?: string | null;
 }) {
-  // TODO: STUB
+  const existing = await prisma.user.findUnique({
+    where: { email: body.email.toLowerCase() },
+  });
+  if (existing) {
+    throw ApiError.conflict('User with this email already exists');
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      email: body.email.toLowerCase(),
+      role: body.role,
+      status: 'invited',
+      employeeId: body.employeeId || null,
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          workEmail: true,
+          jobPosition: true,
+          department: { select: { name: true } },
+        },
+      },
+    },
+  });
+
   return {
-    ...stubUser,
-    id: '55555555-5555-4555-8555-555555555555',
-    email: body.email,
-    role: body.role,
-    status: 'invited' as UserStatus,
-    lastLoginAt: null,
-    employee: body.employeeId
-      ? stubUser.employee
+    id: user.id,
+    email: user.email,
+    role: user.role as UserRole,
+    status: user.status as UserStatus,
+    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+    createdAt: user.createdAt.toISOString(),
+    employee: user.employee
+      ? {
+          id: user.employee.id,
+          firstName: user.employee.firstName,
+          lastName: user.employee.lastName,
+          workEmail: user.employee.workEmail,
+          jobPosition: user.employee.jobPosition,
+          departmentName: user.employee.department?.name ?? '',
+        }
       : null,
   };
 }
 
 export async function getUser(id: string) {
-  // TODO: STUB
-  return { ...stubUser, id };
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          workEmail: true,
+          jobPosition: true,
+          department: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role as UserRole,
+    status: user.status as UserStatus,
+    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+    createdAt: user.createdAt.toISOString(),
+    employee: user.employee
+      ? {
+          id: user.employee.id,
+          firstName: user.employee.firstName,
+          lastName: user.employee.lastName,
+          workEmail: user.employee.workEmail,
+          jobPosition: user.employee.jobPosition,
+          departmentName: user.employee.department?.name ?? '',
+        }
+      : null,
+  };
 }
 
 export async function updateUser(
   id: string,
   body: { role?: UserRole; status?: UserStatus; employeeId?: string | null },
 ) {
-  // TODO: STUB
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      ...(body.role !== undefined ? { role: body.role } : {}),
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.employeeId !== undefined ? { employeeId: body.employeeId } : {}),
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          workEmail: true,
+          jobPosition: true,
+          department: { select: { name: true } },
+        },
+      },
+    },
+  });
+
   return {
-    ...stubUser,
-    id,
-    ...(body.role !== undefined ? { role: body.role } : {}),
-    ...(body.status !== undefined ? { status: body.status } : {}),
-    ...(body.employeeId !== undefined
-      ? { employee: body.employeeId ? stubUser.employee : null }
-      : {}),
+    id: updated.id,
+    email: updated.email,
+    role: updated.role as UserRole,
+    status: updated.status as UserStatus,
+    lastLoginAt: updated.lastLoginAt ? updated.lastLoginAt.toISOString() : null,
+    createdAt: updated.createdAt.toISOString(),
+    employee: updated.employee
+      ? {
+          id: updated.employee.id,
+          firstName: updated.employee.firstName,
+          lastName: updated.employee.lastName,
+          workEmail: updated.employee.workEmail,
+          jobPosition: updated.employee.jobPosition,
+          departmentName: updated.employee.department?.name ?? '',
+        }
+      : null,
   };
 }
 
-export async function resendInvite(_id: string) {
-  // TODO: STUB
+export async function resendInvite(id: string) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
 }

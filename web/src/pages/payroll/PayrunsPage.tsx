@@ -6,14 +6,20 @@ import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { PayrunWizard } from './PayrunWizard';
 import { payrollApi, type Payrun } from './payrollApi';
+import { useSession } from '../../lib/session';
+import { isPayrollRole } from '../../lib/permissions';
 
 export default function PayrunsPage() {
   const navigate = useNavigate();
+  const { user } = useSession();
+  const canAccessPayroll = user && isPayrollRole(user.role);
+
   const [payruns, setPayruns] = useState<Payrun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPayruns = () => {
+    if (!canAccessPayroll) return;
     setLoading(true);
     payrollApi
       .getPayruns()
@@ -32,7 +38,23 @@ export default function PayrunsPage() {
 
   useEffect(() => {
     fetchPayruns();
-  }, []);
+  }, [canAccessPayroll]);
+
+  if (user && !canAccessPayroll) {
+    return (
+      <>
+        <PageHeader title="Pay runs" />
+        <div className="p-8 text-center">
+          <Card className="max-w-md mx-auto p-6 space-y-4">
+            <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
+            <p className="text-body-sm text-text-muted">
+              Only payroll administrators and payroll users can access pay runs.
+            </p>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   const getStatusBadge = (status: Payrun['status']) => {
     switch (status) {

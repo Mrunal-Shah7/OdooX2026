@@ -17,7 +17,7 @@ import { cn } from '../../lib/cn';
 import { EmptyState } from './EmptyState';
 import { Pagination } from './Pagination';
 import { Select } from './Select';
-
+import { Search } from 'lucide-react';
 
 export type ColumnMeta = {
   align?: 'left' | 'right' | 'center';
@@ -56,7 +56,6 @@ export function DataTable<T>({
   data,
   className,
   meta,
-  enableFiltering = true,
   enableSorting = true,
   enablePagination = true,
   isLoading = false,
@@ -173,45 +172,6 @@ export function DataTable<T>({
               })}
             </tr>
           ))}
-
-          {enableFiltering &&
-            table.getHeaderGroups().map((group) => (
-              <tr key={`filter-row-${group.id}`} className="border-b border-border bg-surface-sunken/60">
-                {group.headers.map((header) => {
-                  const colMeta = (header.column.columnDef.meta as ColumnMeta) ?? {};
-                  const canFilter =
-                    header.column.getCanFilter() &&
-                    header.column.columnDef.enableColumnFilter !== false;
-                  const filterValue = (header.column.getFilterValue() as string) ?? '';
-
-                  return (
-                    <th key={`filter-cell-${header.id}`} className="px-3 py-2 font-normal">
-                      {canFilter ? (
-                        colMeta.filterVariant === 'select' && colMeta.filterOptions ? (
-                          <Select
-                            options={[
-                              { label: 'All', value: '' },
-                              ...colMeta.filterOptions,
-                            ]}
-                            value={filterValue}
-                            onValueChange={(val) => header.column.setFilterValue(val || undefined)}
-                            placeholder="All"
-                          />
-                        ) : (
-                          <input
-                            type={colMeta.filterVariant === 'date' ? 'date' : 'text'}
-                            value={filterValue}
-                            onChange={(e) => header.column.setFilterValue(e.target.value || undefined)}
-                            placeholder={colMeta.filterPlaceholder ?? 'Filter...'}
-                            className="w-full rounded border border-border bg-surface px-2.5 py-1 text-caption text-text outline-none focus:border-focus-ring"
-                          />
-                        )
-                      ) : null}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
         </thead>
         <tbody>
           {isLoading ? (

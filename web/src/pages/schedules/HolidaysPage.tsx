@@ -38,6 +38,8 @@ export default function HolidaysPage() {
       if (!newHolidayName.trim()) throw new Error('Holiday name is required');
       if (!newHolidayDate) throw new Error('Holiday date is required');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(newHolidayDate)) throw new Error('Holiday date must be in YYYY-MM-DD format');
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (newHolidayDate < todayStr) throw new Error('Public holiday date cannot be in the past');
 
       return apiFetch<{ data: PublicHoliday }>('/public-holidays', {
         method: 'POST',

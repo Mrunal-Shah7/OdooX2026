@@ -1,18 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, Search } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
+import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { ApiClientError } from '../../lib/apiClient';
-import { queryKeys } from '../../lib/queryKeys';
-
 import { useSession } from '../../lib/session';
+import { useDebounce } from '../../hooks/useDebounce';
 
 export type EmployeeListItem = {
   id: string;
@@ -91,18 +91,17 @@ export default function EmployeeDirectoryPage() {
   const { user } = useSession();
   const isAdmin = user?.role === 'admin';
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   const [deletingEmp, setDeletingEmp] = useState<EmployeeListItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const queryParams = {
-    page: String(page),
-  };
-
   const employeesQuery = useQuery({
-    queryKey: queryKeys.employees.all(queryParams),
+    queryKey: ['employees', { q: debouncedSearch, page }],
     queryFn: () =>
       fetchEmployees({
+        q: debouncedSearch || undefined,
         page,
         pageSize: 10,
       }),
@@ -223,6 +222,21 @@ export default function EmployeeDirectoryPage() {
       />
       <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
+            <Input
+              type="text"
+              placeholder="Search employees..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <Card>
           <DataTable
             columns={columns}

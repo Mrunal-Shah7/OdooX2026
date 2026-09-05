@@ -1,15 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Search } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Amount } from '../../components/ui/Amount';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { Input } from '../../components/ui/Input';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
+import { useDebounce } from '../../hooks/useDebounce';
 
 type ContractRow = {
   id: string;
@@ -43,17 +46,21 @@ export default function ContractsPage() {
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   const { data: response, isLoading } = useQuery({
     queryKey: queryKeys.contracts.all({
       page: String(page),
       pageSize: String(pageSize),
+      q: debouncedSearch,
       ...(searchParams.employeeId ? { employeeId: searchParams.employeeId } : {}),
     }),
     queryFn: () => {
       const q = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize),
+        ...(debouncedSearch ? { q: debouncedSearch } : {}),
         ...(searchParams.employeeId ? { employeeId: searchParams.employeeId } : {}),
       });
       return apiFetch<{ data: ContractRow[]; meta: { page: number; pageSize: number; total: number } }>(
@@ -161,6 +168,21 @@ export default function ContractsPage() {
       />
       <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
+            <Input
+              type="text"
+              placeholder="Search contracts..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <Card className="p-0 overflow-hidden">
           <DataTable
             columns={columns}

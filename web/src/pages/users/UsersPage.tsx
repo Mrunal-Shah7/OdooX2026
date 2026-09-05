@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Mail, Pencil, Plus } from 'lucide-react';
+import { Mail, Pencil, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -16,6 +16,7 @@ import { Select } from '../../components/ui/Select';
 import { apiFetch } from '../../lib/apiFetch';
 import { useSession } from '../../lib/session';
 import { showToast } from '../../lib/toast';
+import { useDebounce } from '../../hooks/useDebounce';
 import type { UserRole, UserStatus } from '../../../../shared/constants';
 
 type UserItem = {
@@ -26,6 +27,11 @@ type UserItem = {
   employee: { id: string; firstName: string; lastName: string } | null;
 };
 
+type UserListResponse = {
+  data: UserItem[];
+  meta: { page: number; pageSize: number; total: number };
+};
+
 type EmployeeOption = {
   id: string;
   firstName: string;
@@ -33,12 +39,12 @@ type EmployeeOption = {
   workEmail: string;
 };
 
-const roleOptions = [
+const roleOptions: { value: UserRole; label: string }[] = [
   { value: 'employee', label: 'Employee' },
   { value: 'hr_manager', label: 'HR Manager' },
-  { value: 'hr_payroll_user', label: 'Payroll Officer' },
+  { value: 'hr_payroll_user', label: 'Payroll User' },
   { value: 'hr_payroll_manager', label: 'Payroll Manager' },
-  { value: 'admin', label: 'Administrator' },
+  { value: 'admin', label: 'Admin' },
 ];
 
 const statusOptions = [
@@ -51,6 +57,10 @@ export default function UsersPage() {
   const { user } = useSession();
   const isAdmin = user?.role === 'admin';
   const queryClient = useQueryClient();
+
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   // Modal states
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -71,8 +81,15 @@ export default function UsersPage() {
 
   // Queries
   const { data: usersData, isLoading: isUsersLoading, isError, refetch } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => apiFetch<{ data: UserItem[] }>('/users'),
+    queryKey: ['users', { q: debouncedSearch, page }],
+    queryFn: () => {
+      const q = new URLSearchParams({
+        page: String(page),
+        pageSize: '10',
+        ...(debouncedSearch ? { q: debouncedSearch } : {}),
+      });
+      return apiFetch<UserListResponse>(`/users?${q.toString()}`);
+    },
     enabled: isAdmin,
   });
 
@@ -290,6 +307,22 @@ export default function UsersPage() {
           </div>
         ) : null}
 
+        <div className="flex items-center justify-between">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
+            <Input
+              type="text"
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
         <Card className="p-0 overflow-hidden">
           {isError ? (
             <div className="p-6">
@@ -301,6 +334,20 @@ export default function UsersPage() {
               data={users}
               isLoading={isUsersLoading}
               emptyMessage="No users found."
+              manualPagination={true}
+              totalCount={usersData?.meta?.total ?? 0}
+              pageCount={Math.ceil((usersData?.meta?.total ?? 0) / 10) || 1}
+              pagination={{
+                pageIndex: page - 1,
+                pageSize: 10,
+              }}
+              onPaginationChange={(updater) => {
+                const nextState =
+                  typeof updater === 'function'
+                    ? updater({ pageIndex: page - 1, pageSize: 10 })
+                    : updater;
+                setPage(nextState.pageIndex + 1);
+              }}
             />
           )}
         </Card>

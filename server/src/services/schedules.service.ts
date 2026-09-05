@@ -216,19 +216,43 @@ export async function createPublicHoliday(body: { name: string; date: string }) 
   const company = await prisma.company.findFirst();
   if (!company) throw ApiError.internal('Company not configured');
 
-  const created = await prisma.publicHoliday.create({
-    data: {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (body.date < todayStr) {
+    throw ApiError.validation('Public holiday date cannot be in the past');
+  }
+
+  const holidayDate = new Date(`${body.date}T00:00:00.000Z`);
+
+  const existing = await prisma.publicHoliday.findFirst({
+    where: {
       companyId: company.id,
-      name: body.name,
-      date: new Date(body.date),
+      date: holidayDate,
     },
   });
+  if (existing) {
+    throw ApiError.conflict('A public holiday for this date already exists');
+  }
 
-  return {
-    id: created.id,
-    name: created.name,
-    date: created.date instanceof Date ? created.date.toISOString().split('T')[0] : String(created.date),
-  };
+  try {
+    const created = await prisma.publicHoliday.create({
+      data: {
+        companyId: company.id,
+        name: body.name,
+        date: holidayDate,
+      },
+    });
+
+    return {
+      id: created.id,
+      name: created.name,
+      date: created.date instanceof Date ? created.date.toISOString().split('T')[0] : String(created.date),
+    };
+  } catch (err: any) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      throw ApiError.conflict('A public holiday for this date already exists');
+    }
+    throw err;
+  }
 }
 
 export async function deletePublicHoliday(id: string) {

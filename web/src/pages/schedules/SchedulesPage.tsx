@@ -1,14 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { Search } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { Input } from '../../components/ui/Input';
 import { apiFetch } from '../../lib/apiFetch';
+import { useDebounce } from '../../hooks/useDebounce';
 
 type ScheduleRow = {
   id: string;
@@ -24,13 +27,21 @@ export default function SchedulesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ['schedules', 'list', page, pageSize],
-    queryFn: () =>
-      apiFetch<{ data: ScheduleRow[]; meta: { page: number; pageSize: number; total: number } }>(
-        `/working-schedules?page=${page}&pageSize=${pageSize}`,
-      ),
+    queryKey: ['schedules', 'list', page, pageSize, debouncedSearch],
+    queryFn: () => {
+      const q = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+        ...(debouncedSearch ? { q: debouncedSearch } : {}),
+      });
+      return apiFetch<{ data: ScheduleRow[]; meta: { page: number; pageSize: number; total: number } }>(
+        `/working-schedules?${q.toString()}`,
+      );
+    },
   });
 
   const columns = useMemo<ColumnDef<ScheduleRow, any>[]>(
@@ -114,6 +125,21 @@ export default function SchedulesPage() {
       />
       <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
+            <Input
+              type="text"
+              placeholder="Search schedules..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <Card className="p-0 overflow-hidden">
           <DataTable
             columns={columns}

@@ -21,8 +21,6 @@ declare global {
 }
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const token = req.cookies?.[ACCESS_COOKIE];
-  if (typeof token !== 'string' || token.length === 0) {
   let userId: string | undefined;
 
   // 1. Check Authorization: Bearer <jwt>
@@ -30,8 +28,8 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
     try {
-      const decoded = jwt.verify(token, env.JWT_SECRET) as AccessTokenPayload & { sub: string };
-      userId = decoded.sub;
+      const payload = verifyAccessToken(token);
+      userId = payload.sub;
     } catch {
       next(ApiError.unauthenticated('Invalid or expired JWT token'));
       return;
@@ -39,24 +37,20 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   }
 
   // 2. Check Cookie (pp_at)
-  if (!userId && req.cookies?.pp_at) {
+  if (!userId && req.cookies?.[ACCESS_COOKIE]) {
     try {
-      const decoded = jwt.verify(req.cookies.pp_at, env.JWT_SECRET) as AccessTokenPayload & {
-        sub: string;
-      };
-      userId = decoded.sub;
+      const payload = verifyAccessToken(req.cookies[ACCESS_COOKIE]);
+      userId = payload.sub;
     } catch {
       // Ignore cookie verify error, try fallback
     }
   }
 
   // 3. Fallback to query parameters (useful for direct browser PDF downloads)
-  if (!userId && req.query?.token && typeof req.query.token === 'string') {
+  if (!userId && typeof req.query?.token === 'string') {
     try {
-      const decoded = jwt.verify(req.query.token, env.JWT_SECRET) as AccessTokenPayload & {
-        sub: string;
-      };
-      userId = decoded.sub;
+      const payload = verifyAccessToken(req.query.token);
+      userId = payload.sub;
     } catch {
       // Ignore token verify error
     }
@@ -72,15 +66,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     return;
   }
 
-  let payload;
-  try {
-    payload = verifyAccessToken(token);
-  } catch {
-    next(ApiError.unauthenticated('Invalid or expired access token'));
-    return;
-  }
-
-  const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.status !== 'active') {
     next(ApiError.unauthenticated('Invalid or inactive session'));
     return;

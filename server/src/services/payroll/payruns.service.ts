@@ -7,7 +7,7 @@ import { NOTIFICATION_TYPE } from '../../../../shared/constants.js';
 import { getDayBreakdown } from '../dayAccounting.service.js';
 import { create as createNotification } from '../notifications.service.js';
 import { computePayslipForEmployee } from './compute.js';
-import { getPayslip } from './payslips.service.js';
+import { getPayslip, getPayslipPdf } from './payslips.service.js';
 import { renderPayslipPdf } from './payslipPdf.js';
 
 async function notifyQuietly(input: {
@@ -570,7 +570,7 @@ export async function sendPayslips(id: string) {
         include: {
           employee: {
             include: {
-              user: { select: { id: true } },
+              user: { select: { id: true, email: true } },
             },
           },
         },
@@ -582,7 +582,7 @@ export async function sendPayslips(id: string) {
     throw ApiError.notFound('Pay run not found');
   }
 
-  if (payrun.status !== 'paid') {
+  if (payrun.status !== 'paid' && payrun.status !== 'validated' && (payrun.status as string) !== 'done') {
     throw ApiError.conflict(`Cannot send payslips for pay run in state '${payrun.status}'`);
   }
 
@@ -591,13 +591,12 @@ export async function sendPayslips(id: string) {
 
   for (const ps of payrun.payslips) {
     try {
-      const recipientEmail = ps.employee.workEmail;
+      const recipientEmail = ps.employee.workEmail || ps.employee.user?.email;
       if (!recipientEmail) {
-        throw new Error('Employee has no work email address');
+        throw new Error('Employee has no email address');
       }
 
-      const detail = await getPayslip(ps.id);
-      const pdfBuffer = renderPayslipPdf(detail);
+      const pdfBuffer = await getPayslipPdf(ps.id);
 
       await sendMail({
         to: recipientEmail,

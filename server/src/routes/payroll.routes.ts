@@ -268,9 +268,9 @@ router.post(
 router.post(
   '/payruns/:id/send-payslips',
   requireAuth,
-  requireRole(USER_ROLE.hr_payroll_manager),
+  requireRole(USER_ROLE.hr_payroll_user),
   validate({ params: idParamSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const data = await payrunsService.sendPayslips(pathId(req));
       res.json({ data });

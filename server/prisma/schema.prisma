@@ -1,0 +1,432 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  baseCurrency String   @default("INR")
+  timezone     String   @default("Asia/Kolkata")
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  departments      Department[]
+  employees        Employee[]
+  workingSchedules WorkingSchedule[]
+  publicHolidays   PublicHoliday[]
+  timeOffTypes     TimeOffType[]
+  salaryStructures SalaryStructure[]
+  payruns          Payrun[]
+  @@map("companies")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  passwordHash String?
+  role         String    @default("employee")
+  status       String    @default("invited")
+  employeeId   String?   @unique @db.Uuid
+  lastLoginAt  DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+
+  employee       Employee?       @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  refreshTokens  RefreshToken[]
+  authTokens     AuthToken[]
+  notifications  Notification[]
+  payrunsCreated Payrun[]        @relation("PayrunCreatedBy")
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuthToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  purpose   String
+  expiresAt DateTime  @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("auth_tokens")
+}
+
+model Department {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @db.Uuid
+  name      String   @unique
+  code      String   @unique
+  managerId String?  @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  manager   Employee?  @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+  employees Employee[] @relation("EmployeeDepartment")
+  contracts Contract[]
+  @@map("departments")
+}
+
+model Employee {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String   @db.Uuid
+  firstName          String
+  lastName           String
+  workEmail          String   @unique
+  personalEmail      String?
+  phone              String?
+  departmentId       String   @db.Uuid
+  jobPosition        String
+  managerId          String?  @db.Uuid
+  workingScheduleId  String   @db.Uuid
+  employeeType       String
+  status             String   @default("active")
+  joiningDate        DateTime @db.Date
+  workLocation       String?
+  bankName           String?
+  bankAccountHolder  String?
+  bankAccountNumber  String?
+  bankIfsc           String?
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  department         Department          @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: Restrict)
+  manager            Employee?           @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports            Employee[]          @relation("EmployeeManager")
+  workingSchedule    WorkingSchedule     @relation(fields: [workingScheduleId], references: [id], onDelete: Restrict)
+  managedDepartments Department[]        @relation("DepartmentManager")
+  user               User?
+  contracts          Contract[]
+  attendanceRecords  AttendanceRecord[]
+  allocations        TimeOffAllocation[] @relation("AllocationEmployee")
+  approvedAllocations TimeOffAllocation[] @relation("AllocationApprover")
+  timeOffRequests    TimeOffRequest[]    @relation("RequestEmployee")
+  approvedRequests   TimeOffRequest[]    @relation("RequestApprover")
+  payslips           Payslip[]
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("employees")
+}
+
+model WorkingSchedule {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String   @db.Uuid
+  name        String   @unique
+  timezone    String
+  daysPerWeek Int      @default(0)
+  hoursPerWeek Decimal @default(0) @db.Decimal(5, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  days      WorkingScheduleDay[]
+  employees Employee[]
+  contracts Contract[]
+  @@map("working_schedules")
+}
+
+model WorkingScheduleDay {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheduleId String  @db.Uuid
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  breakHours Decimal @default(0) @db.Decimal(4, 2)
+  hours      Decimal @db.Decimal(4, 2)
+
+  schedule WorkingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, dayOfWeek])
+  @@map("working_schedule_days")
+}
+
+model PublicHoliday {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @db.Uuid
+  name      String
+  date      DateTime @db.Date
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, date])
+  @@map("public_holidays")
+}
+
+model Contract {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference          String    @unique
+  employeeId         String    @db.Uuid
+  departmentId       String    @db.Uuid
+  jobPosition        String
+  workingScheduleId  String    @db.Uuid
+  salaryStructureId  String    @db.Uuid
+  startDate          DateTime  @db.Date
+  endDate            DateTime? @db.Date
+  wage               Decimal   @db.Decimal(14, 2)
+  currency           String
+  status             String    @default("draft")
+  notes              String?
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  department      Department      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  workingSchedule WorkingSchedule @relation(fields: [workingScheduleId], references: [id], onDelete: Restrict)
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Restrict)
+  payslips        Payslip[]
+
+  @@index([employeeId, startDate])
+  @@index([status])
+  @@map("contracts")
+}
+
+model AttendanceRecord {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId    String    @db.Uuid
+  date          DateTime  @db.Date
+  checkIn       DateTime? @db.Timestamptz(6)
+  checkOut      DateTime? @db.Timestamptz(6)
+  workedHours   Decimal   @default(0) @db.Decimal(6, 2)
+  overtimeHours Decimal   @default(0) @db.Decimal(6, 2)
+  status        String
+  notes         String?
+  isManualEdit  Boolean   @default(false)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@map("attendance_records")
+}
+
+model TimeOffType {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String   @db.Uuid
+  name               String   @unique
+  code               String   @unique
+  unit               String   @default("days")
+  requiresAllocation Boolean  @default(true)
+  isPaid             Boolean  @default(true)
+  approvalRole       String   @default("hr_manager")
+  color              String
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  allocations TimeOffAllocation[]
+  requests    TimeOffRequest[]
+  @@map("time_off_types")
+}
+
+model TimeOffAllocation {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId    String   @db.Uuid
+  timeOffTypeId String   @db.Uuid
+  allocated     Decimal  @db.Decimal(6, 2)
+  validFrom     DateTime @db.Date
+  validTo       DateTime @db.Date
+  status        String   @default("draft")
+  approverId    String?  @db.Uuid
+  description   String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  employee    Employee         @relation("AllocationEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  timeOffType TimeOffType      @relation(fields: [timeOffTypeId], references: [id], onDelete: Restrict)
+  approver    Employee?        @relation("AllocationApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  requests    TimeOffRequest[]
+
+  @@index([employeeId, timeOffTypeId])
+  @@map("time_off_allocations")
+}
+
+model TimeOffRequest {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId     String   @db.Uuid
+  timeOffTypeId  String   @db.Uuid
+  allocationId   String?  @db.Uuid
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  durationType   String   @default("full_day")
+  requestedHours Decimal? @db.Decimal(6, 2)
+  durationDays   Decimal  @db.Decimal(6, 2)
+  durationHours  Decimal  @db.Decimal(6, 2)
+  status         String   @default("to_approve")
+  approverId     String?  @db.Uuid
+  reason         String?
+  refusalReason  String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  employee    Employee           @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  timeOffType TimeOffType        @relation(fields: [timeOffTypeId], references: [id], onDelete: Restrict)
+  allocation  TimeOffAllocation? @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+  approver    Employee?          @relation("RequestApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, startDate])
+  @@index([status])
+  @@map("time_off_requests")
+}
+
+model SalaryStructure {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @db.Uuid
+  name      String   @unique
+  code      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  rules     SalaryRule[]
+  contracts Contract[]
+  payruns   Payrun[]
+  payslips  Payslip[]
+  @@map("salary_structures")
+}
+
+model SalaryRule {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  structureId    String   @db.Uuid
+  name           String
+  code           String
+  category       String
+  sequence       Int
+  computation    String
+  amount         Decimal? @db.Decimal(14, 2)
+  percentage     Decimal? @db.Decimal(7, 3)
+  percentageBase String?
+  formula        String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  structure SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@unique([structureId, code])
+  @@index([structureId, sequence])
+  @@map("salary_rules")
+}
+
+model Payrun {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String    @db.Uuid
+  name              String
+  salaryStructureId String    @db.Uuid
+  employeeType      String?
+  periodStart       DateTime  @db.Date
+  periodEnd         DateTime  @db.Date
+  payoutCurrency    String
+  exchangeRate      Decimal   @default(1) @db.Decimal(12, 6)
+  status            String    @default("draft")
+  paidAt            DateTime? @db.Timestamptz(6)
+  createdById       String?   @db.Uuid
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Restrict)
+  createdBy       User?           @relation("PayrunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  payslips        Payslip[]
+
+  @@index([periodStart])
+  @@map("payruns")
+}
+
+model Payslip {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payrunId          String    @db.Uuid
+  employeeId        String    @db.Uuid
+  contractId        String?   @db.Uuid
+  salaryStructureId String    @db.Uuid
+  periodStart       DateTime  @db.Date
+  periodEnd         DateTime  @db.Date
+  currency          String
+  payoutCurrency    String
+  exchangeRate      Decimal   @db.Decimal(12, 6)
+  scheduledDays     Decimal   @default(0) @db.Decimal(6, 2)
+  workedDays        Decimal   @default(0) @db.Decimal(6, 2)
+  paidLeaveDays     Decimal   @default(0) @db.Decimal(6, 2)
+  unpaidLeaveDays   Decimal   @default(0) @db.Decimal(6, 2)
+  absentDays        Decimal   @default(0) @db.Decimal(6, 2)
+  overtimeHours     Decimal   @default(0) @db.Decimal(6, 2)
+  proration         Decimal   @default(0) @db.Decimal(8, 6)
+  basic             Decimal   @default(0) @db.Decimal(14, 2)
+  gross             Decimal   @default(0) @db.Decimal(14, 2)
+  totalDeductions   Decimal   @default(0) @db.Decimal(14, 2)
+  net               Decimal   @default(0) @db.Decimal(14, 2)
+  status            String    @default("draft")
+  warnings          Json      @default("[]")
+  archivedAt        DateTime? @db.Timestamptz(6)
+  sentAt            DateTime? @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+
+  payrun          Payrun          @relation(fields: [payrunId], references: [id], onDelete: Cascade)
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  contract        Contract?       @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Restrict)
+  lines           PayslipLine[]
+
+  @@index([payrunId])
+  @@index([employeeId, periodStart])
+  @@map("payslips")
+}
+
+model PayslipLine {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payslipId String  @db.Uuid
+  ruleCode  String
+  ruleName  String
+  category  String
+  sequence  Int
+  amount    Decimal @db.Decimal(14, 2)
+
+  payslip Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@index([payslipId, sequence])
+  @@map("payslip_lines")
+}
+
+model Notification {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  type      String
+  title     String
+  body      String
+  linkPath  String?
+  readAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}

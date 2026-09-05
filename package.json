@@ -1,0 +1,18 @@
+{
+  "name": "peoplepay360",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "npm install && npm install --prefix server && npm install --prefix web && npm run gen:types && npm run db:generate",
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev --prefix server\" \"npm run dev --prefix web\"",
+    "gen:types": "openapi-typescript openapi.yaml -o shared/api-types.ts",
+    "db:generate": "npm run db:generate --prefix server",
+    "db:push": "npm run db:push --prefix server",
+    "db:seed": "npm run db:seed --prefix server",
+    "build": "npm run build --prefix server && npm run build --prefix web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "openapi-typescript": "^7.6.1"
+  }
+}

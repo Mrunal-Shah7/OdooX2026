@@ -17,7 +17,7 @@ export function Popover({ trigger, children, open, onOpenChange, className }: Po
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
           className={cn(
-            'z-dropdown rounded-md border border-border bg-surface-raised p-4 shadow-md focus:outline-none',
+            'z-[500] rounded-md border border-border bg-surface-raised p-4 shadow-md focus:outline-none',
             className,
           )}
           sideOffset={4}

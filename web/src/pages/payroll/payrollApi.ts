@@ -1,3 +1,5 @@
+import { getStoredAuthToken, getStoredUserId } from '../../lib/session';
+
 export type SalaryStructure = {
   id: string;
   name: string;
@@ -72,6 +74,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
 
+  const token = getStoredAuthToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const userId = getStoredUserId();
+  if (userId) {
+    headers.set('x-user-id', userId);
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers,
@@ -92,7 +104,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const payrollApi = {
-  getSalaryStructures(): Promise<{ data: SalaryStructure[] }> {
+  getSalaryStructures(): Promise<SalaryStructure[]> {
     return request('/api/payroll/structures');
   },
 
@@ -101,7 +113,7 @@ export const payrollApi = {
     periodEnd: string;
     structureId: string;
     employeeType?: string;
-  }): Promise<{ data: EligibleEmployee[] }> {
+  }): Promise<EligibleEmployee[]> {
     const query = new URLSearchParams({
       periodStart: params.periodStart,
       periodEnd: params.periodEnd,
@@ -113,7 +125,7 @@ export const payrollApi = {
     return request(`/api/payroll/payruns/eligible-employees?${query.toString()}`);
   },
 
-  getPayruns(): Promise<{ data: Payrun[] }> {
+  getPayruns(): Promise<Payrun[]> {
     return request('/api/payroll/payruns');
   },
 

@@ -39,8 +39,9 @@ export function Select({
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          className="z-dropdown overflow-hidden rounded-md border border-border bg-surface-raised shadow-md"
+          className="z-[500] max-h-60 overflow-y-auto rounded-md border border-border bg-surface-raised p-1 shadow-lg min-w-[var(--radix-select-trigger-width)]"
           position="popper"
+          sideOffset={4}
         >
           <SelectPrimitive.Viewport className="p-1">
             {options.map((opt) => (

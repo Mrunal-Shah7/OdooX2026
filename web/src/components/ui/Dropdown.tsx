@@ -21,7 +21,7 @@ export function Dropdown({ trigger, items, align = 'end' }: DropdownProps) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align={align}
-          className="z-dropdown min-w-40 rounded-md border border-border bg-surface-raised p-1 shadow-md"
+          className="z-[500] min-w-40 rounded-md border border-border bg-surface-raised p-1 shadow-md"
         >
           {items.map((item) => (
             <DropdownMenu.Item

@@ -132,6 +132,13 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
         employeeIds: Array.from(selectedEmployeeIds),
       });
 
+      // Auto-compute the pay run immediately so payslip figures & lines are computed
+      if (created?.payrun?.id) {
+        await payrollApi.computePayrun(created.payrun.id).catch((err) => {
+          console.warn('Auto-compute notice:', err);
+        });
+      }
+
       setOpen(false);
       setStep(1);
       if (onSuccess) onSuccess();

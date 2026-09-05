@@ -31,6 +31,14 @@ export function getStoredUserId(): string | null {
   return readStoredUserId();
 }
 
+export function getStoredAuthToken(): string | null {
+  try {
+    return sessionStorage.getItem('pp360_auth_token') || null;
+  } catch {
+    return null;
+  }
+}
+
 export function clearStoredUserId(): void {
   try {
     sessionStorage.removeItem(SESSION_KEY);

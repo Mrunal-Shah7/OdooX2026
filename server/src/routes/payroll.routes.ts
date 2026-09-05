@@ -328,10 +328,11 @@ router.get(
   '/payslips/:id/pdf',
   requireAuth,
   validate({ params: idParamSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const pdf = await payslipsService.getPayslipPdf(pathId(req));
       res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="payslip.pdf"');
       res.send(pdf);
     } catch (err) {
       next(err);

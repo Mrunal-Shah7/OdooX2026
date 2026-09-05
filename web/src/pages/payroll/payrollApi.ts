@@ -1,3 +1,5 @@
+import { getStoredAuthToken, getStoredUserId } from '../../lib/session';
+
 export type SalaryStructure = {
   id: string;
   name: string;
@@ -42,6 +44,8 @@ export type Payrun = {
 
 export type PayslipSummary = {
   id: string;
+  payrunId: string;
+  payrunName: string;
   employee: {
     id: string;
     firstName: string;
@@ -90,6 +94,56 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   return body?.data !== undefined ? body.data : body;
 }
+
+export type PayslipDetail = {
+  payslip: {
+    id: string;
+    payrunId: string;
+    payrunName: string;
+    employee: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      workEmail: string;
+      jobPosition: string;
+      departmentName: string;
+    };
+    contract: {
+      id: string;
+      reference: string;
+      wage: string;
+      currency: string;
+    } | null;
+    salaryStructure: { id: string; name: string; code: string };
+    periodStart: string;
+    periodEnd: string;
+    currency: 'INR' | 'USD';
+    payoutCurrency: 'INR' | 'USD';
+    exchangeRate: string;
+    scheduledDays: string;
+    workedDays: string;
+    paidLeaveDays: string;
+    unpaidLeaveDays: string;
+    absentDays: string;
+    overtimeHours: string;
+    proration: string;
+    basic: string;
+    gross: string;
+    totalDeductions: string;
+    net: string;
+    status: 'draft' | 'computed' | 'done' | 'paid';
+    archived: boolean;
+    sentAt: string | null;
+    warnings: { code: string; message: string; blocking: boolean }[];
+  };
+  lines: {
+    ruleCode: string;
+    ruleName: string;
+    category: 'basic' | 'allowance' | 'gross' | 'deduction' | 'net';
+    sequence: number;
+    amount: string;
+  }[];
+};
 
 export const payrollApi = {
   getSalaryStructures(): Promise<SalaryStructure[]> {
@@ -152,4 +206,63 @@ export const payrollApi = {
   sendPayslips(id: string): Promise<{ payslipId: string; sent: boolean; error: string | null }[]> {
     return request(`/api/payroll/payruns/${id}/send-payslips`, { method: 'POST' });
   },
+
+  getPayslips(params?: {
+    page?: number;
+    pageSize?: number;
+    employeeId?: string;
+    payrunId?: string;
+  }): Promise<PayslipSummary[]> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', params.page.toString());
+    if (params?.pageSize) query.set('pageSize', params.pageSize.toString());
+    if (params?.employeeId) query.set('employeeId', params.employeeId);
+    if (params?.payrunId) query.set('payrunId', params.payrunId);
+
+    const qStr = query.toString();
+    return request(`/api/payroll/payslips${qStr ? `?${qStr}` : ''}`);
+  },
+
+  getPayslip(id: string): Promise<PayslipDetail> {
+    return request(`/api/payroll/payslips/${id}`);
+  },
+
+  archivePayslip(id: string): Promise<PayslipSummary> {
+    return request(`/api/payroll/payslips/${id}/archive`, { method: 'POST' });
+  },
+
+  async downloadPayslipPdf(id: string): Promise<Blob> {
+    const headers = new Headers();
+    const token = getStoredAuthToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    const userId = getStoredUserId();
+    if (userId) {
+      headers.set('x-user-id', userId);
+    }
+
+    const response = await fetch(`${baseUrl}/api/payroll/payslips/${id}/pdf`, {
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error?.message || `Failed to download PDF (Status ${response.status})`);
+    }
+
+    return response.blob();
+  },
+
+  getPayslipPdfUrl(id: string): string {
+    const token = getStoredAuthToken();
+    const userId = getStoredUserId();
+    const query = new URLSearchParams();
+    if (token) query.set('token', token);
+    if (userId) query.set('userId', userId);
+    const qStr = query.toString();
+    return `${baseUrl}/api/payroll/payslips/${id}/pdf${qStr ? `?${qStr}` : ''}`;
+  },
 };
+

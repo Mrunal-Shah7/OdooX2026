@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import type { components } from '../../../../shared/api-types';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { startRoleWalkthrough } from '../../components/layout/RoleWalkthrough';
 import { Amount } from '../../components/ui/Amount';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -181,6 +182,14 @@ export default function ProfilePage() {
       <PageHeader
         title="My profile"
         subtitle="Your employee, contract, bank, and account information"
+        actions={
+          <Button
+            variant="accent"
+            onClick={startRoleWalkthrough}
+          >
+            Start walkthrough
+          </Button>
+        }
       />
 
       <div className="px-5 pb-8">
@@ -568,6 +577,7 @@ export default function ProfilePage() {
           ]}
         />
       </div>
+
     </>
   );
 }

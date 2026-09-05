@@ -5,6 +5,7 @@ export type NavTabItem = {
   label: string;
   to: string;
   isExact?: boolean;
+  walkthroughId?: string;
 };
 
 type NavTabsProps = {
@@ -30,6 +31,7 @@ export function NavTabs({ tabs, className }: NavTabsProps) {
             aria-current={active ? 'page' : undefined}
             className="nav-tabs__link"
             data-active={active || undefined}
+            data-walkthrough-id={tab.walkthroughId}
           >
             {tab.label}
           </Link>

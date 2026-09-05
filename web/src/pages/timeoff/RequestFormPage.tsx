@@ -9,6 +9,7 @@ import { DatePicker } from '../../components/ui/DatePicker';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Select } from '../../components/ui/Select';
 import { FormSkeleton } from '../../components/ui/Skeleton';
 import { isHrManagerOrAbove } from '../../lib/permissions';
@@ -87,11 +88,44 @@ export default function RequestFormPage() {
   const search = useSearch({ strict: false }) as {
     startDate?: string;
     endDate?: string;
+    employeeId?: string;
   };
   const id = params.id ?? 'new';
   const isNew = id === 'new';
 
   const canApprove = user ? isHrManagerOrAbove(user.role) : false;
+
+  const [employeeId, setEmployeeId] = useState(search.employeeId ?? user?.employee?.id ?? '');
+
+  const [employeePage, setEmployeePage] = useState(1);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeesList, setEmployeesList] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
+
+  useEffect(() => {
+    setEmployeePage(1);
+    setEmployeesList([]);
+  }, [employeeSearch]);
+
+  const { isFetching: isFetchingEmployees } = useQuery({
+    queryKey: ['employees', { page: employeePage, pageSize: 10, q: employeeSearch }],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '10' });
+      if (employeeSearch) qs.set('q', employeeSearch);
+      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
+      const data = Array.isArray(res) ? res : res?.data;
+      const meta = Array.isArray(res) ? undefined : res?.meta;
+      if (data) {
+        setEmployeesList((prev) => {
+          const merged = [...prev, ...data];
+          return Array.from(new Map(merged.map((e: any) => [e.id, e])).values());
+        });
+        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
+      }
+      return res;
+    },
+    enabled: isNew && canApprove,
+  });
 
   // Types list
   const { data: typesData = [] } = useQuery<TimeOffType[]>({
@@ -137,12 +171,26 @@ export default function RequestFormPage() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const employeeId = user?.employee?.id;
-      if (!employeeId) throw new Error('User is not linked to an employee');
+      const targetEmpId = isNew && canApprove ? (employeeId || user?.employee?.id) : user?.employee?.id;
+      if (!targetEmpId) throw new Error('Please select an employee');
       if (!timeOffTypeId) throw new Error('Please select a time off type');
       if (!startDate) throw new Error('Start date is required');
       if (!endDate) throw new Error('End date is required');
       if (endDate < startDate) throw new Error('End date must be on or after start date');
+
+      const isWeekend = (dateStr: string) => {
+        const d = new Date(`${dateStr}T00:00:00.000Z`);
+        const day = d.getUTCDay();
+        return day === 0 || day === 6;
+      };
+
+      if (isWeekend(startDate)) {
+        throw new Error('Start date cannot be on a weekend (Saturday or Sunday)');
+      }
+      if (isWeekend(endDate)) {
+        throw new Error('End date cannot be on a weekend (Saturday or Sunday)');
+      }
+
       if (durationType === 'hours') {
         const hrs = parseFloat(requestedHours);
         if (isNaN(hrs) || hrs <= 0) throw new Error('Requested hours must be a positive number');
@@ -151,7 +199,7 @@ export default function RequestFormPage() {
       return apiRequest('/api/time-off/requests', {
         method: 'POST',
         body: JSON.stringify({
-          employeeId,
+          employeeId: targetEmpId,
           timeOffTypeId,
           startDate,
           endDate,
@@ -321,17 +369,44 @@ export default function RequestFormPage() {
             <CardBody className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="Employee">
-                <Input
-                  value={
-                    isNew
-                      ? user?.employee
-                        ? `${user.employee.firstName} ${user.employee.lastName}`
-                        : 'Current User'
-                      : `${request?.employee.firstName} ${request?.employee.lastName}`
-                  }
-                  readOnly
-                  className="bg-surface-sunken"
-                />
+                {isNew && canApprove ? (
+                  <SearchableSelect
+                    options={[
+                      ...(user?.employee
+                        ? [{ value: user.employee.id, label: `${user.employee.firstName} ${user.employee.lastName} (Me)` }]
+                        : []),
+                      ...employeesList.map((e) => ({
+                        value: e.id,
+                        label: `${e.firstName} ${e.lastName}`,
+                      })),
+                      ...(hasMoreEmployees
+                        ? [{ value: 'load_more', label: isFetchingEmployees ? 'Loading...' : 'Show more' }]
+                        : []),
+                    ]}
+                    value={employeeId}
+                    onValueChange={(val) => {
+                      if (val === 'load_more') {
+                        setEmployeePage((p) => p + 1);
+                        return;
+                      }
+                      setEmployeeId(val);
+                    }}
+                    onSearch={setEmployeeSearch}
+                    loading={isFetchingEmployees}
+                  />
+                ) : (
+                  <Input
+                    value={
+                      isNew
+                        ? user?.employee
+                          ? `${user.employee.firstName} ${user.employee.lastName}`
+                          : 'Current User'
+                        : `${request?.employee.firstName} ${request?.employee.lastName}`
+                    }
+                    readOnly
+                    className="bg-surface-sunken"
+                  />
+                )}
               </Field>
 
               <Field label="Time off type">
@@ -353,40 +428,32 @@ export default function RequestFormPage() {
                 )}
               </Field>
 
-              <div className="md:col-span-2">
-                <Field
-                  label={durationType === 'half_day' ? 'Request date' : 'Date range'}
-                  help={
-                    durationType === 'half_day'
-                      ? 'Half-day requests use one date'
-                      : 'Select the start and end dates'
-                  }
-                >
-                  {durationType === 'half_day' ? (
-                    <DatePicker
-                      mode="single"
-                      value={startDate}
-                      onChange={(value) => {
-                        setStartDate(value);
-                        setEndDate(value);
-                      }}
-                      readOnly={!isNew}
-                      ariaLabel="Time off request date"
-                    />
-                  ) : (
-                    <DatePicker
-                      mode="range"
-                      value={{ startDate, endDate }}
-                      onChange={(value) => {
-                        setStartDate(value.startDate);
-                        setEndDate(value.endDate);
-                      }}
-                      readOnly={!isNew}
-                      ariaLabel="Time off date range"
-                    />
-                  )}
-                </Field>
-              </div>
+              <Field label="Start date">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (durationType === 'half_day') {
+                      setEndDate(e.target.value);
+                    }
+                  }}
+                  readOnly={!isNew}
+                  className={`font-mono ${!isNew ? 'bg-surface-sunken' : ''}`}
+                />
+              </Field>
+
+              <Field label="End date">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  readOnly={!isNew || durationType === 'half_day'}
+                  className={`font-mono ${
+                    !isNew || durationType === 'half_day' ? 'bg-surface-sunken' : ''
+                  }`}
+                />
+              </Field>
 
               <Field label="Duration type">
                 {isNew ? (

@@ -18,13 +18,22 @@ const AARAV_EMPLOYEE_ID = 'e0000000-0000-4000-8000-000000000001';
 
 const HOLIDAYS_2026: { name: string; date: string }[] = [
   { name: 'Republic Day', date: '2026-01-26' },
-  { name: 'Holi', date: '2026-03-14' },
-  { name: 'Good Friday', date: '2026-03-25' },
+  { name: 'Holi', date: '2026-03-04' },
+  { name: 'Id-ul-Fitr', date: '2026-03-21' },
+  { name: 'Ram Navami', date: '2026-03-26' },
+  { name: 'Mahavir Jayanti', date: '2026-03-31' },
+  { name: 'Good Friday', date: '2026-04-03' },
+  { name: 'Buddha Purnima', date: '2026-05-01' },
+  { name: 'Id-ul-Zuha (Bakrid)', date: '2026-05-27' },
+  { name: 'Muharram', date: '2026-06-26' },
   { name: 'Independence Day', date: '2026-08-15' },
-  { name: 'Janmashtami', date: '2026-08-19' },
-  { name: 'Teachers Day', date: '2026-09-05' },
-  { name: 'Hindi Diwas', date: '2026-09-14' },
-  { name: 'Gandhi Jayanti', date: '2026-10-02' },
+  { name: "Milad-un-Nabi (Prophet's Birthday)", date: '2026-08-26' },
+  { name: 'Janmashtami', date: '2026-09-04' },
+  { name: "Mahatma Gandhi's Birthday", date: '2026-10-02' },
+  { name: 'Dussehra (Vijay Dashmi)', date: '2026-10-20' },
+  { name: 'Diwali (Deepavali)', date: '2026-11-08' },
+  { name: "Guru Nanak's Birthday", date: '2026-11-24' },
+  { name: 'Christmas Day', date: '2026-12-25' },
 ];
 
 const HOLIDAY_SET = new Set(HOLIDAYS_2026.map((h) => h.date));
@@ -498,7 +507,7 @@ async function main(): Promise<void> {
       name: 'Sick Leave',
       code: 'SICK',
       unit: 'days',
-      requiresAllocation: false,
+      requiresAllocation: true,
       isPaid: true,
       color: '#1a6b47',
     },
@@ -694,6 +703,23 @@ async function main(): Promise<void> {
       },
     });
     ptoAllocations.set(emp.id, alloc.id);
+  }
+
+  const sickAllocations = new Map<string, string>();
+  for (const emp of activeEmployees) {
+    const alloc = await prisma.timeOffAllocation.create({
+      data: {
+        employeeId: emp.id,
+        timeOffTypeId: sickType.id,
+        allocated: dec('20'),
+        validFrom: d('2026-01-01'),
+        validTo: d('2026-12-31'),
+        status: 'approved',
+        approverId: hrManagerEmployee?.id ?? null,
+        description: 'Annual Sick Leave 2026',
+      },
+    });
+    sickAllocations.set(emp.id, alloc.id);
   }
 
   const compEmployees = activeEmployees.slice(0, 6);

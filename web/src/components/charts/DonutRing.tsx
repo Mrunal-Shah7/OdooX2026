@@ -7,6 +7,7 @@ type DonutRingProps = {
   unit?: string;
   color?: string;
   isUnlimited?: boolean;
+  isUnpaid?: boolean;
   pending?: number;
 };
 
@@ -20,10 +21,11 @@ export function DonutRing({
   pending = 0,
 }: DonutRingProps) {
   const remaining = Math.max(0, total - value);
-  const hasBalance = isUnlimited || total > 0;
+  const hasAllocation = isUnlimited || total > 0;
+
   const data = isUnlimited
     ? [{ name: 'Unlimited', value: 1 }]
-    : hasBalance
+    : hasAllocation
       ? [
           { name: 'Taken', value },
           { name: 'Remaining', value: remaining },
@@ -51,14 +53,16 @@ export function DonutRing({
               stroke="none"
               isAnimationActive
             >
-              {isUnlimited ? (
-                <Cell fill={color} />
-              ) : (
-                <>
-                  {hasBalance ? <Cell fill={color} /> : null}
-                  <Cell fill={trackColor} />
-                </>
-              )}
+              {data.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={
+                    entry.name === 'Remaining' || entry.name === 'Unlimited'
+                      ? color
+                      : trackColor
+                  }
+                />
+              ))}
             </Pie>
             {!isUnlimited ? (
               <Tooltip formatter={(tooltipValue: number, tooltipName: string) => [`${tooltipValue.toFixed(2)}${unit ? ` ${unit}` : ''}`, tooltipName]} />
@@ -66,7 +70,7 @@ export function DonutRing({
           </PieChart>
         </ResponsiveContainer>
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-caption font-semibold text-text">
-          {isUnlimited ? '∞' : hasBalance ? `${Math.round((value / total) * 100)}%` : '—'}
+          {isUnlimited ? '∞' : hasAllocation ? `${Math.round((value / total) * 100)}%` : '—'}
         </span>
       </div>
       <div className="flex-1">
@@ -76,12 +80,18 @@ export function DonutRing({
             {!isUnlimited && (
               <tr>
                 <td className="text-text-muted">Allocated</td>
-                <td className="text-right font-mono">{total.toFixed(2)}{unit ? ` ${unit}` : ''}</td>
+                <td className="text-right font-mono">
+                  {total.toFixed(2)}
+                  {unit ? ` ${unit}` : ''}
+                </td>
               </tr>
             )}
             <tr>
               <td className="text-text-muted">Taken</td>
-              <td className="text-right font-mono">{value.toFixed(2)}{unit ? ` ${unit}` : ''}</td>
+              <td className="text-right font-mono">
+                {value.toFixed(2)}
+                {unit ? ` ${unit}` : ''}
+              </td>
             </tr>
             {isUnlimited ? (
               <tr>
@@ -109,7 +119,8 @@ export function DonutRing({
               <tr>
                 <td className="text-text-muted">Remaining</td>
                 <td className="text-right font-mono font-semibold text-text">
-                  {remaining.toFixed(2)}{unit ? ` ${unit}` : ''}
+                  {remaining.toFixed(2)}
+                  {unit ? ` ${unit}` : ''}
                 </td>
               </tr>
             )}

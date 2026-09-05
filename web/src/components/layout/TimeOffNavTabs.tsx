@@ -1,12 +1,18 @@
 import { NavTabs, type NavTabItem } from './NavTabs';
+import { isHrManagerOrAbove } from '../../lib/permissions';
+import { useSession } from '../../lib/session';
 
-const tabs: NavTabItem[] = [
+const employeeTabs: NavTabItem[] = [
   { label: 'Overview', to: '/time-off', isExact: true },
-  { label: 'Requests', to: '/time-off/requests' },
+  { label: 'Requests', to: '/time-off/requests', walkthroughId: 'timeoff-requests' },
   { label: 'Allocations', to: '/time-off/allocations' },
-  { label: 'Leave types', to: '/time-off/types' },
 ];
 
 export function TimeOffNavTabs() {
+  const { user } = useSession();
+  const tabs = isHrManagerOrAbove(user?.role ?? 'employee')
+    ? [...employeeTabs, { label: 'Leave types', to: '/time-off/types', walkthroughId: 'timeoff-leave-types' }]
+    : employeeTabs;
+
   return <NavTabs tabs={tabs} />;
 }

@@ -603,6 +603,19 @@ async function calculateRequestDuration(
   const scheduleDays = employee.workingSchedule?.days ?? [];
   const scheduledWeekdays = new Set(scheduleDays.map((d) => d.dayOfWeek));
 
+  const startIsoWeekday = getIsoWeekday(startDate);
+  const endIsoWeekday = getIsoWeekday(endDate);
+  if (startIsoWeekday === 6 || startIsoWeekday === 7) {
+    throw ApiError.validation('Start date cannot be on a weekend (Saturday or Sunday)', [
+      { field: 'startDate', message: 'Cannot start leave on a weekend' },
+    ]);
+  }
+  if (endIsoWeekday === 6 || endIsoWeekday === 7) {
+    throw ApiError.validation('End date cannot be on a weekend (Saturday or Sunday)', [
+      { field: 'endDate', message: 'Cannot end leave on a weekend' },
+    ]);
+  }
+
   const holidays = await prisma.publicHoliday.findMany({
     where: {
       date: {
@@ -613,13 +626,31 @@ async function calculateRequestDuration(
   });
   const holidaySet = new Set(holidays.map((h) => toDateOnly(h.date)));
 
+  if (holidaySet.has(startDate)) {
+    throw ApiError.validation('Start date cannot be on a public holiday', [
+      { field: 'startDate', message: 'Cannot start leave on a public holiday' },
+    ]);
+  }
+  if (holidaySet.has(endDate)) {
+    throw ApiError.validation('End date cannot be on a public holiday', [
+      { field: 'endDate', message: 'Cannot end leave on a public holiday' },
+    ]);
+  }
+
   const datesInRange = getDatesInRange(startDate, endDate);
   let workingDaysCount = 0;
   for (const d of datesInRange) {
     const weekday = getIsoWeekday(d);
-    if (!holidaySet.has(d) && scheduledWeekdays.has(weekday)) {
+    const isWeekend = weekday === 6 || weekday === 7;
+    if (!isWeekend && !holidaySet.has(d) && (scheduledWeekdays.size === 0 || scheduledWeekdays.has(weekday))) {
       workingDaysCount++;
     }
+  }
+
+  if (workingDaysCount === 0) {
+    throw ApiError.validation('Cannot request leave on weekends, public holidays, or non-working days', [
+      { field: 'startDate', message: 'No working days in selected range' },
+    ]);
   }
 
   let dailyHours = 8.0;
@@ -1235,6 +1266,7 @@ export async function getTimeOffDashboard(
           lte: new Date(`${yearEnd}T00:00:00.000Z`),
         },
       },
+      orderBy: { date: 'asc' },
     }),
     prisma.timeOffRequest.findMany({
       where: {
@@ -1274,7 +1306,7 @@ export async function getTimeOffDashboard(
   // Build calendar days
   const allDates = getDatesInRange(yearStart, yearEnd);
   const days = allDates.map((dateStr) => {
-    // 1. Holiday
+    // 1. Public Holiday
     const holidayName = holidayMap.get(dateStr);
     if (holidayName) {
       return {
@@ -1287,9 +1319,10 @@ export async function getTimeOffDashboard(
       };
     }
 
-    // 2. Non-working day
+    // 2. Non-working day: Saturday (6) and Sunday (7), or non-scheduled day
     const weekday = getIsoWeekday(dateStr);
-    if (!scheduledWeekdays.has(weekday)) {
+    const isWeekend = weekday === 6 || weekday === 7;
+    if (isWeekend || (scheduledWeekdays.size > 0 && !scheduledWeekdays.has(weekday))) {
       return {
         date: dateStr,
         kind: 'non_working' as const,

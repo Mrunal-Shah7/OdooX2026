@@ -10,15 +10,15 @@ export function NavMenu() {
 
   const items = [
     ...(showManagement
-      ? [{ label: 'Management', to: '/employees', prefixes: ['/employees', '/departments', '/contracts', '/schedules', '/holidays', '/users'] }]
+      ? [{ label: 'Management', to: '/employees', prefixes: ['/employees', '/departments', '/contracts', '/schedules', '/holidays', '/users'], walkthroughId: 'nav-management' }]
       : []),
-    { label: 'Attendance', to: '/attendance', prefixes: ['/attendance'] },
-    { label: 'Time off', to: '/time-off', prefixes: ['/time-off'] },
+    { label: 'Attendance', to: '/attendance', prefixes: ['/attendance'], walkthroughId: 'nav-attendance' },
+    { label: 'Time off', to: '/time-off', prefixes: ['/time-off'], walkthroughId: 'nav-time-off' },
     ...(role && can(role, CAPABILITY.readPayrollDashboardReports)
-      ? [{ label: 'Payroll', to: '/payroll', prefixes: ['/payroll'] }]
+      ? [{ label: 'Payroll', to: '/payroll', prefixes: ['/payroll'], walkthroughId: 'nav-payroll' }]
       : []),
     ...(role && can(role, CAPABILITY.readPayrollDashboardReports)
-      ? [{ label: 'Reports', to: '/reports', prefixes: ['/reports'] }]
+      ? [{ label: 'Reports', to: '/reports', prefixes: ['/reports'], walkthroughId: 'nav-reports' }]
       : []),
   ];
 
@@ -35,6 +35,7 @@ export function NavMenu() {
             aria-current={active ? 'page' : undefined}
             className="top-nav__link"
             data-active={active || undefined}
+            data-walkthrough-id={item.walkthroughId}
           >
             {item.label}
           </Link>

@@ -11,7 +11,9 @@ export function EmployeeNavTabs() {
     { label: 'Contracts', to: '/contracts' },
     { label: 'Working schedules', to: '/schedules' },
     { label: 'Public holidays', to: '/holidays' },
-    ...(showUsers ? [{ label: 'User management', to: '/users' }] : []),
+    ...(showUsers
+      ? [{ label: 'User management', to: '/users', walkthroughId: 'management-users' }]
+      : []),
   ];
 
   return <NavTabs tabs={tabs} />;

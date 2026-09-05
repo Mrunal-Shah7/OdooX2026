@@ -174,12 +174,14 @@ export default function TimeOffDashboardPage() {
             )}
             <Button
               variant={year === 2025 ? 'primary' : 'secondary'}
+              className={`${year === 2025 ? 'bg-primary text-white hover:bg-primary/90' : 'bg-secondary text-text hover:bg-secondary/90'}`}
               onClick={() => setYear(2025)}
             >
               2025
             </Button>
             <Button
               variant={year === 2026 ? 'primary' : 'secondary'}
+              className={`${year === 2026 ? 'bg-primary text-white hover:bg-primary/90' : 'bg-secondary text-text hover:bg-secondary/90'}`}
               onClick={() => setYear(2026)}
             >
               2026

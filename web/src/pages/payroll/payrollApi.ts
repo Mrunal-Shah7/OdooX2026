@@ -241,8 +241,13 @@ export const payrollApi = {
     return request(`/api/payroll/payruns/eligible-employees?${query.toString()}`);
   },
 
-  getPayruns(): Promise<Payrun[]> {
-    return request('/api/payroll/payruns');
+  getPayruns(params?: { q?: string; page?: number; pageSize?: number }): Promise<Payrun[]> {
+    const query = new URLSearchParams();
+    if (params?.q) query.set('q', params.q);
+    if (params?.page) query.set('page', params.page.toString());
+    if (params?.pageSize) query.set('pageSize', params.pageSize.toString());
+    const qStr = query.toString();
+    return request(`/api/payroll/payruns${qStr ? `?${qStr}` : ''}`);
   },
 
   getPayrun(id: string): Promise<PayrunDetailResponse> {
@@ -282,12 +287,14 @@ export const payrollApi = {
   },
 
   getPayslips(params?: {
+    q?: string;
     page?: number;
     pageSize?: number;
     employeeId?: string;
     payrunId?: string;
   }): Promise<PayslipSummary[]> {
     const query = new URLSearchParams();
+    if (params?.q) query.set('q', params.q);
     if (params?.page) query.set('page', params.page.toString());
     if (params?.pageSize) query.set('pageSize', params.pageSize.toString());
     if (params?.employeeId) query.set('employeeId', params.employeeId);

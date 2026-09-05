@@ -11,19 +11,18 @@ import {
   type PaginationState,
   type SortingState,
 } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { cn } from '../../lib/cn';
 import { EmptyState } from './EmptyState';
 import { Pagination } from './Pagination';
 import { Select } from './Select';
-import { DatePicker } from './DatePicker';
-import { Skeleton } from './Skeleton';
 
 export type ColumnMeta = {
   align?: "left" | "right" | "center";
   code?: boolean;
-  filterVariant?: "text" | "date" | "select";
+  filtejrVariant?: "text" | "date" | "select";
   filterOptions?: { label: string; value: string }[];
   filterPlaceholder?: string;
 };
@@ -39,7 +38,10 @@ type DataTableProps<T> = {
   isLoading?: boolean;
   emptyMessage?: string;
   totalCount?: number;
+  searchPlaceholder?: string;
   // Controlled filtering/sorting state for server-side or custom handling
+  globalFilter?: string;
+  onGlobalFilterChange?: (value: string) => void;
   columnFilters?: ColumnFiltersState;
   onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
   sorting?: SortingState;
@@ -63,6 +65,9 @@ export function DataTable<T>({
   isLoading = false,
   emptyMessage = "No records found.",
   totalCount,
+  searchPlaceholder,
+  globalFilter: externalGlobalFilter,
+  onGlobalFilterChange,
   columnFilters: externalColumnFilters,
   onColumnFiltersChange,
   sorting: externalSorting,
@@ -74,8 +79,29 @@ export function DataTable<T>({
   manualFiltering = false,
   manualSorting = false,
 }: DataTableProps<T>) {
-  const [internalColumnFilters, setInternalColumnFilters] =
-    useState<ColumnFiltersState>([]);
+  const [searchValue, setSearchValue] = useState<string>(externalGlobalFilter ?? '');
+  const debouncedSearchValue = useDebounce(searchValue, 300);
+
+  useEffect(() => {
+    if (externalGlobalFilter !== undefined && externalGlobalFilter !== searchValue) {
+      setSearchValue(externalGlobalFilter);
+    }
+  }, [externalGlobalFilter]);
+
+  const isServerFiltered = manualFiltering || onGlobalFilterChange !== undefined;
+  const globalFilter = externalGlobalFilter !== undefined ? externalGlobalFilter : debouncedSearchValue;
+
+  const prevDebouncedRef = useRef<string>(debouncedSearchValue);
+  useEffect(() => {
+    if (prevDebouncedRef.current !== debouncedSearchValue) {
+      prevDebouncedRef.current = debouncedSearchValue;
+      if (onGlobalFilterChange) {
+        onGlobalFilterChange(debouncedSearchValue);
+      }
+    }
+  }, [debouncedSearchValue, onGlobalFilterChange]);
+
+  const [internalColumnFilters, setInternalColumnFilters] = useState<ColumnFiltersState>([]);
   const [internalSorting, setInternalSorting] = useState<SortingState>([]);
   const [internalPagination, setInternalPagination] = useState<PaginationState>(
     {
@@ -104,6 +130,7 @@ export function DataTable<T>({
     data,
     columns,
     state: {
+      globalFilter,
       columnFilters,
       sorting,
       pagination,
@@ -112,13 +139,13 @@ export function DataTable<T>({
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
+    getFilteredRowModel: isServerFiltered ? undefined : getFilteredRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
     getPaginationRowModel: manualPagination
       ? undefined
       : getPaginationRowModel(),
     manualPagination,
-    manualFiltering,
+    manualFiltering: isServerFiltered,
     manualSorting,
     pageCount,
     meta,
@@ -135,7 +162,21 @@ export function DataTable<T>({
   const currentPage = pagination.pageIndex + 1;
 
   return (
-    <div className={cn("overflow-x-auto", className)}>
+    <div className={cn('overflow-x-auto', className)}>
+      {enableFiltering && (
+        <div className="flex items-center justify-between gap-4 border-b border-border bg-surface p-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder={searchPlaceholder ?? 'Search all records...'}
+              className="w-full rounded border border-border bg-surface-sunken py-1.5 pl-9 pr-3 text-body-sm text-text placeholder:text-text-muted outline-none focus:border-focus-ring"
+            />
+          </div>
+        </div>
+      )}
       <table className="w-full border-collapse text-body-sm">
         <thead>
           {table.getHeaderGroups().map((group) => (

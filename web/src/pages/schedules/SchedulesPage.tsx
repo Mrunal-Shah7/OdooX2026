@@ -2,16 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Search } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
-import { Input } from '../../components/ui/Input';
 import { apiFetch } from '../../lib/apiFetch';
-import { useDebounce } from '../../hooks/useDebounce';
 
 type ScheduleRow = {
   id: string;
@@ -28,15 +25,14 @@ export default function SchedulesPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ['schedules', 'list', page, pageSize, debouncedSearch],
+    queryKey: ['schedules', 'list', page, pageSize, search],
     queryFn: () => {
       const q = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize),
-        ...(debouncedSearch ? { q: debouncedSearch } : {}),
+        ...(search ? { q: search } : {}),
       });
       return apiFetch<{ data: ScheduleRow[]; meta: { page: number; pageSize: number; total: number } }>(
         `/working-schedules?${q.toString()}`,
@@ -125,26 +121,19 @@ export default function SchedulesPage() {
       />
       <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
-        <div className="flex items-center justify-between">
-          <div className="relative max-w-xs w-full">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
-            <Input
-              type="text"
-              placeholder="Search schedules..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9"
-            />
-          </div>
-        </div>
         <Card className="p-0 overflow-hidden">
           <DataTable
             columns={columns}
             data={response?.data ?? []}
             isLoading={isLoading}
+            searchPlaceholder="Search schedules..."
+            globalFilter={search}
+            onGlobalFilterChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            manualPagination={true}
+            manualFiltering={true}
             totalCount={response?.meta?.total ?? 0}
             pagination={{ pageIndex: page - 1, pageSize }}
             onPaginationChange={(newPag) => {

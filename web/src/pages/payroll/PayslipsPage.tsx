@@ -14,11 +14,12 @@ export default function PayslipsPage() {
   const [payslips, setPayslips] = useState<PayslipSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
-  const fetchPayslips = () => {
+  const fetchPayslips = (qStr?: string) => {
     setLoading(true);
     payrollApi
-      .getPayslips()
+      .getPayslips({ q: qStr !== undefined ? qStr : search })
       .then((res: any) => {
         const list: PayslipSummary[] = Array.isArray(res)
           ? res
@@ -153,7 +154,13 @@ export default function PayslipsPage() {
               columns={columns}
               data={payslips}
               isLoading={loading}
-              enableFiltering={true}
+              searchPlaceholder="Search payslips..."
+              globalFilter={search}
+              onGlobalFilterChange={(val) => {
+                setSearch(val);
+                fetchPayslips(val);
+              }}
+              manualFiltering={true}
               emptyMessage="No payslips found. Create and process a Pay run to generate payslips."
             />
           )}

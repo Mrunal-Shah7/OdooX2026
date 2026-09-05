@@ -1,18 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Trash2, Search } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
-import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { ApiClientError } from '../../lib/apiClient';
 import { useSession } from '../../lib/session';
-import { useDebounce } from '../../hooks/useDebounce';
 
 export type EmployeeListItem = {
   id: string;
@@ -92,16 +90,15 @@ export default function EmployeeDirectoryPage() {
   const isAdmin = user?.role === 'admin';
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
 
   const [deletingEmp, setDeletingEmp] = useState<EmployeeListItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const employeesQuery = useQuery({
-    queryKey: ['employees', { q: debouncedSearch, page }],
+    queryKey: ['employees', { q: search, page }],
     queryFn: () =>
       fetchEmployees({
-        q: debouncedSearch || undefined,
+        q: search || undefined,
         page,
         pageSize: 10,
       }),
@@ -222,28 +219,20 @@ export default function EmployeeDirectoryPage() {
       />
       <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
-        <div className="flex items-center justify-between">
-          <div className="relative max-w-xs w-full">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
-            <Input
-              type="text"
-              placeholder="Search employees..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9"
-            />
-          </div>
-        </div>
-        <Card>
+        <Card className="p-0 overflow-hidden">
           <DataTable
             columns={columns}
             data={employees}
             isLoading={employeesQuery.isLoading}
             emptyMessage="No employees found."
+            searchPlaceholder="Search employees..."
+            globalFilter={search}
+            onGlobalFilterChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
             manualPagination={true}
+            manualFiltering={true}
             totalCount={total}
             pageCount={meta?.totalPages ?? 1}
             pagination={{

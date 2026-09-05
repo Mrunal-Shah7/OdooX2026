@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Mail, Pencil, Plus, Search } from 'lucide-react';
+import { Mail, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -16,7 +16,6 @@ import { Select } from '../../components/ui/Select';
 import { apiFetch } from '../../lib/apiFetch';
 import { useSession } from '../../lib/session';
 import { showToast } from '../../lib/toast';
-import { useDebounce } from '../../hooks/useDebounce';
 import type { UserRole, UserStatus } from '../../../../shared/constants';
 
 type UserItem = {
@@ -60,7 +59,6 @@ export default function UsersPage() {
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
 
   // Modal states
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -81,12 +79,12 @@ export default function UsersPage() {
 
   // Queries
   const { data: usersData, isLoading: isUsersLoading, isError, refetch } = useQuery({
-    queryKey: ['users', { q: debouncedSearch, page }],
+    queryKey: ['users', { q: search, page }],
     queryFn: () => {
       const q = new URLSearchParams({
         page: String(page),
         pageSize: '10',
-        ...(debouncedSearch ? { q: debouncedSearch } : {}),
+        ...(search ? { q: search } : {}),
       });
       return apiFetch<UserListResponse>(`/users?${q.toString()}`);
     },
@@ -307,22 +305,6 @@ export default function UsersPage() {
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between">
-          <div className="relative max-w-xs w-full">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-text-muted" />
-            <Input
-              type="text"
-              placeholder="Search users..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
         <Card className="p-0 overflow-hidden">
           {isError ? (
             <div className="p-6">
@@ -334,7 +316,14 @@ export default function UsersPage() {
               data={users}
               isLoading={isUsersLoading}
               emptyMessage="No users found."
+              searchPlaceholder="Search users..."
+              globalFilter={search}
+              onGlobalFilterChange={(val) => {
+                setSearch(val);
+                setPage(1);
+              }}
               manualPagination={true}
+              manualFiltering={true}
               totalCount={usersData?.meta?.total ?? 0}
               pageCount={Math.ceil((usersData?.meta?.total ?? 0) / 10) || 1}
               pagination={{

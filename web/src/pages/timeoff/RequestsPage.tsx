@@ -96,6 +96,7 @@ export default function RequestsPage() {
   const { user } = useSession();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const pageSize = 20;
 
   const canApprove = user ? isHrManagerOrAbove(user.role) : false;
@@ -104,6 +105,9 @@ export default function RequestsPage() {
     page: String(page),
     pageSize: String(pageSize),
   };
+  if (search) {
+    queryParams.q = search;
+  }
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['timeOff', 'requests', queryParams],
@@ -251,7 +255,14 @@ export default function RequestsPage() {
               data={data?.data ?? []}
               isLoading={isLoading || isFetching}
               emptyMessage="No time off requests match your criteria."
+              searchPlaceholder="Search requests..."
+              globalFilter={search}
+              onGlobalFilterChange={(val) => {
+                setSearch(val);
+                setPage(1);
+              }}
               manualPagination={true}
+              manualFiltering={true}
               totalCount={data?.meta?.total ?? 0}
               pageCount={data?.meta ? Math.ceil(data.meta.total / pageSize) : 1}
               pagination={{

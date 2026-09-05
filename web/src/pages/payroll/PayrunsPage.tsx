@@ -19,12 +19,13 @@ export default function PayrunsPage() {
   const [payruns, setPayruns] = useState<Payrun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
-  const fetchPayruns = () => {
+  const fetchPayruns = (qStr?: string) => {
     if (!canAccessPayroll) return;
     setLoading(true);
     payrollApi
-      .getPayruns()
+      .getPayruns({ q: qStr !== undefined ? qStr : search })
       .then((res: any) => {
         const list: Payrun[] = Array.isArray(res)
           ? res
@@ -164,7 +165,13 @@ export default function PayrunsPage() {
               columns={columns}
               data={payruns}
               isLoading={loading}
-              enableFiltering={true}
+              searchPlaceholder="Search pay runs..."
+              globalFilter={search}
+              onGlobalFilterChange={(val) => {
+                setSearch(val);
+                fetchPayruns(val);
+              }}
+              manualFiltering={true}
               emptyMessage="No pay runs found. Click 'New pay run' above to create one."
             />
           )}

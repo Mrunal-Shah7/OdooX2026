@@ -1,55 +1,135 @@
+import { prisma } from '../../db/client.js';
+import { ApiError } from '../../lib/apiError.js';
 import { paginationMeta } from '../../lib/pagination.js';
 
-const stubStructure = {
-  id: '77777777-7777-4777-8777-777777777777',
-  name: 'India Monthly',
-  code: 'IN-MON',
-  active: true,
-  ruleCount: 5,
-  employeeCount: 12,
-};
+export async function listSalaryStructures(query: { page: number; pageSize: number; q?: string }) {
+  const { page, pageSize, q } = query;
+  const skip = (page - 1) * pageSize;
 
-const stubRule = {
-  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  structure: { id: '77777777-7777-4777-8777-777777777777', name: 'India Monthly', code: 'IN-MON' },
-  name: 'Basic Salary',
-  code: 'BASIC',
-  category: 'basic' as const,
-  sequence: 10,
-  computation: 'fixed' as const,
-  amount: '85000.00',
-  percentage: null,
-  percentageBase: null,
-  formula: null,
-  active: true,
-};
+  const where = q
+    ? {
+        OR: [
+          { name: { contains: q, mode: 'insensitive' as const } },
+          { code: { contains: q, mode: 'insensitive' as const } },
+        ],
+      }
+    : {};
 
-export async function listSalaryStructures(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+  const [total, items] = await Promise.all([
+    prisma.salaryStructure.count({ where }),
+    prisma.salaryStructure.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: {
+            rules: true,
+            contracts: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const data = items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    code: item.code,
+    active: item.active,
+    ruleCount: item._count.rules,
+    employeeCount: item._count.contracts,
+  }));
+
   return {
-    data: [stubStructure],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    data,
+    meta: paginationMeta(page, pageSize, total),
   };
 }
 
 export async function createSalaryStructure(body: { name: string; code: string; active?: boolean }) {
-  // TODO: STUB
+  // Get the default company ID
+  const company = await prisma.company.findFirst();
+  if (!company) {
+    throw ApiError.internal('Company record not found');
+  }
+
+  const existingCode = await prisma.salaryStructure.findUnique({
+    where: { code: body.code.toUpperCase() },
+  });
+  if (existingCode) {
+    throw ApiError.conflict(`Salary structure with code '${body.code.toUpperCase()}' already exists`);
+  }
+
+  const existingName = await prisma.salaryStructure.findUnique({
+    where: { name: body.name },
+  });
+  if (existingName) {
+    throw ApiError.conflict(`Salary structure with name '${body.name}' already exists`);
+  }
+
+  const created = await prisma.salaryStructure.create({
+    data: {
+      companyId: company.id,
+      name: body.name,
+      code: body.code.toUpperCase(),
+      active: body.active ?? true,
+    },
+  });
+
   return {
-    ...stubStructure,
-    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-    name: body.name,
-    code: body.code,
-    active: body.active ?? true,
+    id: created.id,
+    name: created.name,
+    code: created.code,
+    active: created.active,
     ruleCount: 0,
     employeeCount: 0,
   };
 }
 
 export async function getSalaryStructure(id: string) {
-  // TODO: STUB
+  const structure = await prisma.salaryStructure.findUnique({
+    where: { id },
+    include: {
+      rules: {
+        orderBy: [{ sequence: 'asc' }, { code: 'asc' }],
+      },
+      _count: {
+        select: {
+          contracts: true,
+        },
+      },
+    },
+  });
+
+  if (!structure) {
+    throw ApiError.notFound('Salary structure not found');
+  }
+
   return {
-    structure: { ...stubStructure, id },
-    rules: [stubRule],
+    structure: {
+      id: structure.id,
+      name: structure.name,
+      code: structure.code,
+      active: structure.active,
+      ruleCount: structure.rules.length,
+      employeeCount: structure._count.contracts,
+    },
+    rules: structure.rules.map((r) => ({
+      id: r.id,
+      structureId: r.structureId,
+      name: r.name,
+      code: r.code,
+      category: r.category,
+      sequence: r.sequence,
+      computation: r.computation,
+      amount: r.amount ? r.amount.toString() : null,
+      percentage: r.percentage ? r.percentage.toString() : null,
+      percentageBase: r.percentageBase,
+      formula: r.formula,
+      active: r.active,
+    })),
   };
 }
 
@@ -57,72 +137,30 @@ export async function updateSalaryStructure(
   id: string,
   body: { name?: string; active?: boolean },
 ) {
-  // TODO: STUB
-  return { ...stubStructure, id, ...body };
-}
+  const existing = await prisma.salaryStructure.findUnique({ where: { id } });
+  if (!existing) {
+    throw ApiError.notFound('Salary structure not found');
+  }
 
-export async function listSalaryRules(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+  const updated = await prisma.salaryStructure.update({
+    where: { id },
+    data: {
+      name: body.name ?? existing.name,
+      active: body.active ?? existing.active,
+    },
+    include: {
+      _count: {
+        select: { rules: true, contracts: true },
+      },
+    },
+  });
+
   return {
-    data: [stubRule],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    id: updated.id,
+    name: updated.name,
+    code: updated.code,
+    active: updated.active,
+    ruleCount: updated._count.rules,
+    employeeCount: updated._count.contracts,
   };
-}
-
-export async function createSalaryRule(body: {
-  structureId: string;
-  name: string;
-  code: string;
-  category: 'basic' | 'allowance' | 'gross' | 'deduction' | 'net';
-  sequence: number;
-  computation: 'fixed' | 'percentage' | 'formula';
-  amount?: string;
-  percentage?: string | null;
-  percentageBase?: 'contract_wage' | 'basic' | 'gross' | null;
-  formula?: string | null;
-  active?: boolean;
-}) {
-  // TODO: STUB
-  return {
-    ...stubRule,
-    id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    structure: { id: body.structureId, name: 'India Monthly', code: 'IN-MON' },
-    name: body.name,
-    code: body.code,
-    category: body.category,
-    sequence: body.sequence,
-    computation: body.computation,
-    amount: body.amount ?? '0.00',
-    percentage: body.percentage ?? null,
-    percentageBase: body.percentageBase ?? null,
-    formula: body.formula ?? null,
-    active: body.active ?? true,
-  };
-}
-
-export async function getSalaryRule(id: string) {
-  // TODO: STUB
-  return { ...stubRule, id };
-}
-
-export async function updateSalaryRule(
-  id: string,
-  body: Partial<{
-    name: string;
-    category: 'basic' | 'allowance' | 'gross' | 'deduction' | 'net';
-    sequence: number;
-    computation: 'fixed' | 'percentage' | 'formula';
-    amount: string;
-    percentage: string | null;
-    percentageBase: 'contract_wage' | 'basic' | 'gross' | null;
-    formula: string | null;
-    active: boolean;
-  }>,
-) {
-  // TODO: STUB
-  return { ...stubRule, id, ...body };
-}
-
-export async function deleteSalaryRule(_id: string) {
-  // TODO: STUB
 }

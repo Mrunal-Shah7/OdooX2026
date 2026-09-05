@@ -1,7 +1,8 @@
 import { prisma } from '../db/client.js';
 import { ApiError } from '../lib/apiError.js';
 import { paginationMeta } from '../lib/pagination.js';
-import type { UserRole, UserStatus } from '../../../shared/constants.js';
+import { USER_STATUS, type UserRole, type UserStatus } from '../../../shared/constants.js';
+import { issueInviteEmail } from './auth.service.js';
 
 export async function listUsers(query: { page: number; pageSize: number; q?: string; role?: UserRole }) {
   const where: any = {};
@@ -68,18 +69,28 @@ export async function createUser(body: {
   role: UserRole;
   employeeId?: string | null;
 }) {
-  const existing = await prisma.user.findUnique({
-    where: { email: body.email.toLowerCase() },
-  });
+  const email = body.email.toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw ApiError.conflict('User with this email already exists');
   }
 
+  if (body.employeeId) {
+    const employee = await prisma.employee.findUnique({ where: { id: body.employeeId } });
+    if (!employee) {
+      throw ApiError.notFound('Employee not found');
+    }
+    const linked = await prisma.user.findUnique({ where: { employeeId: body.employeeId } });
+    if (linked) {
+      throw ApiError.conflict('Employee is already linked to another user');
+    }
+  }
+
   const user = await prisma.user.create({
     data: {
-      email: body.email.toLowerCase(),
+      email,
       role: body.role,
-      status: 'invited',
+      status: USER_STATUS.invited,
       employeeId: body.employeeId || null,
     },
     include: {
@@ -95,6 +106,8 @@ export async function createUser(body: {
       },
     },
   });
+
+  await issueInviteEmail({ id: user.id, email: user.email });
 
   return {
     id: user.id,
@@ -211,4 +224,9 @@ export async function resendInvite(id: string) {
   if (!user) {
     throw ApiError.notFound('User not found');
   }
+  if (user.status !== USER_STATUS.invited) {
+    throw ApiError.conflict('Invite can only be resent for invited users');
+  }
+
+  await issueInviteEmail({ id: user.id, email: user.email });
 }

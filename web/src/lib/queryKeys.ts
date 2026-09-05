@@ -47,6 +47,7 @@ export const queryKeys = {
     all: ['users'] as const,
   },
   notifications: {
-    all: ['notifications'] as const,
+    all: (params?: Record<string, string | number | boolean>) =>
+      ['notifications', params ?? {}] as const,
   },
 };

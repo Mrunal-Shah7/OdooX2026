@@ -1,7 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import { cn } from '../../lib/cn';
 import { useSession } from '../../lib/session';
-import { isHrManagerOrAbove, isPayrollRole } from '../../lib/permissions';
+import { can, CAPABILITY } from '../../lib/permissions';
 
 export function NavMenu() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -12,10 +12,10 @@ export function NavMenu() {
     { label: 'Employees', to: '/employees', prefixes: ['/employees', '/departments', '/contracts', '/schedules', '/holidays', '/users'] },
     { label: 'Attendance', to: '/attendance', prefixes: ['/attendance'] },
     { label: 'Time off', to: '/time-off', prefixes: ['/time-off'] },
-    ...(role && isPayrollRole(role)
+    ...(role && can(role, CAPABILITY.readPayrollDashboardReports)
       ? [{ label: 'Payroll', to: '/payroll', prefixes: ['/payroll'] }]
       : []),
-    ...(role && (isHrManagerOrAbove(role) || isPayrollRole(role))
+    ...(role && can(role, CAPABILITY.readPayrollDashboardReports)
       ? [{ label: 'Reports', to: '/reports', prefixes: ['/reports'] }]
       : []),
   ];

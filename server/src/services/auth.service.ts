@@ -139,6 +139,60 @@ export async function getCurrentUser(userId: string) {
   return toSessionUser(user);
 }
 
+/** Create a single-use auth link token, email it, delete the row if send fails. */
+export async function issueAuthTokenEmail(input: {
+  userId: string;
+  email: string;
+  purpose: (typeof AUTH_TOKEN_PURPOSE)[keyof typeof AUTH_TOKEN_PURPOSE];
+  subject: string;
+  html: (link: string) => string;
+}): Promise<void> {
+  const rawToken = generateOpaqueToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + AUTH_TOKEN_TTL_MS);
+
+  await prisma.authToken.updateMany({
+    where: {
+      userId: input.userId,
+      purpose: input.purpose,
+      usedAt: null,
+    },
+    data: { usedAt: new Date() },
+  });
+
+  const created = await prisma.authToken.create({
+    data: {
+      userId: input.userId,
+      tokenHash,
+      purpose: input.purpose,
+      expiresAt,
+    },
+  });
+
+  const link = `${env.APP_URL}/set-password?token=${rawToken}`;
+  try {
+    await sendMail({
+      to: input.email,
+      subject: input.subject,
+      html: input.html(link),
+    });
+  } catch (err) {
+    await prisma.authToken.delete({ where: { id: created.id } });
+    throw err;
+  }
+}
+
+export async function issueInviteEmail(user: { id: string; email: string }): Promise<void> {
+  await issueAuthTokenEmail({
+    userId: user.id,
+    email: user.email,
+    purpose: AUTH_TOKEN_PURPOSE.invite,
+    subject: 'Set up your PeoplePay360 account',
+    html: (link) =>
+      `<p>You are invited to PeoplePay360. Set your password using this link (expires in 72 hours):</p><p><a href="${link}">${link}</a></p>`,
+  });
+}
+
 export async function requestPasswordReset(body: { email: string }) {
   const user = await prisma.user.findUnique({
     where: { email: body.email.toLowerCase() },
@@ -147,39 +201,14 @@ export async function requestPasswordReset(body: { email: string }) {
     return;
   }
 
-  const rawToken = generateOpaqueToken();
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + AUTH_TOKEN_TTL_MS);
-
-  await prisma.authToken.updateMany({
-    where: {
-      userId: user.id,
-      purpose: AUTH_TOKEN_PURPOSE.password_reset,
-      usedAt: null,
-    },
-    data: { usedAt: new Date() },
+  await issueAuthTokenEmail({
+    userId: user.id,
+    email: user.email,
+    purpose: AUTH_TOKEN_PURPOSE.password_reset,
+    subject: 'Reset your PeoplePay360 password',
+    html: (link) =>
+      `<p>Reset your password using this link (expires in 72 hours):</p><p><a href="${link}">${link}</a></p>`,
   });
-
-  const created = await prisma.authToken.create({
-    data: {
-      userId: user.id,
-      tokenHash,
-      purpose: AUTH_TOKEN_PURPOSE.password_reset,
-      expiresAt,
-    },
-  });
-
-  const link = `${env.APP_URL}/set-password?token=${rawToken}`;
-  try {
-    await sendMail({
-      to: user.email,
-      subject: 'Reset your PeoplePay360 password',
-      html: `<p>Reset your password using this link (expires in 72 hours):</p><p><a href="${link}">${link}</a></p>`,
-    });
-  } catch (err) {
-    await prisma.authToken.delete({ where: { id: created.id } });
-    throw err;
-  }
 }
 
 export async function setPassword(body: { token: string; password: string }) {

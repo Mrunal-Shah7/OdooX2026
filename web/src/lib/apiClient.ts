@@ -1,4 +1,5 @@
 import type { UserRole, UserStatus } from '../../../shared/constants';
+import { refreshSessionOnce, shouldRefreshOn401 } from './apiFetch';
 import type { AuthUser } from './session';
 
 /** Same-origin `/api` via Vite proxy so httpOnly cookies stay on the app origin. */
@@ -39,6 +40,7 @@ export type SessionUser = AuthUser;
 async function request<T>(
   path: string,
   init: RequestInit = {},
+  retried = false,
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
@@ -49,6 +51,13 @@ async function request<T>(
     credentials: 'include',
     cache: 'no-store',
   });
+
+  if (response.status === 401 && !retried && shouldRefreshOn401(path)) {
+    const refreshed = await refreshSessionOnce();
+    if (refreshed) {
+      return request<T>(path, init, true);
+    }
+  }
 
   if (response.status === 204) {
     return undefined as T;

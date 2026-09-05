@@ -14,3 +14,5 @@ server/dist/
 .pnpm-debug.log*
 pnpm-debug.log*
 .modules.yaml
+
+.cursor

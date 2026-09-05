@@ -15,6 +15,7 @@ export default function PayslipDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<'contract' | 'payout'>('contract');
 
   const fetchDetail = () => {
@@ -39,6 +40,11 @@ export default function PayslipDetailPage() {
     return <div className="p-6 text-danger">Invalid payslip ID.</div>;
   }
 
+  const ps = data?.payslip;
+  const lines = data?.lines || [];
+  const emp = ps?.employee;
+  const contract = ps?.contract;
+
   const handleArchive = async () => {
     if (!confirm('Are you sure you want to archive this payslip?')) return;
     setArchiving(true);
@@ -52,8 +58,6 @@ export default function PayslipDetailPage() {
       setArchiving(false);
     }
   };
-
-  const [downloading, setDownloading] = useState(false);
 
   const handleDownloadPdf = async () => {
     if (!id) return;
@@ -75,11 +79,6 @@ export default function PayslipDetailPage() {
       setDownloading(false);
     }
   };
-
-  const ps = data?.payslip;
-  const lines = data?.lines || [];
-  const emp = ps?.employee;
-  const contract = ps?.contract;
 
   const getStatusBadge = (status?: string, archived?: boolean) => {
     if (archived) return <Badge variant="neutral">archived</Badge>;

@@ -252,6 +252,9 @@ export default function EmployeeFormPage() {
     departmentsQuery.isLoading ||
     schedulesQuery.isLoading;
 
+  const { user } = useSession();
+  const isAdmin = user?.role === 'admin';
+
   if (isDataLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -263,9 +266,6 @@ export default function EmployeeFormPage() {
   if (!isNew && employeeQuery.isError) {
     return <ErrorState onRetry={() => employeeQuery.refetch()} />;
   }
-
-  const { user } = useSession();
-  const isAdmin = user?.role === 'admin';
 
   if (isNew && !isAdmin) {
     return (

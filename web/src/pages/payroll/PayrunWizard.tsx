@@ -77,7 +77,6 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
         ? res.data
         : [];
       setEligibleEmployees(list);
-      // Select all candidate employees by default
       setSelectedEmployeeIds(new Set(list.map((e) => e.employee.id)));
       setStep(2);
     } catch (err: any) {
@@ -154,7 +153,6 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
   };
 
   const handleMonthChange = (monthValue: string) => {
-    // e.g. "2026-09"
     const [year, month] = monthValue.split('-').map(Number);
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();

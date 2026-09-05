@@ -1,98 +1,101 @@
-import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
-import { ErrorState } from '../../components/ui/ErrorState';
-import { useSession } from '../../lib/session';
-import { isPayrollRole } from '../../lib/permissions';
-import { apiFetch } from '../../lib/apiFetch';
-
-type StructureItem = {
-  id: string;
-  name: string;
-  code: string;
-  ruleCount?: number;
-  employeeCount?: number;
-};
+import { payrollApi, type SalaryStructure } from './payrollApi';
 
 export default function StructuresPage() {
-  const { user } = useSession();
-  const canAccessPayroll = user && isPayrollRole(user.role);
+  const navigate = useNavigate();
+  const [structures, setStructures] = useState<SalaryStructure[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['structures'],
-    queryFn: () => apiFetch<{ data: StructureItem[] }>('/payroll/structures'),
-    enabled: !!canAccessPayroll,
-  });
+  const fetchStructures = () => {
+    setLoading(true);
+    payrollApi
+      .getSalaryStructures()
+      .then((res: any) => {
+        const list: SalaryStructure[] = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+          ? res.data
+          : [];
+        setStructures(list);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  };
 
-  const columns = useMemo<ColumnDef<StructureItem, any>[]>(
-    () => [
-      {
-        accessorKey: 'name',
-        header: 'Structure',
-        cell: (info) => <span className="font-medium">{info.getValue()}</span>,
-      },
-      {
-        accessorKey: 'code',
-        header: 'Code',
-        meta: { code: true } as ColumnMeta,
-        cell: (info) => <span className="font-mono text-caption">{info.getValue()}</span>,
-      },
-      {
-        accessorKey: 'ruleCount',
-        header: 'Rules',
-        meta: { align: 'right' } as ColumnMeta,
-        cell: (info) => info.getValue() ?? 0,
-      },
-      {
-        accessorKey: 'employeeCount',
-        header: 'Employees',
-        meta: { align: 'right' } as ColumnMeta,
-        cell: (info) => info.getValue() ?? 0,
-      },
-    ],
-    [],
-  );
-
-  if (user && !canAccessPayroll) {
-    return (
-      <>
-        <PageHeader title="Salary structures" />
-        <div className="p-8 text-center">
-          <Card className="max-w-md mx-auto p-6 space-y-4">
-            <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
-            <p className="text-body-sm text-text-muted">
-              Only payroll administrators and payroll users can access salary structures.
-            </p>
-          </Card>
-        </div>
-      </>
-    );
-  }
-
-  const structures = data?.data ?? [];
+  useEffect(() => {
+    fetchStructures();
+  }, []);
 
   return (
     <>
-      <PageHeader title="Salary structures" actions={<Button variant="accent">New structure</Button>} />
       <PayrollNavTabs />
-      <div className="px-5 pb-6">
-        <Card className="p-0 overflow-hidden">
-          {isError ? (
-            <div className="p-6">
-              <ErrorState message="Could not load salary structures" onRetry={() => refetch()} />
-            </div>
+      <PageHeader
+        title="Salary structures"
+        subtitle="Manage payroll salary structures and rule sequences"
+        actions={
+          <Button variant="accent" onClick={() => navigate({ to: '/payroll/structures/$id', params: { id: 'new' } })}>
+            New structure
+          </Button>
+        }
+      />
+
+      <div className="px-5 pb-6 space-y-4">
+        {error && (
+          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
+            {error}
+          </div>
+        )}
+
+        <Card>
+          {loading ? (
+            <div className="p-8 text-center text-body-sm text-text-muted">Loading salary structures...</div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={structures}
-              isLoading={isLoading}
-              emptyMessage="No salary structures found."
-            />
+            <table className="w-full border-collapse text-body-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
+                  <th className="px-4 py-3">Structure Name</th>
+                  <th className="px-4 py-3 font-mono">Code</th>
+                  <th className="px-4 py-3 text-right font-mono">Attached Rules</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {structures.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-text-muted">
+                      No salary structures found. Click "New structure" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  structures.map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => navigate({ to: '/payroll/structures/$id', params: { id: s.id } })}
+                      className="border-b border-border hover:bg-primary-subtle/50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-text">{s.name}</td>
+                      <td className="px-4 py-3 font-mono text-caption text-text-muted">{s.code}</td>
+                      <td className="px-4 py-3 text-right font-mono">{s.ruleCount ?? 0} rules</td>
+                      <td className="px-4 py-3">
+                        {s.active ? (
+                          <Badge variant="success">active</Badge>
+                        ) : (
+                          <Badge variant="neutral">inactive</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           )}
         </Card>
       </div>

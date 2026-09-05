@@ -1,103 +1,165 @@
-import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
-import { ErrorState } from '../../components/ui/ErrorState';
-import { useSession } from '../../lib/session';
-import { isPayrollRole } from '../../lib/permissions';
-import { apiFetch } from '../../lib/apiFetch';
-
-type RuleItem = {
-  id: string;
-  name: string;
-  code: string;
-  sequence: number;
-  category: string;
-  structure?: { id: string; name: string };
-};
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { payrollApi, type SalaryRule, type SalaryStructure } from './payrollApi';
 
 export default function RulesPage() {
-  const { user } = useSession();
-  const canAccessPayroll = user && isPayrollRole(user.role);
+  const navigate = useNavigate();
+  const [rules, setRules] = useState<SalaryRule[]>([]);
+  const [structures, setStructures] = useState<SalaryStructure[]>([]);
+  const [selectedStructureId, setSelectedStructureId] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['rules'],
-    queryFn: () => apiFetch<{ data: RuleItem[] }>('/payroll/rules'),
-    enabled: !!canAccessPayroll,
+  const fetchRules = () => {
+    setLoading(true);
+    payrollApi
+      .getSalaryRules(selectedStructureId !== 'all' ? { structureId: selectedStructureId } : undefined)
+      .then((res: any) => {
+        const list: SalaryRule[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setRules(list);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    payrollApi
+      .getSalaryStructures()
+      .then((res: any) => {
+        const list: SalaryStructure[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setStructures(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchRules();
+  }, [selectedStructureId]);
+
+  const getCategoryBadge = (cat: string) => {
+    switch (cat) {
+      case 'basic':
+        return <Badge variant="neutral">basic</Badge>;
+      case 'allowance':
+        return <Badge variant="info">allowance</Badge>;
+      case 'gross':
+        return <Badge variant="warning">gross</Badge>;
+      case 'deduction':
+        return <Badge variant="danger">deduction</Badge>;
+      case 'net':
+        return <Badge variant="success">net</Badge>;
+      default:
+        return <Badge variant="neutral">{cat}</Badge>;
+    }
+  };
+
+  const filteredRules = rules.filter((r) => {
+    const matchSearch =
+      search === '' ||
+      r.name.toLowerCase().includes(search.toLowerCase()) ||
+      r.code.toLowerCase().includes(search.toLowerCase());
+    return matchSearch;
   });
-
-  const columns = useMemo<ColumnDef<RuleItem, any>[]>(
-    () => [
-      {
-        id: 'structure',
-        header: 'Structure',
-        cell: (info) => info.row.original.structure?.name ?? '—',
-      },
-      {
-        accessorKey: 'sequence',
-        header: 'Seq',
-        meta: { align: 'right' } as ColumnMeta,
-        cell: (info) => <span className="font-mono">{info.getValue()}</span>,
-      },
-      {
-        accessorKey: 'name',
-        header: 'Rule',
-        cell: (info) => <span className="font-medium">{info.getValue()}</span>,
-      },
-      {
-        accessorKey: 'code',
-        header: 'Code',
-        meta: { code: true } as ColumnMeta,
-        cell: (info) => <span className="font-mono text-caption">{info.getValue()}</span>,
-      },
-      {
-        accessorKey: 'category',
-        header: 'Category',
-        cell: (info) => <span className="text-caption">{info.getValue()}</span>,
-      },
-    ],
-    [],
-  );
-
-  if (user && !canAccessPayroll) {
-    return (
-      <>
-        <PageHeader title="Salary rules" />
-        <div className="p-8 text-center">
-          <Card className="max-w-md mx-auto p-6 space-y-4">
-            <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
-            <p className="text-body-sm text-text-muted">
-              Only payroll administrators and payroll users can access salary rules.
-            </p>
-          </Card>
-        </div>
-      </>
-    );
-  }
-
-  const rules = data?.data ?? [];
 
   return (
     <>
-      <PageHeader title="Salary rules" actions={<Button variant="accent">New rule</Button>} />
       <PayrollNavTabs />
-      <div className="px-5 pb-6">
-        <Card className="p-0 overflow-hidden">
-          {isError ? (
-            <div className="p-6">
-              <ErrorState message="Could not load salary rules" onRetry={() => refetch()} />
+      <PageHeader
+        title="Salary rules"
+        subtitle="Manage individual salary calculation rules, sequence order, and formulas"
+        actions={
+          <div className="flex items-center space-x-3">
+            <div className="w-56">
+              <Input
+                placeholder="Search rule name or code..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
+            <div className="w-48">
+              <Select
+                value={selectedStructureId}
+                onValueChange={setSelectedStructureId}
+                options={[
+                  { value: 'all', label: 'All Structures' },
+                  ...structures.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </div>
+            <Button
+              variant="accent"
+              onClick={() => navigate({ to: '/payroll/rules/$id', params: { id: 'new' } })}
+            >
+              New rule
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="px-5 pb-6 space-y-4">
+        {error && (
+          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
+            {error}
+          </div>
+        )}
+
+        <Card>
+          {loading ? (
+            <div className="p-8 text-center text-body-sm text-text-muted">Loading salary rules...</div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={rules}
-              isLoading={isLoading}
-              emptyMessage="No salary rules found."
-            />
+            <table className="w-full border-collapse text-body-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
+                  <th className="px-4 py-3">Structure</th>
+                  <th className="px-4 py-3 font-mono">Seq</th>
+                  <th className="px-4 py-3">Rule Name</th>
+                  <th className="px-4 py-3 font-mono">Code</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Computation</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRules.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-text-muted">
+                      No salary rules found. Click "New rule" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRules.map((rule) => (
+                    <tr
+                      key={rule.id}
+                      onClick={() => navigate({ to: '/payroll/rules/$id', params: { id: rule.id } })}
+                      className="border-b border-border hover:bg-primary-subtle/50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-text">{rule.structure?.name || '—'}</td>
+                      <td className="px-4 py-3 font-mono font-semibold">{rule.sequence}</td>
+                      <td className="px-4 py-3 font-medium text-text">{rule.name}</td>
+                      <td className="px-4 py-3 font-mono text-caption text-text-muted">{rule.code}</td>
+                      <td className="px-4 py-3">{getCategoryBadge(rule.category)}</td>
+                      <td className="px-4 py-3 font-mono text-caption capitalize">{rule.computation}</td>
+                      <td className="px-4 py-3">
+                        {rule.active ? (
+                          <Badge variant="success">active</Badge>
+                        ) : (
+                          <Badge variant="neutral">inactive</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           )}
         </Card>
       </div>

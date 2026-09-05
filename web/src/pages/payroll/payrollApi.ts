@@ -147,9 +147,81 @@ export type PayslipLine = {
   amount: string;
 };
 
+export type SalaryRule = {
+  id: string;
+  structureId: string;
+  name: string;
+  code: string;
+  category: 'basic' | 'allowance' | 'gross' | 'deduction' | 'net';
+  sequence: number;
+  computation: 'fixed' | 'percentage' | 'formula';
+  amount: string | null;
+  percentage: string | null;
+  percentageBase: 'contract_wage' | 'basic' | 'gross' | null;
+  formula: string | null;
+  active: boolean;
+  structure?: { id: string; name: string; code: string };
+};
+
+export type SalaryStructureDetail = SalaryStructure & {
+  rules: SalaryRule[];
+};
+
 export const payrollApi = {
   getSalaryStructures(): Promise<SalaryStructure[]> {
     return request('/api/payroll/structures');
+  },
+
+  getSalaryStructure(id: string): Promise<SalaryStructureDetail> {
+    return request(`/api/payroll/structures/${id}`);
+  },
+
+  createSalaryStructure(data: { name: string; code: string; active?: boolean }): Promise<SalaryStructure> {
+    return request('/api/payroll/structures', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateSalaryStructure(
+    id: string,
+    data: { name?: string; code?: string; active?: boolean },
+  ): Promise<SalaryStructure> {
+    return request(`/api/payroll/structures/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSalaryRules(params?: { structureId?: string }): Promise<SalaryRule[]> {
+    const query = new URLSearchParams();
+    if (params?.structureId) query.set('structureId', params.structureId);
+    const qStr = query.toString();
+    return request(`/api/payroll/rules${qStr ? `?${qStr}` : ''}`);
+  },
+
+  getSalaryRule(id: string): Promise<SalaryRule> {
+    return request(`/api/payroll/rules/${id}`);
+  },
+
+  createSalaryRule(data: Partial<SalaryRule>): Promise<SalaryRule> {
+    return request('/api/payroll/rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateSalaryRule(id: string, data: Partial<SalaryRule>): Promise<SalaryRule> {
+    return request(`/api/payroll/rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteSalaryRule(id: string): Promise<void> {
+    return request(`/api/payroll/rules/${id}`, {
+      method: 'DELETE',
+    });
   },
 
   getEligibleEmployees(params: {

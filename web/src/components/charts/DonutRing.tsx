@@ -16,10 +16,13 @@ export function DonutRing({
   color = 'var(--color-chart-1)',
 }: DonutRingProps) {
   const remaining = Math.max(0, total - value);
-  const data = [
-    { name: 'used', value: value || (total === 0 ? 0 : 0.001) },
-    { name: 'remaining', value: remaining },
-  ];
+  const hasBalance = total > 0;
+  const data = hasBalance
+    ? [
+        { name: 'used', value },
+        { name: 'remaining', value: remaining },
+      ]
+    : [{ name: 'remaining', value: 1 }];
 
   return (
     <div className="flex items-center gap-4">
@@ -35,7 +38,7 @@ export function DonutRing({
               endAngle={-270}
               stroke="none"
             >
-              <Cell fill={color} />
+              {hasBalance ? <Cell fill={color} /> : null}
               <Cell fill="var(--color-chart-track)" />
             </Pie>
           </PieChart>

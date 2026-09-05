@@ -8,19 +8,28 @@ type PopoverProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   className?: string;
+  align?: 'start' | 'center' | 'end';
 };
 
-export function Popover({ trigger, children, open, onOpenChange, className }: PopoverProps) {
+export function Popover({
+  trigger,
+  children,
+  open,
+  onOpenChange,
+  className,
+  align = 'center',
+}: PopoverProps) {
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
+          align={align}
           className={cn(
             'z-[500] rounded-md border border-border bg-surface-raised p-4 shadow-md focus:outline-none',
             className,
           )}
-          sideOffset={4}
+          sideOffset={8}
         >
           {children}
         </PopoverPrimitive.Content>

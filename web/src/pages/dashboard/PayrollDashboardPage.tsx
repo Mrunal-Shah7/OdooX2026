@@ -128,6 +128,7 @@ export default function PayrollDashboardPage() {
   if (isLoading) {
     return (
       <>
+        <PayrollNavTabs />
         <PageHeader
           title="Payroll dashboard"
           subtitle="Payments, staffing impact, leave patterns and attendance quality"
@@ -142,6 +143,7 @@ export default function PayrollDashboardPage() {
   if (isError || !data) {
     return (
       <>
+        <PayrollNavTabs />
         <PageHeader
           title="Payroll dashboard"
           subtitle="Payments, staffing impact, leave patterns and attendance quality"
@@ -187,12 +189,32 @@ export default function PayrollDashboardPage() {
       <div className="space-y-5 px-5 pb-6">
         <div className="flex gap-3">
           <Select
-            options={[{ value: "2026-09", label: "September 2026" }]}
-            value="2026-09"
+            options={[
+              { value: "2026-09", label: "September 2026" },
+              { value: "2026-08", label: "August 2026" },
+              { value: "2026-07", label: "July 2026" },
+            ]}
+            value={period}
+            onValueChange={setPeriod}
           />
           <Select
-            options={[{ value: "all", label: "All departments" }]}
-            value="all"
+            options={[
+              { value: "all", label: "All departments" },
+              ...departments.map((d) => ({ value: d.id, label: d.name })),
+            ]}
+            value={departmentId}
+            onValueChange={setDepartmentId}
+          />
+          <Select
+            options={[
+              { value: "all", label: "All employee types" },
+              { value: "full_time", label: "Full-time" },
+              { value: "part_time", label: "Part-time" },
+              { value: "contract", label: "Contract" },
+              { value: "intern", label: "Intern" },
+            ]}
+            value={employeeType}
+            onValueChange={setEmployeeType}
           />
         </div>
 

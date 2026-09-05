@@ -13,7 +13,6 @@ import { isHrManagerOrAbove } from './lib/permissions';
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import SetPasswordPage from './pages/auth/SetPasswordPage';
-import UsersPage from './pages/users/UsersPage';
 import EmployeeDirectoryPage from './pages/employees/EmployeeDirectoryPage';
 import EmployeeFormPage from './pages/employees/EmployeeFormPage';
 import DepartmentsPage from './pages/employees/DepartmentsPage';
@@ -286,7 +285,9 @@ const reportsRoute = createRoute({
 const usersRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/users',
-  component: UsersPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/employees' });
+  },
 });
 
 const notificationsRoute = createRoute({

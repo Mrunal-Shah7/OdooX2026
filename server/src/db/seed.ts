@@ -4,6 +4,7 @@ import { hashPassword } from '../lib/password.js';
 
 const SEED_DATE = '2026-09-05';
 const DEMO_PASSWORD = 'Demo@1234';
+const TARGET_EMPLOYEES = 200;
 
 const USER_IDS = {
   admin: 'a0000000-0000-4000-8000-000000000001',
@@ -37,6 +38,20 @@ const HOLIDAYS_2026: { name: string; date: string }[] = [
 ];
 
 const HOLIDAY_SET = new Set(HOLIDAYS_2026.map((h) => h.date));
+
+const FIRST_NAMES = [
+  'Aanya', 'Aditi', 'Akshay', 'Alok', 'Amit', 'Anika', 'Asha', 'Bhavesh', 'Chetan', 'Deepa',
+  'Dhruv', 'Esha', 'Faisal', 'Gauri', 'Hemant', 'Indira', 'Jatin', 'Jyoti', 'Kabir', 'Kirti',
+  'Leela', 'Madhav', 'Naina', 'Omkar', 'Parul', 'Qasim', 'Ravi', 'Sagar', 'Tara', 'Uday',
+  'Veena', 'Wasim', 'Xavier', 'Yamini', 'Zara', 'Bhavna', 'Chirag', 'Damini', 'Ekta', 'Fahad',
+];
+
+const LAST_NAMES = [
+  'Sharma', 'Patel', 'Singh', 'Kumar', 'Gupta', 'Reddy', 'Nair', 'Iyer', 'Joshi', 'Desai',
+  'Mehta', 'Shah', 'Kapoor', 'Malhotra', 'Banerjee', 'Chatterjee', 'Mukherjee', 'Pillai', 'Rao', 'Verma',
+  'Chopra', 'Bhatia', 'Saxena', 'Agarwal', 'Sinha', 'Kulkarni', 'Thakur', 'Dubey', 'Pandey', 'Rawat',
+  'Gill', 'Bose', 'Chawla', 'Sethi', 'Trivedi', 'Ansari', 'Hussain', 'Sheikh', 'Lambert', 'Dsouza',
+];
 
 function d(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
@@ -78,6 +93,21 @@ function hashStatus(seed: string): number {
     h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   }
   return h % 100;
+}
+
+function generatedName(index: number): { firstName: string; lastName: string } {
+  return {
+    firstName: FIRST_NAMES[index % FIRST_NAMES.length],
+    lastName: LAST_NAMES[Math.floor(index / FIRST_NAMES.length) % LAST_NAMES.length],
+  };
+}
+
+function jobForDept(deptCode: string): string {
+  if (deptCode === 'ENG') return 'Engineer';
+  if (deptCode === 'FIN') return 'Accountant';
+  if (deptCode === 'HR') return 'HR Executive';
+  if (deptCode === 'SLS') return 'Sales Executive';
+  return 'Support Specialist';
 }
 
 async function truncateAll(): Promise<void> {
@@ -208,63 +238,67 @@ async function main(): Promise<void> {
     });
   }
 
+  // 28 + 24 + 70 + 48 + 30 = 200
   const deptDefs = [
-    { name: 'Finance', code: 'FIN', count: 6, manager: { firstName: 'Sara', lastName: 'Khan' } },
-    { name: 'HR', code: 'HR', count: 5, manager: { firstName: 'Maya', lastName: 'Shah' } },
-    { name: 'Engineering', code: 'ENG', count: 14, manager: { firstName: 'John', lastName: 'Dsouza' } },
-    { name: 'Sales', code: 'SLS', count: 10, manager: { firstName: 'Rohan', lastName: 'Patel' } },
-    { name: 'Support', code: 'SUP', count: 7, manager: { firstName: 'Priya', lastName: 'Nair' } },
+    {
+      name: 'Finance',
+      code: 'FIN',
+      count: 28,
+      manager: { firstName: 'Sara', lastName: 'Khan' },
+      reserved: [
+        { firstName: 'Ananya', lastName: 'Iyer' },
+        { firstName: 'Vikram', lastName: 'Reddy' },
+        { firstName: 'Neha', lastName: 'Gupta' },
+      ],
+    },
+    {
+      name: 'HR',
+      code: 'HR',
+      count: 24,
+      manager: { firstName: 'Maya', lastName: 'Shah' },
+      reserved: [
+        { firstName: 'Ritu', lastName: 'Verma' },
+        { firstName: 'Aditya', lastName: 'Chopra' },
+        { firstName: 'Pooja', lastName: 'Saxena' },
+      ],
+    },
+    {
+      name: 'Engineering',
+      code: 'ENG',
+      count: 70,
+      manager: { firstName: 'John', lastName: 'Dsouza' },
+      reserved: [
+        { firstName: 'Aarav', lastName: 'Mehta' },
+        { firstName: 'Isha', lastName: 'Kapoor' },
+        { firstName: 'Dev', lastName: 'Menon' },
+        { firstName: 'Sneha', lastName: 'Rao' },
+        { firstName: 'Rahul', lastName: 'Joshi' },
+      ],
+    },
+    {
+      name: 'Sales',
+      code: 'SLS',
+      count: 48,
+      manager: { firstName: 'Rohan', lastName: 'Patel' },
+      reserved: [
+        { firstName: 'Eli', lastName: 'Lambert' },
+        { firstName: 'Sanjay', lastName: 'Mehra' },
+        { firstName: 'Ankit', lastName: 'Sethi' },
+        { firstName: 'Reema', lastName: 'Das' },
+      ],
+    },
+    {
+      name: 'Support',
+      code: 'SUP',
+      count: 30,
+      manager: { firstName: 'Priya', lastName: 'Nair' },
+      reserved: [
+        { firstName: 'Geeta', lastName: 'Krishnan' },
+        { firstName: 'Omar', lastName: 'Hussain' },
+        { firstName: 'Trisha', lastName: 'Mukherjee' },
+      ],
+    },
   ];
-
-  const extraNames: Record<string, { firstName: string; lastName: string }[]> = {
-    FIN: [
-      { firstName: 'Ananya', lastName: 'Iyer' },
-      { firstName: 'Vikram', lastName: 'Reddy' },
-      { firstName: 'Neha', lastName: 'Gupta' },
-      { firstName: 'Arjun', lastName: 'Malhotra' },
-      { firstName: 'Kavya', lastName: 'Desai' },
-    ],
-    HR: [
-      { firstName: 'Ritu', lastName: 'Verma' },
-      { firstName: 'Aditya', lastName: 'Chopra' },
-      { firstName: 'Pooja', lastName: 'Saxena' },
-      { firstName: 'Karan', lastName: 'Bhatia' },
-    ],
-    ENG: [
-      { firstName: 'Aarav', lastName: 'Mehta' },
-      { firstName: 'Isha', lastName: 'Kapoor' },
-      { firstName: 'Dev', lastName: 'Menon' },
-      { firstName: 'Sneha', lastName: 'Rao' },
-      { firstName: 'Rahul', lastName: 'Joshi' },
-      { firstName: 'Tanvi', lastName: 'Agarwal' },
-      { firstName: 'Nikhil', lastName: 'Sinha' },
-      { firstName: 'Meera', lastName: 'Pillai' },
-      { firstName: 'Varun', lastName: 'Kulkarni' },
-      { firstName: 'Divya', lastName: 'Nambiar' },
-      { firstName: 'Akash', lastName: 'Thakur' },
-      { firstName: 'Lakshmi', lastName: 'Venkat' },
-      { firstName: 'Harsh', lastName: 'Dubey' },
-    ],
-    SLS: [
-      { firstName: 'Sanjay', lastName: 'Mehra' },
-      { firstName: 'Eli', lastName: 'Lambert' },
-      { firstName: 'Ankit', lastName: 'Sethi' },
-      { firstName: 'Reema', lastName: 'Das' },
-      { firstName: 'Farhan', lastName: 'Ansari' },
-      { firstName: 'Simran', lastName: 'Gill' },
-      { firstName: 'Yash', lastName: 'Trivedi' },
-      { firstName: 'Nisha', lastName: 'Bose' },
-      { firstName: 'Manish', lastName: 'Chawla' },
-    ],
-    SUP: [
-      { firstName: 'Geeta', lastName: 'Krishnan' },
-      { firstName: 'Omar', lastName: 'Hussain' },
-      { firstName: 'Trisha', lastName: 'Mukherjee' },
-      { firstName: 'Rajesh', lastName: 'Pandey' },
-      { firstName: 'Swati', lastName: 'Rawat' },
-      { firstName: 'Imran', lastName: 'Sheikh' },
-    ],
-  };
 
   const departments: Record<string, string> = {};
   for (const dept of deptDefs) {
@@ -275,9 +309,6 @@ async function main(): Promise<void> {
   }
 
   const schedule40 = schedules['40 Hours / Week'];
-  const schedulePart = schedules['Part-time 20h'];
-  const scheduleFlex = schedules['Flexible Hybrid'];
-  const scheduleNight = schedules['Night Shift'];
 
   type EmployeeSeed = {
     id?: string;
@@ -294,8 +325,10 @@ async function main(): Promise<void> {
 
   const employeeSeeds: EmployeeSeed[] = [];
   let inactiveCount = 0;
-  let typeCounts = { full_time: 0, part_time: 0, contract: 0, intern: 0 };
-  const typeTargets = { full_time: 30, part_time: 5, contract: 4, intern: 3 };
+  const typeCounts = { full_time: 0, part_time: 0, contract: 0, intern: 0 };
+  // ~75% FT / 12.5% PT / 7.5% contract / 5% intern of 200
+  const typeTargets = { full_time: 150, part_time: 25, contract: 15, intern: 10 };
+  const inactiveTarget = 20;
 
   function nextType(): string {
     for (const t of ['full_time', 'part_time', 'contract', 'intern'] as const) {
@@ -304,16 +337,31 @@ async function main(): Promise<void> {
         return t;
       }
     }
+    typeCounts.full_time++;
     return 'full_time';
   }
 
   let empIndex = 0;
+  let nameCursor = 0;
   for (const dept of deptDefs) {
-    const names = [dept.manager, ...extraNames[dept.code].slice(0, dept.count - 1)];
-    for (const person of names) {
+    const reserved = [dept.manager, ...dept.reserved];
+    const names: { firstName: string; lastName: string }[] = [...reserved];
+    while (names.length < dept.count) {
+      names.push(generatedName(nameCursor++));
+    }
+
+    for (const person of names.slice(0, dept.count)) {
       empIndex++;
-      const isInactive = inactiveCount < 4 && empIndex % 11 === 0;
+      const isAarav = person.firstName === 'Aarav' && person.lastName === 'Mehta';
+      const isManager =
+        person.firstName === dept.manager.firstName && person.lastName === dept.manager.lastName;
+      const isInactive =
+        !isAarav &&
+        !isManager &&
+        inactiveCount < inactiveTarget &&
+        empIndex % 10 === 0;
       if (isInactive) inactiveCount++;
+
       const empType = nextType();
       const scheduleName =
         empType === 'part_time'
@@ -324,28 +372,18 @@ async function main(): Promise<void> {
               ? 'Night Shift'
               : '40 Hours / Week';
 
-      const isAarav = person.firstName === 'Aarav' && person.lastName === 'Mehta';
       const resolvedType = isAarav ? 'full_time' : empType;
       if (isAarav && empType !== 'full_time') {
         typeCounts[empType as keyof typeof typeCounts]--;
         typeCounts.full_time++;
       }
+
       employeeSeeds.push({
         id: isAarav ? AARAV_EMPLOYEE_ID : undefined,
         firstName: person.firstName,
         lastName: person.lastName,
         deptCode: dept.code,
-        jobPosition: isAarav
-          ? 'Software Engineer'
-          : dept.code === 'ENG'
-            ? 'Engineer'
-            : dept.code === 'FIN'
-              ? 'Accountant'
-              : dept.code === 'HR'
-                ? 'HR Executive'
-                : dept.code === 'SLS'
-                  ? 'Sales Executive'
-                  : 'Support Specialist',
+        jobPosition: isAarav ? 'Software Engineer' : jobForDept(dept.code),
         employeeType: resolvedType,
         status: isInactive ? 'inactive' : 'active',
         scheduleName: isAarav ? '40 Hours / Week' : scheduleName,
@@ -355,10 +393,20 @@ async function main(): Promise<void> {
     }
   }
 
+  if (employeeSeeds.length !== TARGET_EMPLOYEES) {
+    throw new Error(`Expected ${TARGET_EMPLOYEES} employee seeds, got ${employeeSeeds.length}`);
+  }
+
+  // Demo: exactly two active employees with null bank (neither Aarav). Deterministic picks.
   const nullBankEmployeeIds = new Set<string>();
   const nullBankCandidates = employeeSeeds
     .map((seed, idx) => ({ seed, idx }))
-    .filter(({ seed }) => seed.status === 'active' && seed.firstName !== 'Aarav');
+    .filter(
+      ({ seed }) =>
+        seed.status === 'active' &&
+        !(seed.firstName === 'Aarav' && seed.lastName === 'Mehta') &&
+        !(seed.firstName === 'Maya' && seed.lastName === 'Shah'),
+    );
   for (const { idx } of nullBankCandidates.slice(0, 2)) {
     employeeSeeds[idx].bankFilled = false;
   }
@@ -372,6 +420,7 @@ async function main(): Promise<void> {
     workingDays: Set<number>;
     firstName: string;
     lastName: string;
+    jobPosition: string;
   }[] = [];
 
   for (let i = 0; i < employeeSeeds.length; i++) {
@@ -384,7 +433,7 @@ async function main(): Promise<void> {
         companyId: company.id,
         firstName: seed.firstName,
         lastName: seed.lastName,
-        workEmail: `${slug}@oxp.test`,
+        workEmail: `${slug}.${String(i + 1).padStart(3, '0')}@oxp.test`,
         departmentId: departments[seed.deptCode],
         jobPosition: seed.jobPosition,
         workingScheduleId: sched.id,
@@ -408,18 +457,21 @@ async function main(): Promise<void> {
       workingDays: sched.workingDays,
       firstName: seed.firstName,
       lastName: seed.lastName,
+      jobPosition: seed.jobPosition,
     });
   }
 
-  const managerByDept: Record<string, string> = {};
   for (const dept of deptDefs) {
     const mgr = employees.find(
-      (e) => e.deptCode === dept.code && e.firstName === dept.manager.firstName,
+      (e) => e.deptCode === dept.code && e.firstName === dept.manager.firstName && e.lastName === dept.manager.lastName,
     );
     if (mgr) {
-      managerByDept[dept.code] = mgr.id;
       await prisma.department.update({
         where: { id: departments[dept.code] },
+        data: { managerId: mgr.id },
+      });
+      await prisma.employee.updateMany({
+        where: { departmentId: departments[dept.code], id: { not: mgr.id } },
         data: { managerId: mgr.id },
       });
     }
@@ -538,6 +590,7 @@ async function main(): Promise<void> {
   });
 
   const activeEmployees = employees.filter((e) => e.status === 'active');
+  const inactiveEmployees = employees.filter((e) => e.status === 'inactive');
   const hrManagerEmployee = employees.find((e) => e.firstName === 'Maya' && e.lastName === 'Shah');
 
   await prisma.user.createMany({
@@ -569,6 +622,7 @@ async function main(): Promise<void> {
         employeeId: AARAV_EMPLOYEE_ID,
       },
       { email: 'invite.pending@peoplepay360.test', role: 'hr_payroll_user', status: 'invited' },
+      { email: 'disabled.user@peoplepay360.test', passwordHash, role: 'employee', status: 'disabled' },
     ],
   });
 
@@ -605,14 +659,15 @@ async function main(): Promise<void> {
     const endsSep =
       expiringContractIds.length < 3 &&
       emp.firstName !== 'Aarav' &&
-      emp.deptCode === 'SLS';
+      emp.deptCode === 'SLS' &&
+      emp.status === 'active';
 
     const running = await prisma.contract.create({
       data: {
         reference: nextRef(2026),
         employeeId: emp.id,
         departmentId: departments[emp.deptCode],
-        jobPosition: employeeSeeds.find((s) => s.firstName === emp.firstName)?.jobPosition ?? 'Staff',
+        jobPosition: emp.jobPosition,
         workingScheduleId: emp.scheduleId,
         salaryStructureId: structureId,
         startDate: d('2026-01-01'),
@@ -647,7 +702,6 @@ async function main(): Promise<void> {
     data: { wage: dec('85000') },
   });
 
-  const inactiveEmployees = employees.filter((e) => e.status === 'inactive');
   for (const emp of inactiveEmployees) {
     await prisma.contract.create({
       data: {
@@ -666,9 +720,10 @@ async function main(): Promise<void> {
     });
   }
 
-  let expiredExtra = inactiveEmployees.length + 1;
-  while (expiredExtra < 12) {
-    const emp = activeEmployees[expiredExtra % activeEmployees.length];
+  // Extra historical expired contracts for volume / history UI
+  for (let i = 0; i < 40; i++) {
+    const emp = activeEmployees[i % activeEmployees.length];
+    if (emp.id === AARAV_EMPLOYEE_ID) continue;
     await prisma.contract.create({
       data: {
         reference: nextRef(2024),
@@ -684,7 +739,46 @@ async function main(): Promise<void> {
         status: 'expired',
       },
     });
-    expiredExtra++;
+  }
+
+  // Draft + cancelled contracts for status coverage
+  for (let i = 0; i < 5; i++) {
+    const emp = activeEmployees[(i + 40) % activeEmployees.length];
+    await prisma.contract.create({
+      data: {
+        reference: nextRef(2026),
+        employeeId: emp.id,
+        departmentId: departments[emp.deptCode],
+        jobPosition: emp.jobPosition,
+        workingScheduleId: emp.scheduleId,
+        salaryStructureId: regularStructure.id,
+        startDate: d('2026-10-01'),
+        endDate: null,
+        wage: dec('50000'),
+        currency: 'INR',
+        status: 'draft',
+        notes: 'Offer pending activation',
+      },
+    });
+  }
+  for (let i = 0; i < 5; i++) {
+    const emp = activeEmployees[(i + 50) % activeEmployees.length];
+    await prisma.contract.create({
+      data: {
+        reference: nextRef(2025),
+        employeeId: emp.id,
+        departmentId: departments[emp.deptCode],
+        jobPosition: emp.jobPosition,
+        workingScheduleId: emp.scheduleId,
+        salaryStructureId: regularStructure.id,
+        startDate: d('2025-03-01'),
+        endDate: d('2025-06-30'),
+        wage: dec('42000'),
+        currency: 'INR',
+        status: 'cancelled',
+        notes: 'Cancelled before start',
+      },
+    });
   }
 
   const ptoAllocations = new Map<string, string>();
@@ -705,9 +799,8 @@ async function main(): Promise<void> {
     ptoAllocations.set(emp.id, alloc.id);
   }
 
-  const sickAllocations = new Map<string, string>();
   for (const emp of activeEmployees) {
-    const alloc = await prisma.timeOffAllocation.create({
+    await prisma.timeOffAllocation.create({
       data: {
         employeeId: emp.id,
         timeOffTypeId: sickType.id,
@@ -719,10 +812,9 @@ async function main(): Promise<void> {
         description: 'Annual Sick Leave 2026',
       },
     });
-    sickAllocations.set(emp.id, alloc.id);
   }
 
-  const compEmployees = activeEmployees.slice(0, 6);
+  const compEmployees = activeEmployees.slice(0, 30);
   for (const emp of compEmployees) {
     await prisma.timeOffAllocation.create({
       data: {
@@ -738,29 +830,48 @@ async function main(): Promise<void> {
     });
   }
 
-  await prisma.timeOffAllocation.create({
-    data: {
-      employeeId: activeEmployees[10].id,
-      timeOffTypeId: ptoType.id,
-      allocated: dec('5'),
-      validFrom: d('2026-10-01'),
-      validTo: d('2026-12-31'),
-      status: 'draft',
-    },
-  });
-  await prisma.timeOffAllocation.create({
-    data: {
-      employeeId: activeEmployees[15].id,
-      timeOffTypeId: compType.id,
-      allocated: dec('8'),
-      validFrom: d('2026-11-01'),
-      validTo: d('2026-12-31'),
-      status: 'draft',
-    },
-  });
+  for (let i = 0; i < 8; i++) {
+    const emp = activeEmployees[(i + 60) % activeEmployees.length];
+    await prisma.timeOffAllocation.create({
+      data: {
+        employeeId: emp.id,
+        timeOffTypeId: i % 2 === 0 ? ptoType.id : compType.id,
+        allocated: dec(i % 2 === 0 ? '5' : '8'),
+        validFrom: d('2026-10-01'),
+        validTo: d('2026-12-31'),
+        status: 'draft',
+      },
+    });
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const emp = activeEmployees[(i + 70) % activeEmployees.length];
+    await prisma.timeOffAllocation.create({
+      data: {
+        employeeId: emp.id,
+        timeOffTypeId: ptoType.id,
+        allocated: dec('3'),
+        validFrom: d('2026-11-01'),
+        validTo: d('2026-12-31'),
+        status: 'refused',
+        approverId: hrManagerEmployee?.id ?? null,
+        description: 'Mid-year top-up refused',
+      },
+    });
+  }
 
   const aaravAllocId = ptoAllocations.get(AARAV_EMPLOYEE_ID)!;
-  const approvedRequests: { empId: string; typeId: string; allocId?: string; start: string; end: string; durationType: string; days: string; hours: string; requestedHours?: string }[] = [
+  const approvedRequests: {
+    empId: string;
+    typeId: string;
+    allocId?: string;
+    start: string;
+    end: string;
+    durationType: string;
+    days: string;
+    hours: string;
+    requestedHours?: string;
+  }[] = [
     { empId: AARAV_EMPLOYEE_ID, typeId: ptoType.id, allocId: aaravAllocId, start: '2026-07-10', end: '2026-07-14', durationType: 'full_day', days: '5', hours: '40' },
     { empId: AARAV_EMPLOYEE_ID, typeId: ptoType.id, allocId: aaravAllocId, start: '2026-08-01', end: '2026-08-03', durationType: 'full_day', days: '3', hours: '24' },
     { empId: activeEmployees[3].id, typeId: ptoType.id, allocId: ptoAllocations.get(activeEmployees[3].id), start: '2026-07-20', end: '2026-07-22', durationType: 'full_day', days: '3', hours: '24' },
@@ -768,21 +879,23 @@ async function main(): Promise<void> {
     { empId: compEmployees[0].id, typeId: compType.id, start: '2026-08-12', end: '2026-08-12', durationType: 'hours', days: '0.5', hours: '4', requestedHours: '4' },
   ];
 
-  for (let i = 0; i < 13; i++) {
+  for (let i = 0; i < 65; i++) {
     const emp = activeEmployees[(i + 7) % activeEmployees.length];
+    const day = String((i % 25) + 1).padStart(2, '0');
+    const month = i % 2 === 0 ? '07' : '08';
     approvedRequests.push({
       empId: emp.id,
       typeId: ptoType.id,
       allocId: ptoAllocations.get(emp.id),
-      start: `2026-07-${String((i % 9) + 1).padStart(2, '0')}`,
-      end: `2026-07-${String((i % 9) + 1).padStart(2, '0')}`,
+      start: `2026-${month}-${day}`,
+      end: `2026-${month}-${day}`,
       durationType: 'full_day',
       days: '1',
       hours: '8',
     });
   }
 
-  for (const req of approvedRequests.slice(0, 18)) {
+  for (const req of approvedRequests) {
     await prisma.timeOffRequest.create({
       data: {
         employeeId: req.empId,
@@ -800,8 +913,8 @@ async function main(): Promise<void> {
     });
   }
 
-  for (let i = 0; i < 5; i++) {
-    const emp = activeEmployees[i + 2];
+  for (let i = 0; i < 15; i++) {
+    const emp = activeEmployees[(i + 2) % activeEmployees.length];
     await prisma.timeOffRequest.create({
       data: {
         employeeId: emp.id,
@@ -818,14 +931,14 @@ async function main(): Promise<void> {
     });
   }
 
-  for (let i = 0; i < 3; i++) {
-    const emp = activeEmployees[i + 20];
+  for (let i = 0; i < 10; i++) {
+    const emp = activeEmployees[(i + 20) % activeEmployees.length];
     await prisma.timeOffRequest.create({
       data: {
         employeeId: emp.id,
         timeOffTypeId: sickType.id,
-        startDate: d(`2026-08-${10 + i}`),
-        endDate: d(`2026-08-${10 + i}`),
+        startDate: d(`2026-08-${String(10 + (i % 18)).padStart(2, '0')}`),
+        endDate: d(`2026-08-${String(10 + (i % 18)).padStart(2, '0')}`),
         durationType: 'full_day',
         durationDays: dec('1'),
         durationHours: dec('8'),
@@ -836,7 +949,24 @@ async function main(): Promise<void> {
     });
   }
 
-  let attendanceCount = 0;
+  for (let i = 0; i < 5; i++) {
+    const emp = activeEmployees[(i + 90) % activeEmployees.length];
+    await prisma.timeOffRequest.create({
+      data: {
+        employeeId: emp.id,
+        timeOffTypeId: ptoType.id,
+        allocationId: ptoAllocations.get(emp.id),
+        startDate: d('2026-09-08'),
+        endDate: d('2026-09-09'),
+        durationType: 'full_day',
+        durationDays: dec('2'),
+        durationHours: dec('16'),
+        status: 'cancelled',
+        reason: 'Plans changed',
+      },
+    });
+  }
+
   let missingCheckout = false;
   let manualEditCount = 0;
   const attendanceBatch: Prisma.AttendanceRecordCreateManyInput[] = [];
@@ -862,7 +992,8 @@ async function main(): Promise<void> {
       const isManual = manualEditCount < 3 && hashStatus(`manual-${emp.id}-${dateStr}`) === 0;
       if (isManual) manualEditCount++;
 
-      const skipCheckout = !missingCheckout && emp.id === activeEmployees[0].id && dateStr === '2026-08-15';
+      // 2026-08-14 is a working Friday; 08-15 is Independence Day and skipped above
+      const skipCheckout = !missingCheckout && emp.id === activeEmployees[0].id && dateStr === '2026-08-14';
       if (skipCheckout) missingCheckout = true;
 
       const checkIn =
@@ -889,11 +1020,14 @@ async function main(): Promise<void> {
         status,
         isManualEdit: isManual,
       });
-      attendanceCount++;
     }
   }
 
-  await prisma.attendanceRecord.createMany({ data: attendanceBatch });
+  // createMany batches keep Postgres packet size reasonable
+  const ATTENDANCE_CHUNK = 2000;
+  for (let i = 0; i < attendanceBatch.length; i += ATTENDANCE_CHUNK) {
+    await prisma.attendanceRecord.createMany({ data: attendanceBatch.slice(i, i + ATTENDANCE_CHUNK) });
+  }
 
   const payrunDefs = [
     { name: 'July 2026', periodStart: '2026-07-01', periodEnd: '2026-07-31', status: 'paid', paidAt: new Date('2026-08-05T10:00:00.000Z') },
@@ -932,7 +1066,7 @@ async function main(): Promise<void> {
         run.status === 'validated' && !archivedDone && emp.id === activeEmployees[1].id;
       if (archived) archivedDone = true;
 
-      const payslip = await prisma.payslip.create({
+      await prisma.payslip.create({
         data: {
           payrunId: payrun.id,
           employeeId: emp.id,
@@ -969,7 +1103,6 @@ async function main(): Promise<void> {
           },
         },
       });
-      void payslip;
     }
   }
 
@@ -977,9 +1110,13 @@ async function main(): Promise<void> {
     { type: 'time_off_requested', title: 'Leave request pending', body: 'Sanjay Mehra requested 3 days PTO', linkPath: '/time-off/requests', read: false },
     { type: 'time_off_approved', title: 'Leave approved', body: 'Your PTO for July was approved', linkPath: '/time-off', read: true },
     { type: 'payrun_validated', title: 'August pay run validated', body: 'August 2026 pay run is ready for payment', linkPath: '/payroll/payruns', read: false },
-    { type: 'payslip_sent', title: 'Payslip delivered', body: 'July payslip sent to 38 employees', linkPath: '/payroll/payslips', read: true },
+    { type: 'payslip_sent', title: 'Payslip delivered', body: `July payslip sent to ${activeEmployees.length} employees`, linkPath: '/payroll/payslips', read: true },
     { type: 'time_off_refused', title: 'Leave refused', body: 'Sick leave request was refused', linkPath: '/time-off/requests', read: false },
     { type: 'payrun_validated', title: 'Payroll reminder', body: 'September pay run draft awaiting compute', linkPath: '/payroll/payruns', read: true },
+    { type: 'time_off_requested', title: 'Multiple leave requests', body: '15 PTO requests awaiting approval', linkPath: '/time-off/requests', read: false },
+    { type: 'payslip_sent', title: 'August payslips ready', body: 'Validated August payslips available to employees', linkPath: '/payroll/payslips', read: false },
+    { type: 'time_off_approved', title: 'Comp off approved', body: 'Hour-based Comp Off request approved', linkPath: '/time-off', read: true },
+    { type: 'payrun_validated', title: 'Contract expiring', body: '3 running contracts end in September', linkPath: '/contracts', read: false },
   ];
 
   for (const n of notificationDefs) {
@@ -1020,6 +1157,25 @@ async function main(): Promise<void> {
     prisma.payslip.count(),
     prisma.notification.count(),
   ]);
+
+  const aaravContracts = await prisma.contract.count({ where: { employeeId: AARAV_EMPLOYEE_ID } });
+  const nullBankCount = await prisma.employee.count({
+    where: { status: 'active', bankAccountNumber: null },
+  });
+  const septExpiring = await prisma.contract.count({
+    where: { status: 'running', endDate: d('2026-09-30') },
+  });
+  const usdContracts = await prisma.contract.count({ where: { currency: 'USD', status: 'running' } });
+
+  // Demo invariants — fail loud if volume expansion breaks the scripted walkthrough
+  if (empCount !== TARGET_EMPLOYEES) throw new Error(`employees=${empCount}, expected ${TARGET_EMPLOYEES}`);
+  if (nullBankCount !== 2) throw new Error(`null-bank actives=${nullBankCount}, expected 2`);
+  if (aaravContracts < 2) throw new Error(`Aarav contracts=${aaravContracts}, expected >= 2`);
+  if (septExpiring !== 3) throw new Error(`Sept-expiring contracts=${septExpiring}, expected 3`);
+  if (usdContracts !== 2) throw new Error(`USD running contracts=${usdContracts}, expected 2`);
+  if (!missingCheckout) throw new Error('missing check-out attendance row was not seeded');
+  if (manualEditCount < 3) throw new Error(`manual edits=${manualEditCount}, expected >= 3`);
+  if (!archivedDone) throw new Error('archived August payslip was not seeded');
 
   console.log(
     `Seed complete (${SEED_DATE}): ${companyCount} company, ${deptCount} departments, ${empCount} employees, ${userCount} users, ${contractCount} contracts, ${allocationCount} allocations, ${requestCount} time-off requests, ${attendanceTotal} attendance records, ${payrunCount} pay runs, ${payslipCount} payslips, ${notificationCount} notifications`,

@@ -85,7 +85,7 @@ export async function getPayslip(id: string) {
     include: {
       payrun: { select: { name: true } },
       employee: {
-        include: { department: true },
+        include: { department: true, user: { select: { email: true } } },
       },
       contract: true,
       salaryStructure: { select: { id: true, name: true, code: true } },
@@ -110,7 +110,7 @@ export async function getPayslip(id: string) {
         id: emp.id,
         firstName: emp.firstName,
         lastName: emp.lastName,
-        workEmail: emp.workEmail,
+        workEmail: emp.workEmail || emp.user?.email || '',
         jobPosition: emp.jobPosition,
         departmentName: emp.department?.name || 'Unassigned',
       },
@@ -182,7 +182,7 @@ export async function sendSinglePayslipEmail(id: string): Promise<{ success: boo
     throw ApiError.validation('Employee has no work email address');
   }
 
-  const pdfBuffer = renderPayslipPdf(detail);
+  const pdfBuffer = await getPayslipPdf(id);
 
   await sendMail({
     to: emp.workEmail,

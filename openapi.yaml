@@ -1,0 +1,2884 @@
+openapi: 3.1.0
+
+info:
+  title: PeoplePay360 API
+  version: 1.0.0
+  description: >
+    Integrated HR and payroll API. Employees, contracts, working schedules, attendance,
+    time off, salary structures and rules, pay runs, payslips, dashboard and reports.
+    All money values are decimal strings. All calendar dates are YYYY-MM-DD strings.
+
+servers:
+  - url: http://localhost:4000
+    description: Local
+
+tags:
+  - name: auth
+  - name: users
+  - name: employees
+  - name: contracts
+  - name: schedules
+  - name: attendance
+  - name: timeoff
+  - name: payroll
+  - name: dashboard
+  - name: reports
+  - name: notifications
+
+security:
+  - sessionCookie: []
+
+paths:
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Exchange credentials for session cookies
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Session issued; sets pp_at and pp_rt cookies
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the refresh token and clear cookies
+      responses:
+        '204': { description: Session ended }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Rotate the refresh token and issue a new access token
+      security: []
+      responses:
+        '200':
+          description: New session issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      operationId: getCurrentUser
+      summary: Current user, role and linked employee
+      responses:
+        '200':
+          description: Current session user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/auth/forgot-password:
+    post:
+      tags: [auth]
+      operationId: requestPasswordReset
+      summary: Email a password reset link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotPasswordRequest' }
+      responses:
+        '204': { description: Always returned, whether or not the email exists }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+
+  /api/auth/set-password:
+    post:
+      tags: [auth]
+      operationId: setPassword
+      summary: Consume an invite or reset token and set a password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetPasswordRequest' }
+      responses:
+        '204': { description: Password set; the user may now sign in }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: Paginated user list
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/RoleFilter' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Create a user and send the invite email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/users/{id}:
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: Single user
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: User
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [users]
+      operationId: updateUser
+      summary: Change role, status or employee linkage
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserRequest' }
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/users/{id}/resend-invite:
+    post:
+      tags: [users]
+      operationId: resendInvite
+      summary: Reissue the invite token and email
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '204': { description: Invite reissued }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/employees:
+    get:
+      tags: [employees]
+      operationId: listEmployees
+      summary: Paginated, filterable employee list
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/EmployeeTypeFilter' }
+        - { $ref: '#/components/parameters/EmployeeStatusFilter' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Order' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Employee list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [employees]
+      operationId: createEmployee
+      summary: Create an employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEmployeeRequest' }
+      responses:
+        '201':
+          description: Employee created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/employees/{id}:
+    get:
+      tags: [employees]
+      operationId: getEmployee
+      summary: Employee with smart-button counts
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Employee detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeDetailResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [employees]
+      operationId: updateEmployee
+      summary: Update an employee
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateEmployeeRequest' }
+      responses:
+        '200':
+          description: Employee updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/departments:
+    get:
+      tags: [employees]
+      operationId: listDepartments
+      summary: Department list with headcount
+      responses:
+        '200':
+          description: Department list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepartmentListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [employees]
+      operationId: createDepartment
+      summary: Create a department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDepartmentRequest' }
+      responses:
+        '201':
+          description: Department created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepartmentResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/departments/{id}:
+    patch:
+      tags: [employees]
+      operationId: updateDepartment
+      summary: Update a department
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDepartmentRequest' }
+      responses:
+        '200':
+          description: Department updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepartmentResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [employees]
+      operationId: deleteDepartment
+      summary: Delete a department that has no employees
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '204': { description: Department deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/contracts:
+    get:
+      tags: [contracts]
+      operationId: listContracts
+      summary: Paginated, filterable contract list
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/ContractStatusFilter' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Contract list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContractListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [contracts]
+      operationId: createContract
+      summary: Create a contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateContractRequest' }
+      responses:
+        '201':
+          description: Contract created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContractResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/contracts/{id}:
+    get:
+      tags: [contracts]
+      operationId: getContract
+      summary: Single contract
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Contract detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContractResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [contracts]
+      operationId: updateContract
+      summary: Update a contract or change its status
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateContractRequest' }
+      responses:
+        '200':
+          description: Contract updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContractResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/working-schedules:
+    get:
+      tags: [schedules]
+      operationId: listWorkingSchedules
+      summary: Schedule list with derived weekly hours
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Schedule list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkingScheduleListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [schedules]
+      operationId: createWorkingSchedule
+      summary: Create a schedule with its day rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWorkingScheduleRequest' }
+      responses:
+        '201':
+          description: Schedule created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkingScheduleResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/working-schedules/{id}:
+    get:
+      tags: [schedules]
+      operationId: getWorkingSchedule
+      summary: Schedule with day rows
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Schedule detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkingScheduleResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [schedules]
+      operationId: updateWorkingSchedule
+      summary: Replace the day rows and recompute derived totals
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateWorkingScheduleRequest' }
+      responses:
+        '200':
+          description: Schedule updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkingScheduleResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/public-holidays:
+    get:
+      tags: [schedules]
+      operationId: listPublicHolidays
+      summary: Holidays in a year
+      parameters: [{ $ref: '#/components/parameters/Year' }]
+      responses:
+        '200':
+          description: Holiday list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHolidayListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [schedules]
+      operationId: createPublicHoliday
+      summary: Add a public holiday
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePublicHolidayRequest' }
+      responses:
+        '201':
+          description: Holiday created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicHolidayResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/public-holidays/{id}:
+    delete:
+      tags: [schedules]
+      operationId: deletePublicHoliday
+      summary: Remove a public holiday
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '204': { description: Holiday removed }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/attendance:
+    get:
+      tags: [attendance]
+      operationId: listAttendance
+      summary: Paginated, filterable attendance list
+      parameters:
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/DateFrom' }
+        - { $ref: '#/components/parameters/DateTo' }
+        - { $ref: '#/components/parameters/AttendanceStatusFilter' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Attendance list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [attendance]
+      operationId: createAttendance
+      summary: Create an attendance record manually
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAttendanceRequest' }
+      responses:
+        '201':
+          description: Attendance created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/attendance/active:
+    get:
+      tags: [attendance]
+      operationId: getActiveAttendance
+      summary: Today's open session for the check-in widget
+      responses:
+        '200':
+          description: Widget state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveAttendanceResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/attendance/check-in:
+    post:
+      tags: [attendance]
+      operationId: checkIn
+      summary: Open today's attendance session for the current user
+      responses:
+        '201':
+          description: Checked in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/attendance/check-out:
+    post:
+      tags: [attendance]
+      operationId: checkOut
+      summary: Close today's attendance session for the current user
+      responses:
+        '200':
+          description: Checked out
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/attendance/{id}:
+    get:
+      tags: [attendance]
+      operationId: getAttendance
+      summary: Single attendance record
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Attendance detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [attendance]
+      operationId: updateAttendance
+      summary: Correct an attendance record
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAttendanceRequest' }
+      responses:
+        '200':
+          description: Attendance updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/time-off/types:
+    get:
+      tags: [timeoff]
+      operationId: listTimeOffTypes
+      summary: Time off type list
+      parameters:
+        - { $ref: '#/components/parameters/ActiveOnly' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Type list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffTypeListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [timeoff]
+      operationId: createTimeOffType
+      summary: Create a time off type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTimeOffTypeRequest' }
+      responses:
+        '201':
+          description: Type created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffTypeResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/types/{id}:
+    get:
+      tags: [timeoff]
+      operationId: getTimeOffType
+      summary: Single time off type
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Type detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffTypeResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [timeoff]
+      operationId: updateTimeOffType
+      summary: Update a time off type
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTimeOffTypeRequest' }
+      responses:
+        '200':
+          description: Type updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffTypeResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/time-off/allocations:
+    get:
+      tags: [timeoff]
+      operationId: listAllocations
+      summary: Allocations with derived taken and remaining
+      parameters:
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/TimeOffTypeId' }
+        - { $ref: '#/components/parameters/AllocationStatusFilter' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Allocation list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [timeoff]
+      operationId: createAllocation
+      summary: Create an allocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAllocationRequest' }
+      responses:
+        '201':
+          description: Allocation created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/time-off/allocations/{id}:
+    get:
+      tags: [timeoff]
+      operationId: getAllocation
+      summary: Single allocation
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Allocation detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [timeoff]
+      operationId: updateAllocation
+      summary: Update a draft allocation
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAllocationRequest' }
+      responses:
+        '200':
+          description: Allocation updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/allocations/{id}/approve:
+    post:
+      tags: [timeoff]
+      operationId: approveAllocation
+      summary: Approve an allocation, making the balance available
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Allocation approved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/allocations/{id}/refuse:
+    post:
+      tags: [timeoff]
+      operationId: refuseAllocation
+      summary: Refuse an allocation, withdrawing the balance
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Allocation refused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/requests:
+    get:
+      tags: [timeoff]
+      operationId: listTimeOffRequests
+      summary: Paginated, filterable request list
+      parameters:
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/TimeOffTypeId' }
+        - { $ref: '#/components/parameters/RequestStatusFilter' }
+        - { $ref: '#/components/parameters/DateFrom' }
+        - { $ref: '#/components/parameters/DateTo' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Request list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffRequestListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [timeoff]
+      operationId: createTimeOffRequest
+      summary: Raise a time off request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTimeOffRequestRequest' }
+      responses:
+        '201':
+          description: Request created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffRequestResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/requests/{id}:
+    get:
+      tags: [timeoff]
+      operationId: getTimeOffRequest
+      summary: Single request with its consumed allocation
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Request detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [timeoff]
+      operationId: updateTimeOffRequest
+      summary: Edit or cancel a request awaiting approval
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTimeOffRequestRequest' }
+      responses:
+        '200':
+          description: Request updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffRequestResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/requests/{id}/approve:
+    post:
+      tags: [timeoff]
+      operationId: approveTimeOffRequest
+      summary: Approve a request and consume allocation balance
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Request approved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffRequestResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/requests/{id}/refuse:
+    post:
+      tags: [timeoff]
+      operationId: refuseTimeOffRequest
+      summary: Refuse a request and restore any consumed balance
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefuseTimeOffRequestRequest' }
+      responses:
+        '200':
+          description: Request refused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffRequestResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/time-off/dashboard:
+    get:
+      tags: [timeoff]
+      operationId: getTimeOffDashboard
+      summary: Year calendar days and per-type entitlements for one employee
+      parameters:
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/Year' }
+      responses:
+        '200':
+          description: Time off dashboard payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeOffDashboardResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/payroll/structures:
+    get:
+      tags: [payroll]
+      operationId: listSalaryStructures
+      summary: Structures with rule and employee counts
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Structure list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryStructureListResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [payroll]
+      operationId: createSalaryStructure
+      summary: Create a salary structure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSalaryStructureRequest' }
+      responses:
+        '201':
+          description: Structure created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryStructureResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/structures/{id}:
+    get:
+      tags: [payroll]
+      operationId: getSalaryStructure
+      summary: Structure with its ordered rules
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Structure detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryStructureDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [payroll]
+      operationId: updateSalaryStructure
+      summary: Update a salary structure
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSalaryStructureRequest' }
+      responses:
+        '200':
+          description: Structure updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryStructureResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/payroll/rules:
+    get:
+      tags: [payroll]
+      operationId: listSalaryRules
+      summary: Salary rules across structures
+      parameters:
+        - { $ref: '#/components/parameters/StructureId' }
+        - { $ref: '#/components/parameters/RuleCategoryFilter' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Rule list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryRuleListResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [payroll]
+      operationId: createSalaryRule
+      summary: Create a salary rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSalaryRuleRequest' }
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryRuleResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/rules/{id}:
+    get:
+      tags: [payroll]
+      operationId: getSalaryRule
+      summary: Single salary rule
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Rule detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryRuleResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [payroll]
+      operationId: updateSalaryRule
+      summary: Update a salary rule
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSalaryRuleRequest' }
+      responses:
+        '200':
+          description: Rule updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryRuleResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [payroll]
+      operationId: deleteSalaryRule
+      summary: Delete a salary rule
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '204': { description: Rule deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payruns/eligible-employees:
+    get:
+      tags: [payroll]
+      operationId: listEligibleEmployees
+      summary: Candidate employees for pay run wizard step 2
+      parameters:
+        - { $ref: '#/components/parameters/PeriodStart' }
+        - { $ref: '#/components/parameters/PeriodEnd' }
+        - { $ref: '#/components/parameters/StructureIdRequired' }
+        - { $ref: '#/components/parameters/EmployeeTypeFilter' }
+        - { $ref: '#/components/parameters/Q' }
+      responses:
+        '200':
+          description: Eligible employee list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EligibleEmployeeListResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/payroll/payruns:
+    get:
+      tags: [payroll]
+      operationId: listPayruns
+      summary: Pay runs with payslip counts and warning totals
+      parameters:
+        - { $ref: '#/components/parameters/Year' }
+        - { $ref: '#/components/parameters/PayrunStatusFilter' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Pay run list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrunListResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [payroll]
+      operationId: createPayrun
+      summary: Create a pay run containing only the selected employees
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePayrunRequest' }
+      responses:
+        '201':
+          description: Pay run created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrunDetailResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payruns/{id}:
+    get:
+      tags: [payroll]
+      operationId: getPayrun
+      summary: Pay run with its payslip summaries
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Pay run detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrunDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/payroll/payruns/{id}/compute:
+    post:
+      tags: [payroll]
+      operationId: computePayrun
+      summary: Generate or regenerate the payslips in this pay run
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Pay run computed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrunDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payruns/{id}/validate:
+    post:
+      tags: [payroll]
+      operationId: validatePayrun
+      summary: Validate the pay run when no blocking warnings remain
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Pay run validated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrunDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payruns/{id}/mark-paid:
+    post:
+      tags: [payroll]
+      operationId: markPayrunPaid
+      summary: Record the pay run as paid
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Pay run marked paid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrunDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payruns/{id}/send-payslips:
+    post:
+      tags: [payroll]
+      operationId: sendPayslips
+      summary: Email every payslip in a paid pay run as a PDF attachment
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Send attempted for each payslip
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SendPayslipsResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payslips:
+    get:
+      tags: [payroll]
+      operationId: listPayslips
+      summary: Paginated, filterable payslip list
+      parameters:
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/PayrunId' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/Period' }
+        - { $ref: '#/components/parameters/PayslipStatusFilter' }
+        - { $ref: '#/components/parameters/IncludeArchived' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Payslip list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayslipListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/payroll/payslips/{id}:
+    get:
+      tags: [payroll]
+      operationId: getPayslip
+      summary: Payslip with its computation lines
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Payslip detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayslipDetailResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/payroll/payslips/{id}/archive:
+    post:
+      tags: [payroll]
+      operationId: archivePayslip
+      summary: Archive a payslip so its period can be recomputed
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Payslip archived
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayslipDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/payroll/payslips/{id}/pdf:
+    get:
+      tags: [payroll]
+      operationId: getPayslipPdf
+      summary: Stream the payslip as a PDF
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/dashboard/payroll:
+    get:
+      tags: [dashboard]
+      operationId: getPayrollDashboard
+      summary: Every payroll dashboard figure in one payload
+      parameters:
+        - { $ref: '#/components/parameters/Period' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/EmployeeTypeFilter' }
+      responses:
+        '200':
+          description: Dashboard payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrollDashboardResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/reports/salary-register:
+    get:
+      tags: [reports]
+      operationId: getSalaryRegister
+      summary: Payslip totals per employee for a period
+      parameters:
+        - { $ref: '#/components/parameters/PeriodStart' }
+        - { $ref: '#/components/parameters/PeriodEnd' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/EmployeeTypeFilter' }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { $ref: '#/components/responses/ReportOk' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/reports/attendance-register:
+    get:
+      tags: [reports]
+      operationId: getAttendanceRegister
+      summary: Per-employee day grid for a month
+      parameters:
+        - { $ref: '#/components/parameters/Period' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/EmployeeId' }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { $ref: '#/components/responses/ReportOk' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/reports/leave-balance:
+    get:
+      tags: [reports]
+      operationId: getLeaveBalanceReport
+      summary: Allocated, taken and remaining per employee and type
+      parameters:
+        - { $ref: '#/components/parameters/AsOf' }
+        - { $ref: '#/components/parameters/TimeOffTypeId' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { $ref: '#/components/responses/ReportOk' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/reports/contract-expiry:
+    get:
+      tags: [reports]
+      operationId: getContractExpiryReport
+      summary: Contracts ending within a window
+      parameters:
+        - { $ref: '#/components/parameters/WithinDays' }
+        - { $ref: '#/components/parameters/DepartmentId' }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { $ref: '#/components/responses/ReportOk' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/reports/department-cost:
+    get:
+      tags: [reports]
+      operationId: getDepartmentCostReport
+      summary: Headcount and salary cost per department
+      parameters:
+        - { $ref: '#/components/parameters/PeriodStart' }
+        - { $ref: '#/components/parameters/PeriodEnd' }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { $ref: '#/components/responses/ReportOk' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/notifications:
+    get:
+      tags: [notifications]
+      operationId: listNotifications
+      summary: Own notifications with unread count
+      parameters:
+        - { $ref: '#/components/parameters/UnreadOnly' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/notifications/read:
+    post:
+      tags: [notifications]
+      operationId: markNotificationsRead
+      summary: Mark specific notifications, or all, as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarkNotificationsReadRequest' }
+      responses:
+        '204': { description: Marked read }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: pp_at
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Q:
+      name: q
+      in: query
+      required: false
+      description: Free-text search
+      schema: { type: string, maxLength: 100 }
+    Sort:
+      name: sort
+      in: query
+      required: false
+      schema: { type: string, maxLength: 40 }
+    Order:
+      name: order
+      in: query
+      required: false
+      schema: { type: string, enum: [asc, desc], default: asc }
+    EmployeeId:
+      name: employeeId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    DepartmentId:
+      name: departmentId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    TimeOffTypeId:
+      name: timeOffTypeId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    StructureId:
+      name: structureId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    StructureIdRequired:
+      name: structureId
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
+    PayrunId:
+      name: payrunId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    DateFrom:
+      name: dateFrom
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    DateTo:
+      name: dateTo
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    PeriodStart:
+      name: periodStart
+      in: query
+      required: true
+      schema: { type: string, format: date }
+    PeriodEnd:
+      name: periodEnd
+      in: query
+      required: true
+      schema: { type: string, format: date }
+    Period:
+      name: period
+      in: query
+      required: false
+      description: Calendar month as YYYY-MM
+      schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+    Year:
+      name: year
+      in: query
+      required: false
+      schema: { type: integer, minimum: 2000, maximum: 2100 }
+    AsOf:
+      name: asOf
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    WithinDays:
+      name: withinDays
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 365, default: 60 }
+    Format:
+      name: format
+      in: query
+      required: false
+      schema: { type: string, enum: [json, csv], default: json }
+    ActiveOnly:
+      name: activeOnly
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+    UnreadOnly:
+      name: unreadOnly
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+    IncludeArchived:
+      name: includeArchived
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+    RoleFilter:
+      name: role
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/UserRole' }
+    EmployeeTypeFilter:
+      name: employeeType
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/EmployeeType' }
+    EmployeeStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/EmployeeStatus' }
+    ContractStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/ContractStatus' }
+    AttendanceStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/AttendanceStatus' }
+    AllocationStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/AllocationStatus' }
+    RequestStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/RequestStatus' }
+    PayrunStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/PayrunStatus' }
+    PayslipStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/PayslipStatus' }
+    RuleCategoryFilter:
+      name: category
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/RuleCategory' }
+
+  responses:
+    ValidationFailed:
+      description: Request failed validation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthenticated:
+      description: Missing, expired or invalid access token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: Authenticated but not permitted
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Resource does not exist or is outside the caller's scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: Illegal state transition, overlap or uniqueness violation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ReportOk:
+      description: Report rows as JSON, or CSV when format=csv
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ReportResponse' }
+        text/csv:
+          schema: { type: string }
+
+  schemas:
+
+    # --- enums -------------------------------------------------------------
+    UserRole:
+      type: string
+      enum: [employee, hr_manager, hr_payroll_user, hr_payroll_manager, admin]
+    UserStatus:
+      type: string
+      enum: [invited, active, disabled]
+    Currency:
+      type: string
+      enum: [INR, USD]
+    EmployeeType:
+      type: string
+      enum: [full_time, part_time, contract, intern]
+    EmployeeStatus:
+      type: string
+      enum: [active, inactive]
+    ContractStatus:
+      type: string
+      enum: [draft, running, expired, cancelled]
+    AttendanceStatus:
+      type: string
+      enum: [present, late, absent, half_day, on_leave]
+    TimeOffUnit:
+      type: string
+      enum: [days, hours]
+    TimeOffDurationType:
+      type: string
+      enum: [full_day, half_day, hours]
+    AllocationStatus:
+      type: string
+      enum: [draft, approved, refused]
+    RequestStatus:
+      type: string
+      enum: [to_approve, approved, refused, cancelled]
+    RuleCategory:
+      type: string
+      enum: [basic, allowance, gross, deduction, net]
+    RuleComputation:
+      type: string
+      enum: [fixed, percentage, formula]
+    PercentageBase:
+      type: string
+      enum: [contract_wage, basic, gross]
+    PayrunStatus:
+      type: string
+      enum: [draft, computed, validated, paid]
+    PayslipStatus:
+      type: string
+      enum: [draft, computed, done, paid]
+    NotificationType:
+      type: string
+      enum: [time_off_requested, time_off_approved, time_off_refused, payslip_sent, payrun_validated]
+    PayslipWarningCode:
+      type: string
+      enum: [MISSING_BANK_ACCOUNT, NO_ACTIVE_CONTRACT, DUPLICATE_PAYSLIP, CONTRACT_EXPIRING, ZERO_WORKED_DAYS, UNRECORDED_ATTENDANCE]
+
+    # --- primitives ---------------------------------------------------------
+    Money:
+      type: string
+      description: Decimal with two fraction digits, never a JSON number
+      pattern: '^-?\d+\.\d{2}$'
+    Quantity:
+      type: string
+      description: Decimal day or hour quantity with two fraction digits
+      pattern: '^-?\d+\.\d{2}$'
+    Rate:
+      type: string
+      description: Decimal exchange rate with up to six fraction digits
+
+    # --- envelopes ----------------------------------------------------------
+    PaginationMeta:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    ErrorDetail:
+      type: object
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, CONFLICT, INTERNAL]
+        message: { type: string }
+        details:
+          type: array
+          items: { $ref: '#/components/schemas/ErrorDetail' }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/ErrorBody' }
+
+    # --- shared entities ----------------------------------------------------
+    EmployeeRef:
+      type: object
+      required: [id, firstName, lastName, workEmail]
+      properties:
+        id: { type: string, format: uuid }
+        firstName: { type: string }
+        lastName: { type: string }
+        workEmail: { type: string, format: email }
+        jobPosition: { type: [string, 'null'] }
+        departmentName: { type: [string, 'null'] }
+    DepartmentRef:
+      type: object
+      required: [id, name, code]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+    WorkingScheduleRef:
+      type: object
+      required: [id, name, hoursPerWeek]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        hoursPerWeek: { $ref: '#/components/schemas/Quantity' }
+    SalaryStructureRef:
+      type: object
+      required: [id, name, code]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+    TimeOffTypeRef:
+      type: object
+      required: [id, name, code, unit, color]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        unit: { $ref: '#/components/schemas/TimeOffUnit' }
+        color: { type: string }
+
+    # --- auth ---------------------------------------------------------------
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128 }
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    SetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 32, maxLength: 128 }
+        password: { type: string, minLength: 8, maxLength: 128 }
+    SessionUser:
+      type: object
+      required: [id, email, role, status]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/UserRole' }
+        status: { $ref: '#/components/schemas/UserStatus' }
+        employee:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeRef' }
+            - { type: 'null' }
+    SessionResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SessionUser' }
+
+    # --- users --------------------------------------------------------------
+    User:
+      type: object
+      required: [id, email, role, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/UserRole' }
+        status: { $ref: '#/components/schemas/UserStatus' }
+        lastLoginAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        employee:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeRef' }
+            - { type: 'null' }
+    CreateUserRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/UserRole' }
+        employeeId: { type: [string, 'null'], format: uuid }
+    UpdateUserRequest:
+      type: object
+      properties:
+        role: { $ref: '#/components/schemas/UserRole' }
+        status: { $ref: '#/components/schemas/UserStatus' }
+        employeeId: { type: [string, 'null'], format: uuid }
+    UserResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/User' }
+    UserListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    # --- employees ----------------------------------------------------------
+    Employee:
+      type: object
+      required: [id, firstName, lastName, workEmail, department, jobPosition, workingSchedule, employeeType, status, joiningDate]
+      properties:
+        id: { type: string, format: uuid }
+        firstName: { type: string }
+        lastName: { type: string }
+        workEmail: { type: string, format: email }
+        personalEmail: { type: [string, 'null'], format: email }
+        phone: { type: [string, 'null'] }
+        department: { $ref: '#/components/schemas/DepartmentRef' }
+        jobPosition: { type: string }
+        workingSchedule: { $ref: '#/components/schemas/WorkingScheduleRef' }
+        employeeType: { $ref: '#/components/schemas/EmployeeType' }
+        status: { $ref: '#/components/schemas/EmployeeStatus' }
+        joiningDate: { type: string, format: date }
+        workLocation: { type: [string, 'null'] }
+        bankName: { type: [string, 'null'] }
+        bankAccountHolder: { type: [string, 'null'] }
+        bankAccountLast4: { type: [string, 'null'] }
+        bankIfsc: { type: [string, 'null'] }
+        manager:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeRef' }
+            - { type: 'null' }
+    EmployeeCounts:
+      type: object
+      required: [contracts, attendance, timeOff, allocations]
+      properties:
+        contracts: { type: integer }
+        attendance: { type: integer }
+        timeOff: { type: integer }
+        allocations: { type: integer }
+    EmployeeDetail:
+      type: object
+      required: [employee, counts]
+      properties:
+        employee: { $ref: '#/components/schemas/Employee' }
+        counts: { $ref: '#/components/schemas/EmployeeCounts' }
+    CreateEmployeeRequest:
+      type: object
+      required: [firstName, lastName, workEmail, departmentId, jobPosition, workingScheduleId, employeeType, joiningDate]
+      properties:
+        firstName: { type: string, minLength: 1, maxLength: 60 }
+        lastName: { type: string, minLength: 1, maxLength: 60 }
+        workEmail: { type: string, format: email }
+        personalEmail: { type: [string, 'null'], format: email }
+        phone: { type: [string, 'null'], maxLength: 20 }
+        departmentId: { type: string, format: uuid }
+        jobPosition: { type: string, minLength: 1, maxLength: 80 }
+        managerId: { type: [string, 'null'], format: uuid }
+        workingScheduleId: { type: string, format: uuid }
+        employeeType: { $ref: '#/components/schemas/EmployeeType' }
+        joiningDate: { type: string, format: date }
+        workLocation: { type: [string, 'null'], maxLength: 80 }
+        bankName: { type: [string, 'null'], maxLength: 80 }
+        bankAccountHolder: { type: [string, 'null'], maxLength: 80 }
+        bankAccountNumber: { type: [string, 'null'], maxLength: 34 }
+        bankIfsc: { type: [string, 'null'], maxLength: 20 }
+    UpdateEmployeeRequest:
+      type: object
+      properties:
+        firstName: { type: string, minLength: 1, maxLength: 60 }
+        lastName: { type: string, minLength: 1, maxLength: 60 }
+        personalEmail: { type: [string, 'null'], format: email }
+        phone: { type: [string, 'null'], maxLength: 20 }
+        departmentId: { type: string, format: uuid }
+        jobPosition: { type: string, minLength: 1, maxLength: 80 }
+        managerId: { type: [string, 'null'], format: uuid }
+        workingScheduleId: { type: string, format: uuid }
+        employeeType: { $ref: '#/components/schemas/EmployeeType' }
+        status: { $ref: '#/components/schemas/EmployeeStatus' }
+        workLocation: { type: [string, 'null'], maxLength: 80 }
+        bankName: { type: [string, 'null'], maxLength: 80 }
+        bankAccountHolder: { type: [string, 'null'], maxLength: 80 }
+        bankAccountNumber: { type: [string, 'null'], maxLength: 34 }
+        bankIfsc: { type: [string, 'null'], maxLength: 20 }
+    EmployeeResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Employee' }
+    EmployeeDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/EmployeeDetail' }
+    EmployeeListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Employee' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    # --- departments --------------------------------------------------------
+    Department:
+      type: object
+      required: [id, name, code, headcount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        headcount: { type: integer }
+        manager:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeRef' }
+            - { type: 'null' }
+    CreateDepartmentRequest:
+      type: object
+      required: [name, code]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        code: { type: string, minLength: 1, maxLength: 8 }
+        managerId: { type: [string, 'null'], format: uuid }
+    UpdateDepartmentRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        code: { type: string, minLength: 1, maxLength: 8 }
+        managerId: { type: [string, 'null'], format: uuid }
+    DepartmentResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Department' }
+    DepartmentListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Department' }
+
+    # --- contracts ----------------------------------------------------------
+    Contract:
+      type: object
+      required: [id, reference, employee, department, jobPosition, workingSchedule, salaryStructure, startDate, wage, currency, status]
+      properties:
+        id: { type: string, format: uuid }
+        reference: { type: string }
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        department: { $ref: '#/components/schemas/DepartmentRef' }
+        jobPosition: { type: string }
+        workingSchedule: { $ref: '#/components/schemas/WorkingScheduleRef' }
+        salaryStructure: { $ref: '#/components/schemas/SalaryStructureRef' }
+        startDate: { type: string, format: date }
+        endDate: { type: [string, 'null'], format: date }
+        wage: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { $ref: '#/components/schemas/ContractStatus' }
+        notes: { type: [string, 'null'] }
+    CreateContractRequest:
+      type: object
+      required: [employeeId, departmentId, jobPosition, workingScheduleId, salaryStructureId, startDate, wage, currency]
+      properties:
+        employeeId: { type: string, format: uuid }
+        departmentId: { type: string, format: uuid }
+        jobPosition: { type: string, minLength: 1, maxLength: 80 }
+        workingScheduleId: { type: string, format: uuid }
+        salaryStructureId: { type: string, format: uuid }
+        startDate: { type: string, format: date }
+        endDate: { type: [string, 'null'], format: date }
+        wage: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { $ref: '#/components/schemas/ContractStatus' }
+        notes: { type: [string, 'null'], maxLength: 1000 }
+    UpdateContractRequest:
+      type: object
+      properties:
+        departmentId: { type: string, format: uuid }
+        jobPosition: { type: string, minLength: 1, maxLength: 80 }
+        workingScheduleId: { type: string, format: uuid }
+        salaryStructureId: { type: string, format: uuid }
+        startDate: { type: string, format: date }
+        endDate: { type: [string, 'null'], format: date }
+        wage: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { $ref: '#/components/schemas/ContractStatus' }
+        notes: { type: [string, 'null'], maxLength: 1000 }
+    ContractResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Contract' }
+    ContractListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    # --- schedules ----------------------------------------------------------
+    WorkingScheduleDay:
+      type: object
+      required: [dayOfWeek, startTime, endTime, breakHours, hours]
+      properties:
+        id: { type: string, format: uuid }
+        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
+        startTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+        endTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+        breakHours: { $ref: '#/components/schemas/Quantity' }
+        hours: { $ref: '#/components/schemas/Quantity' }
+    WorkingSchedule:
+      type: object
+      required: [id, name, timezone, daysPerWeek, hoursPerWeek, active, days]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        timezone: { type: string }
+        daysPerWeek: { type: integer }
+        hoursPerWeek: { $ref: '#/components/schemas/Quantity' }
+        active: { type: boolean }
+        employeeCount: { type: integer }
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/WorkingScheduleDay' }
+    WorkingScheduleDayInput:
+      type: object
+      required: [dayOfWeek, startTime, endTime]
+      properties:
+        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
+        startTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+        endTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+        breakHours: { $ref: '#/components/schemas/Quantity' }
+    CreateWorkingScheduleRequest:
+      type: object
+      required: [name, days]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        active: { type: boolean, default: true }
+        days:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items: { $ref: '#/components/schemas/WorkingScheduleDayInput' }
+    UpdateWorkingScheduleRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        active: { type: boolean }
+        days:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items: { $ref: '#/components/schemas/WorkingScheduleDayInput' }
+    WorkingScheduleResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/WorkingSchedule' }
+    WorkingScheduleListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WorkingSchedule' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    PublicHoliday:
+      type: object
+      required: [id, name, date]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        date: { type: string, format: date }
+    CreatePublicHolidayRequest:
+      type: object
+      required: [name, date]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        date: { type: string, format: date }
+    PublicHolidayResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PublicHoliday' }
+    PublicHolidayListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PublicHoliday' }
+
+    # --- attendance ---------------------------------------------------------
+    AttendanceRecord:
+      type: object
+      required: [id, employee, date, workedHours, overtimeHours, status, isManualEdit]
+      properties:
+        id: { type: string, format: uuid }
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        date: { type: string, format: date }
+        checkIn: { type: [string, 'null'], format: date-time }
+        checkOut: { type: [string, 'null'], format: date-time }
+        workedHours: { $ref: '#/components/schemas/Quantity' }
+        overtimeHours: { $ref: '#/components/schemas/Quantity' }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        notes: { type: [string, 'null'] }
+        isManualEdit: { type: boolean }
+    ActiveAttendance:
+      type: object
+      required: [checkedIn]
+      properties:
+        checkedIn: { type: boolean }
+        record:
+          oneOf:
+            - { $ref: '#/components/schemas/AttendanceRecord' }
+            - { type: 'null' }
+        todayWorkedHours: { $ref: '#/components/schemas/Quantity' }
+    CreateAttendanceRequest:
+      type: object
+      required: [employeeId, date, status]
+      properties:
+        employeeId: { type: string, format: uuid }
+        date: { type: string, format: date }
+        checkIn: { type: [string, 'null'], format: date-time }
+        checkOut: { type: [string, 'null'], format: date-time }
+        overtimeHours: { $ref: '#/components/schemas/Quantity' }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        notes: { type: [string, 'null'], maxLength: 500 }
+    UpdateAttendanceRequest:
+      type: object
+      properties:
+        checkIn: { type: [string, 'null'], format: date-time }
+        checkOut: { type: [string, 'null'], format: date-time }
+        overtimeHours: { $ref: '#/components/schemas/Quantity' }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        notes: { type: [string, 'null'], maxLength: 500 }
+    AttendanceResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AttendanceRecord' }
+    ActiveAttendanceResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/ActiveAttendance' }
+    AttendanceListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AttendanceRecord' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    # --- time off -----------------------------------------------------------
+    TimeOffType:
+      type: object
+      required: [id, name, code, unit, requiresAllocation, isPaid, approvalRole, color, active]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        unit: { $ref: '#/components/schemas/TimeOffUnit' }
+        requiresAllocation: { type: boolean }
+        isPaid: { type: boolean }
+        approvalRole: { $ref: '#/components/schemas/UserRole' }
+        color: { type: string }
+        active: { type: boolean }
+    CreateTimeOffTypeRequest:
+      type: object
+      required: [name, code, unit, color]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        code: { type: string, minLength: 1, maxLength: 8 }
+        unit: { $ref: '#/components/schemas/TimeOffUnit' }
+        requiresAllocation: { type: boolean, default: true }
+        isPaid: { type: boolean, default: true }
+        approvalRole: { $ref: '#/components/schemas/UserRole' }
+        color: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
+        active: { type: boolean, default: true }
+    UpdateTimeOffTypeRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        unit: { $ref: '#/components/schemas/TimeOffUnit' }
+        requiresAllocation: { type: boolean }
+        isPaid: { type: boolean }
+        approvalRole: { $ref: '#/components/schemas/UserRole' }
+        color: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
+        active: { type: boolean }
+    TimeOffTypeResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TimeOffType' }
+    TimeOffTypeListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TimeOffType' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    Allocation:
+      type: object
+      required: [id, employee, timeOffType, allocated, taken, remaining, validFrom, validTo, status]
+      properties:
+        id: { type: string, format: uuid }
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        timeOffType: { $ref: '#/components/schemas/TimeOffTypeRef' }
+        allocated: { $ref: '#/components/schemas/Quantity' }
+        taken: { $ref: '#/components/schemas/Quantity' }
+        remaining: { $ref: '#/components/schemas/Quantity' }
+        validFrom: { type: string, format: date }
+        validTo: { type: string, format: date }
+        status: { $ref: '#/components/schemas/AllocationStatus' }
+        description: { type: [string, 'null'] }
+        approver:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeRef' }
+            - { type: 'null' }
+    CreateAllocationRequest:
+      type: object
+      required: [employeeId, timeOffTypeId, allocated, validFrom, validTo]
+      properties:
+        employeeId: { type: string, format: uuid }
+        timeOffTypeId: { type: string, format: uuid }
+        allocated: { $ref: '#/components/schemas/Quantity' }
+        validFrom: { type: string, format: date }
+        validTo: { type: string, format: date }
+        description: { type: [string, 'null'], maxLength: 500 }
+    UpdateAllocationRequest:
+      type: object
+      properties:
+        allocated: { $ref: '#/components/schemas/Quantity' }
+        validFrom: { type: string, format: date }
+        validTo: { type: string, format: date }
+        description: { type: [string, 'null'], maxLength: 500 }
+    AllocationResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Allocation' }
+    AllocationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Allocation' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    TimeOffRequest:
+      type: object
+      required: [id, employee, timeOffType, startDate, endDate, durationType, durationDays, durationHours, status]
+      properties:
+        id: { type: string, format: uuid }
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        timeOffType: { $ref: '#/components/schemas/TimeOffTypeRef' }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        durationType: { $ref: '#/components/schemas/TimeOffDurationType' }
+        requestedHours: { $ref: '#/components/schemas/Quantity' }
+        durationDays: { $ref: '#/components/schemas/Quantity' }
+        durationHours: { $ref: '#/components/schemas/Quantity' }
+        status: { $ref: '#/components/schemas/RequestStatus' }
+        reason: { type: [string, 'null'] }
+        refusalReason: { type: [string, 'null'] }
+        allocation:
+          oneOf:
+            - { $ref: '#/components/schemas/Allocation' }
+            - { type: 'null' }
+        approver:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeRef' }
+            - { type: 'null' }
+    CreateTimeOffRequestRequest:
+      type: object
+      required: [employeeId, timeOffTypeId, startDate, endDate, durationType]
+      properties:
+        employeeId: { type: string, format: uuid }
+        timeOffTypeId: { type: string, format: uuid }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        durationType: { $ref: '#/components/schemas/TimeOffDurationType' }
+        requestedHours: { $ref: '#/components/schemas/Quantity' }
+        reason: { type: [string, 'null'], maxLength: 500 }
+    UpdateTimeOffRequestRequest:
+      type: object
+      properties:
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        durationType: { $ref: '#/components/schemas/TimeOffDurationType' }
+        requestedHours: { $ref: '#/components/schemas/Quantity' }
+        reason: { type: [string, 'null'], maxLength: 500 }
+        status:
+          type: string
+          enum: [cancelled]
+    RefuseTimeOffRequestRequest:
+      type: object
+      properties:
+        refusalReason: { type: [string, 'null'], maxLength: 500 }
+    TimeOffRequestResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TimeOffRequest' }
+    TimeOffRequestListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TimeOffRequest' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    TimeOffCalendarDay:
+      type: object
+      required: [date, kind]
+      properties:
+        date: { type: string, format: date }
+        kind:
+          type: string
+          enum: [working, non_working, holiday, leave]
+        timeOffTypeId: { type: [string, 'null'], format: uuid }
+        color: { type: [string, 'null'] }
+        fraction: { $ref: '#/components/schemas/Quantity' }
+        label: { type: [string, 'null'] }
+    TimeOffEntitlement:
+      type: object
+      required: [timeOffType, allocated, taken, remaining]
+      properties:
+        timeOffType: { $ref: '#/components/schemas/TimeOffTypeRef' }
+        allocated: { $ref: '#/components/schemas/Quantity' }
+        taken: { $ref: '#/components/schemas/Quantity' }
+        remaining: { $ref: '#/components/schemas/Quantity' }
+        pending: { $ref: '#/components/schemas/Quantity' }
+    TimeOffDashboard:
+      type: object
+      required: [employee, year, days, entitlements, unplannedSummary]
+      properties:
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        year: { type: integer }
+        workingSchedule: { $ref: '#/components/schemas/WorkingScheduleRef' }
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/TimeOffCalendarDay' }
+        entitlements:
+          type: array
+          items: { $ref: '#/components/schemas/TimeOffEntitlement' }
+        unplannedSummary: { $ref: '#/components/schemas/UnplannedSummary' }
+    UnplannedSummary:
+      type: object
+      required: [last30Days, last3Months, last6Months, thisYear]
+      properties:
+        last30Days: { $ref: '#/components/schemas/Quantity' }
+        last3Months: { $ref: '#/components/schemas/Quantity' }
+        last6Months: { $ref: '#/components/schemas/Quantity' }
+        thisYear: { $ref: '#/components/schemas/Quantity' }
+    TimeOffDashboardResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TimeOffDashboard' }
+
+    # --- payroll configuration ----------------------------------------------
+    SalaryStructure:
+      type: object
+      required: [id, name, code, active, ruleCount, employeeCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        active: { type: boolean }
+        ruleCount: { type: integer }
+        employeeCount: { type: integer }
+    SalaryRule:
+      type: object
+      required: [id, structure, name, code, category, sequence, computation, active]
+      properties:
+        id: { type: string, format: uuid }
+        structure: { $ref: '#/components/schemas/SalaryStructureRef' }
+        name: { type: string }
+        code: { type: string }
+        category: { $ref: '#/components/schemas/RuleCategory' }
+        sequence: { type: integer }
+        computation: { $ref: '#/components/schemas/RuleComputation' }
+        amount: { $ref: '#/components/schemas/Money' }
+        percentage: { type: [string, 'null'] }
+        percentageBase:
+          oneOf:
+            - { $ref: '#/components/schemas/PercentageBase' }
+            - { type: 'null' }
+        formula: { type: [string, 'null'] }
+        active: { type: boolean }
+    SalaryStructureDetail:
+      type: object
+      required: [structure, rules]
+      properties:
+        structure: { $ref: '#/components/schemas/SalaryStructure' }
+        rules:
+          type: array
+          items: { $ref: '#/components/schemas/SalaryRule' }
+    CreateSalaryStructureRequest:
+      type: object
+      required: [name, code]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        code: { type: string, minLength: 1, maxLength: 12 }
+        active: { type: boolean, default: true }
+    UpdateSalaryStructureRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        active: { type: boolean }
+    CreateSalaryRuleRequest:
+      type: object
+      required: [structureId, name, code, category, sequence, computation]
+      properties:
+        structureId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,15}$' }
+        category: { $ref: '#/components/schemas/RuleCategory' }
+        sequence: { type: integer, minimum: 1, maximum: 9999 }
+        computation: { $ref: '#/components/schemas/RuleComputation' }
+        amount: { $ref: '#/components/schemas/Money' }
+        percentage: { type: [string, 'null'] }
+        percentageBase:
+          oneOf:
+            - { $ref: '#/components/schemas/PercentageBase' }
+            - { type: 'null' }
+        formula: { type: [string, 'null'], maxLength: 500 }
+        active: { type: boolean, default: true }
+    UpdateSalaryRuleRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        category: { $ref: '#/components/schemas/RuleCategory' }
+        sequence: { type: integer, minimum: 1, maximum: 9999 }
+        computation: { $ref: '#/components/schemas/RuleComputation' }
+        amount: { $ref: '#/components/schemas/Money' }
+        percentage: { type: [string, 'null'] }
+        percentageBase:
+          oneOf:
+            - { $ref: '#/components/schemas/PercentageBase' }
+            - { type: 'null' }
+        formula: { type: [string, 'null'], maxLength: 500 }
+        active: { type: boolean }
+    SalaryStructureResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SalaryStructure' }
+    SalaryStructureDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SalaryStructureDetail' }
+    SalaryStructureListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SalaryStructure' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    SalaryRuleResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SalaryRule' }
+    SalaryRuleListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SalaryRule' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    # --- pay runs and payslips ----------------------------------------------
+    EligibleEmployee:
+      type: object
+      required: [employee, contractId, workingHours, contractStartDate, wage, currency]
+      properties:
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        contractId: { type: string, format: uuid }
+        workingHours: { $ref: '#/components/schemas/Quantity' }
+        contractStartDate: { type: string, format: date }
+        wage: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        alreadyPaid: { type: boolean }
+    PayslipWarning:
+      type: object
+      required: [code, message, blocking]
+      properties:
+        code: { $ref: '#/components/schemas/PayslipWarningCode' }
+        message: { type: string }
+        blocking: { type: boolean }
+    Payrun:
+      type: object
+      required: [id, name, salaryStructure, periodStart, periodEnd, status, payoutCurrency, exchangeRate, payslipCount, warningCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        salaryStructure: { $ref: '#/components/schemas/SalaryStructureRef' }
+        employeeType:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeType' }
+            - { type: 'null' }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        status: { $ref: '#/components/schemas/PayrunStatus' }
+        payoutCurrency: { $ref: '#/components/schemas/Currency' }
+        exchangeRate: { $ref: '#/components/schemas/Rate' }
+        payslipCount: { type: integer }
+        warningCount: { type: integer }
+        totalNet: { $ref: '#/components/schemas/Money' }
+        paidAt: { type: [string, 'null'], format: date-time }
+    PayslipSummary:
+      type: object
+      required: [id, employee, workedDays, basic, gross, net, currency, status, warnings, archived]
+      properties:
+        id: { type: string, format: uuid }
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        workedDays: { $ref: '#/components/schemas/Quantity' }
+        basic: { $ref: '#/components/schemas/Money' }
+        gross: { $ref: '#/components/schemas/Money' }
+        net: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { $ref: '#/components/schemas/PayslipStatus' }
+        archived: { type: boolean }
+        sentAt: { type: [string, 'null'], format: date-time }
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/PayslipWarning' }
+    PayrunDetail:
+      type: object
+      required: [payrun, payslips]
+      properties:
+        payrun: { $ref: '#/components/schemas/Payrun' }
+        payslips:
+          type: array
+          items: { $ref: '#/components/schemas/PayslipSummary' }
+    PayslipLine:
+      type: object
+      required: [ruleCode, ruleName, category, sequence, amount]
+      properties:
+        ruleCode: { type: string }
+        ruleName: { type: string }
+        category: { $ref: '#/components/schemas/RuleCategory' }
+        sequence: { type: integer }
+        amount: { $ref: '#/components/schemas/Money' }
+    Payslip:
+      type: object
+      required: [id, employee, salaryStructure, periodStart, periodEnd, currency, payoutCurrency, exchangeRate, scheduledDays, workedDays, paidLeaveDays, unpaidLeaveDays, absentDays, overtimeHours, proration, basic, gross, totalDeductions, net, status, archived, warnings]
+      properties:
+        id: { type: string, format: uuid }
+        payrunId: { type: string, format: uuid }
+        payrunName: { type: string }
+        employee: { $ref: '#/components/schemas/EmployeeRef' }
+        contract:
+          oneOf:
+            - { $ref: '#/components/schemas/Contract' }
+            - { type: 'null' }
+        salaryStructure: { $ref: '#/components/schemas/SalaryStructureRef' }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        currency: { $ref: '#/components/schemas/Currency' }
+        payoutCurrency: { $ref: '#/components/schemas/Currency' }
+        exchangeRate: { $ref: '#/components/schemas/Rate' }
+        scheduledDays: { $ref: '#/components/schemas/Quantity' }
+        workedDays: { $ref: '#/components/schemas/Quantity' }
+        paidLeaveDays: { $ref: '#/components/schemas/Quantity' }
+        unpaidLeaveDays: { $ref: '#/components/schemas/Quantity' }
+        absentDays: { $ref: '#/components/schemas/Quantity' }
+        overtimeHours: { $ref: '#/components/schemas/Quantity' }
+        proration: { type: string }
+        basic: { $ref: '#/components/schemas/Money' }
+        gross: { $ref: '#/components/schemas/Money' }
+        totalDeductions: { $ref: '#/components/schemas/Money' }
+        net: { $ref: '#/components/schemas/Money' }
+        status: { $ref: '#/components/schemas/PayslipStatus' }
+        archived: { type: boolean }
+        sentAt: { type: [string, 'null'], format: date-time }
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/PayslipWarning' }
+    PayslipDetail:
+      type: object
+      required: [payslip, lines]
+      properties:
+        payslip: { $ref: '#/components/schemas/Payslip' }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PayslipLine' }
+    CreatePayrunRequest:
+      type: object
+      required: [name, salaryStructureId, periodStart, periodEnd, payoutCurrency, employeeIds]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        salaryStructureId: { type: string, format: uuid }
+        employeeType:
+          oneOf:
+            - { $ref: '#/components/schemas/EmployeeType' }
+            - { type: 'null' }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        payoutCurrency: { $ref: '#/components/schemas/Currency' }
+        exchangeRate: { $ref: '#/components/schemas/Rate' }
+        employeeIds:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+    SendPayslipsResult:
+      type: object
+      required: [payslipId, sent]
+      properties:
+        payslipId: { type: string, format: uuid }
+        sent: { type: boolean }
+        error: { type: [string, 'null'] }
+    PayrunResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Payrun' }
+    PayrunDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PayrunDetail' }
+    PayrunListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Payrun' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    EligibleEmployeeListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EligibleEmployee' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    PayslipListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Payslip' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    PayslipDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PayslipDetail' }
+    SendPayslipsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SendPayslipsResult' }
+
+    # --- dashboard ----------------------------------------------------------
+    DashboardKpis:
+      type: object
+      required: [totalNetPaid, currency, netChangePercent, payslipsGenerated, payslipsPaid, payslipsPending, averageSalary, approvedTimeOffDays, attendanceHealthPercent]
+      properties:
+        totalNetPaid: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        netChangePercent: { type: string }
+        payslipsGenerated: { type: integer }
+        payslipsPaid: { type: integer }
+        payslipsPending: { type: integer }
+        averageSalary: { $ref: '#/components/schemas/Money' }
+        approvedTimeOffDays: { $ref: '#/components/schemas/Quantity' }
+        attendanceHealthPercent: { type: string }
+    DepartmentSalaryPoint:
+      type: object
+      required: [departmentId, departmentName, headcount, totalNet]
+      properties:
+        departmentId: { type: string, format: uuid }
+        departmentName: { type: string }
+        headcount: { type: integer }
+        totalNet: { $ref: '#/components/schemas/Money' }
+    MonthlyTrendPoint:
+      type: object
+      required: [period, totalNet]
+      properties:
+        period: { type: string, pattern: '^\d{4}-\d{2}$' }
+        totalNet: { $ref: '#/components/schemas/Money' }
+    PayslipStatusSplit:
+      type: object
+      required: [paid, done, computed, draft]
+      properties:
+        paid: { type: integer }
+        done: { type: integer }
+        computed: { type: integer }
+        draft: { type: integer }
+    DashboardAlert:
+      type: object
+      required: [code, message, count]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        count: { type: integer }
+        linkPath: { type: [string, 'null'] }
+    AttendanceOverview:
+      type: object
+      required: [present, late, absent, overtimeHours, missingCheckOuts, manualEdits, coveragePercent]
+      properties:
+        present: { type: integer }
+        late: { type: integer }
+        absent: { type: integer }
+        overtimeHours: { $ref: '#/components/schemas/Quantity' }
+        missingCheckOuts: { type: integer }
+        manualEdits: { type: integer }
+        coveragePercent: { type: string }
+    TimeOffOverviewRow:
+      type: object
+      required: [timeOffType, approvedDays, pending, remainingBalance]
+      properties:
+        timeOffType: { $ref: '#/components/schemas/TimeOffTypeRef' }
+        approvedDays: { $ref: '#/components/schemas/Quantity' }
+        pending: { type: integer }
+        remainingBalance: { $ref: '#/components/schemas/Quantity' }
+    PayrollDashboard:
+      type: object
+      required: [period, kpis, salaryByDepartment, monthlyTrend, statusSplit, alerts, attendanceOverview, timeOffOverview]
+      properties:
+        period: { type: string, pattern: '^\d{4}-\d{2}$' }
+        kpis: { $ref: '#/components/schemas/DashboardKpis' }
+        salaryByDepartment:
+          type: array
+          items: { $ref: '#/components/schemas/DepartmentSalaryPoint' }
+        monthlyTrend:
+          type: array
+          items: { $ref: '#/components/schemas/MonthlyTrendPoint' }
+        statusSplit: { $ref: '#/components/schemas/PayslipStatusSplit' }
+        alerts:
+          type: array
+          items: { $ref: '#/components/schemas/DashboardAlert' }
+        attendanceOverview: { $ref: '#/components/schemas/AttendanceOverview' }
+        timeOffOverview:
+          type: array
+          items: { $ref: '#/components/schemas/TimeOffOverviewRow' }
+    PayrollDashboardResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PayrollDashboard' }
+
+    # --- reports ------------------------------------------------------------
+    ReportColumn:
+      type: object
+      required: [key, label, type]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type:
+          type: string
+          enum: [text, number, money, quantity, date]
+    ReportRow:
+      type: object
+      additionalProperties:
+        type: [string, 'null']
+    Report:
+      type: object
+      required: [key, title, columns, rows]
+      properties:
+        key:
+          type: string
+          enum: [salary_register, attendance_register, leave_balance, contract_expiry, department_cost]
+        title: { type: string }
+        columns:
+          type: array
+          items: { $ref: '#/components/schemas/ReportColumn' }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/ReportRow' }
+    ReportResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Report' }
+
+    # --- notifications ------------------------------------------------------
+    Notification:
+      type: object
+      required: [id, type, title, body, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/NotificationType' }
+        title: { type: string }
+        body: { type: string }
+        linkPath: { type: [string, 'null'] }
+        readAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    NotificationMeta:
+      type: object
+      required: [page, pageSize, total, unread]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        unread: { type: integer }
+    MarkNotificationsReadRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items: { type: string, format: uuid }
+        all: { type: boolean, default: false }
+    NotificationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        meta: { $ref: '#/components/schemas/NotificationMeta' }

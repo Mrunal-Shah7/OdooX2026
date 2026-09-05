@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeoplePay360 — Design Reference</title>
+<style>
+  /* ==================================================================
+     1. TOKENS — pasted verbatim from tokens.css. Do not diverge.
+     ================================================================== */
+  :root {
+    --color-primary: #14283f;
+    --color-primary-hover: #1d3855;
+    --color-primary-subtle: #e7ecf2;
+    --color-on-primary: #f7f9fb;
+    --color-accent: #2563a8;
+    --color-accent-hover: #1d4f8a;
+    --color-accent-subtle: #e6eef7;
+    --color-on-accent: #ffffff;
+    --color-canvas: #f4f6f8;
+    --color-surface: #ffffff;
+    --color-surface-raised: #ffffff;
+    --color-surface-sunken: #eceff3;
+    --color-text: #111a24;
+    --color-text-muted: #5b6672;
+    --color-text-subtle: #69727d;
+    --color-text-inverse: #f7f9fb;
+    --color-border: #dde2e8;
+    --color-border-strong: #c2c9d2;
+    --color-focus-ring: #2563a8;
+    --color-success: #1a6b47;
+    --color-success-subtle: #e4f1ea;
+    --color-warning: #8a5a00;
+    --color-warning-subtle: #fbf0da;
+    --color-danger: #a32330;
+    --color-danger-subtle: #fbe9eb;
+    --color-info: #1d5b8f;
+    --color-info-subtle: #e9f1f8;
+    --color-chart-1: #2563a8;
+    --color-chart-2: #4c8ac4;
+    --color-chart-3: #86b3d9;
+    --color-chart-4: #1a6b47;
+    --color-chart-5: #8a5a00;
+    --color-chart-track: #eceff3;
+
+    --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-numeric: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+    --text-display: 2.25rem;
+    --text-h1: 1.75rem;
+    --text-h2: 1.375rem;
+    --text-h3: 1.125rem;
+    --text-body-lg: 1.0625rem;
+    --text-body: 1rem;
+    --text-body-sm: 0.875rem;
+    --text-label: 0.8125rem;
+    --text-caption: 0.75rem;
+    --text-metric: 1.75rem;
+
+    --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    --leading-tight: 1.15;
+    --leading-snug: 1.35;
+    --leading-normal: 1.6;
+
+    --tracking-tight: -0.02em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.04em;
+
+    --space-0: 0;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+    --space-7: 3rem;
+    --space-8: 4rem;
+
+    --radius-none: 0;
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --radius-full: 9999px;
+
+    --shadow-none: none;
+    --shadow-sm: 0 1px 2px rgba(17, 26, 36, 0.06);
+    --shadow-md: 0 4px 12px rgba(17, 26, 36, 0.10);
+    --shadow-lg: 0 12px 32px rgba(17, 26, 36, 0.16);
+
+    --container-max: 1280px;
+    --container-narrow: 640px;
+    --gutter: var(--space-5);
+    --nav-height: 56px;
+    --control-height: 36px;
+    --control-height-sm: 28px;
+
+    --border-width: 1px;
+    --border-width-strong: 2px;
+
+    --duration-fast: 120ms;
+    --duration-base: 200ms;
+    --easing-standard: cubic-bezier(0.2, 0, 0.15, 1);
+
+    --z-nav: 100;
+    --z-dropdown: 200;
+    --z-modal: 300;
+    --z-toast: 400;
+  }
+
+  /* ==================================================================
+     2. RESET AND BASE
+     ================================================================== */
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--color-surface-sunken);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: var(--leading-normal);
+  }
+  a { color: var(--color-accent); }
+
+  /* ==================================================================
+     3. REFERENCE-FILE CHROME — not part of the product.
+     ================================================================== */
+  .screen-label {
+    max-width: var(--container-max);
+    margin: var(--space-8) auto var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--text-caption);
+    letter-spacing: var(--tracking-wide);
+    border-radius: var(--radius-sm);
+  }
+  .screen {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    background: var(--color-canvas);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  /* ==================================================================
+     4. COMPONENT PRIMITIVES → web/src/components/ui/
+     ================================================================== */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: var(--control-height); padding: 0 var(--space-4);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: var(--text-label); font-weight: var(--weight-medium);
+    line-height: var(--leading-snug);
+    cursor: pointer; white-space: nowrap;
+  }
+  .btn--primary   { background: var(--color-primary); color: var(--color-on-primary); }
+  .btn--accent    { background: var(--color-accent);  color: var(--color-on-accent); }
+  .btn--secondary { background: var(--color-surface); color: var(--color-text);
+                    border-color: var(--color-border-strong); }
+  .btn--danger    { background: var(--color-surface); color: var(--color-danger);
+                    border-color: var(--color-border-strong); }
+  .btn--sm        { height: var(--control-height-sm); padding: 0 var(--space-3);
+                    font-size: var(--text-caption); }
+  .btn:disabled   { color: var(--color-text-subtle); background: var(--color-surface-sunken);
+                    border-color: var(--color-border); cursor: not-allowed; }
+
+  .field { display: flex; flex-direction: column; gap: var(--space-1); }
+  .field__label { font-size: var(--text-label); font-weight: var(--weight-medium);
+                  color: var(--color-text-muted); }
+  .field__input {
+    height: var(--control-height); padding: 0 var(--space-3);
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-body); font-size: var(--text-body-sm);
+    color: var(--color-text); width: 100%;
+  }
+  .field__input:focus { outline: var(--border-width-strong) solid var(--color-focus-ring);
+                        outline-offset: 1px; }
+  .field__input--num { font-family: var(--font-numeric); text-align: right; }
+  .field__input--derived { background: var(--color-surface-sunken); border-color: transparent;
+                           font-family: var(--font-numeric); color: var(--color-text-muted); }
+  .field__help { font-size: var(--text-caption); color: var(--color-text-muted); }
+  .field--error .field__input { border-color: var(--color-danger); }
+  .field--error .field__help  { color: var(--color-danger); }
+
+  .card {
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+  .card__head {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+  .card__title { margin: 0; font-size: var(--text-h3); font-weight: var(--weight-semibold);
+                 line-height: var(--leading-snug); }
+  .card__sub { font-size: var(--text-caption); color: var(--color-text-muted);
+               font-family: var(--font-numeric); }
+  .card__body { padding: var(--space-5); }
+
+  .badge {
+    display: inline-block; padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    font-family: var(--font-numeric); font-size: var(--text-caption);
+    letter-spacing: var(--tracking-wide); white-space: nowrap;
+  }
+  .badge--success { background: var(--color-success-subtle); color: var(--color-success); }
+  .badge--warning { background: var(--color-warning-subtle); color: var(--color-warning); }
+  .badge--danger  { background: var(--color-danger-subtle);  color: var(--color-danger); }
+  .badge--info    { background: var(--color-info-subtle);    color: var(--color-info); }
+  .badge--neutral { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+
+  .table { width: 100%; border-collapse: collapse; font-size: var(--text-body-sm); }
+  .table th {
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface-sunken);
+    color: var(--color-text-muted);
+    font-size: var(--text-label); font-weight: var(--weight-medium);
+    text-align: left; white-space: nowrap;
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+  .table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: var(--border-width) solid var(--color-border);
+    line-height: var(--leading-snug);
+  }
+  .table tr:last-child td { border-bottom: 0; }
+  .table tr:hover td { background: var(--color-primary-subtle); }
+  .table .num, .table th.num { text-align: right; font-family: var(--font-numeric); }
+  .table .code { font-family: var(--font-numeric); color: var(--color-text-muted);
+                 font-size: var(--text-caption); }
+  .table tr.total td { border-top: var(--border-width-strong) solid var(--color-border-strong);
+                       font-weight: var(--weight-semibold); }
+  .neg { color: var(--color-danger); }
+  .num-strong { font-family: var(--font-numeric); font-weight: var(--weight-semibold); }
+
+  .empty, .error-state {
+    padding: var(--space-8) var(--space-5); text-align: center;
+  }
+  .empty p { margin: 0 0 var(--space-4); color: var(--color-text-muted); }
+  .error-state p { margin: 0 0 var(--space-4); color: var(--color-danger); }
+
+  /* ==================================================================
+     5. LAYOUT AND PAGE-SPECIFIC RULES
+     ================================================================== */
+  .nav {
+    display: flex; align-items: center; gap: var(--space-5);
+    height: var(--nav-height); padding: 0 var(--space-5);
+    background: var(--color-primary); color: var(--color-on-primary);
+  }
+  .nav__brand {
+    font-size: var(--text-h3); font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight); color: var(--color-on-primary);
+  }
+  .nav__menu { display: flex; gap: var(--space-4); flex: 1; }
+  .nav__item { font-size: var(--text-label); color: var(--color-on-primary); opacity: 0.85; }
+  .nav__item--active { opacity: 1; font-weight: var(--weight-semibold); }
+  .nav__right { display: flex; align-items: center; gap: var(--space-3);
+                font-size: var(--text-label); }
+  .nav__dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full);
+              background: var(--color-success); display: inline-block; }
+  .nav__dot--off { background: var(--color-danger); }
+  .nav__count { font-family: var(--font-numeric); font-size: var(--text-caption);
+                background: var(--color-accent); color: var(--color-on-accent);
+                border-radius: var(--radius-full); padding: 0 var(--space-2); }
+
+  .page { padding: var(--space-6) var(--space-5); }
+  .page--narrow { max-width: var(--container-narrow); }
+  .page__head { display: flex; align-items: flex-start; justify-content: space-between;
+                gap: var(--space-4); margin-bottom: var(--space-5); }
+  .page__title { margin: 0; font-size: var(--text-h1); font-weight: var(--weight-semibold);
+                 line-height: var(--leading-tight); letter-spacing: var(--tracking-tight); }
+  .page__sub { margin: var(--space-1) 0 0; color: var(--color-text-muted);
+               font-size: var(--text-body-sm); }
+  .page__actions { display: flex; gap: var(--space-2); }
+
+  .toolbar { display: flex; gap: var(--space-3); margin-bottom: var(--space-4);
+             flex-wrap: wrap; align-items: flex-end; }
+  .toolbar .field { min-width: 160px; }
+  .toolbar__spacer { flex: 1; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4) var(--space-5); }
+  .form-grid--3 { grid-template-columns: repeat(3, 1fr); }
+  .form-section { margin-bottom: var(--space-6); }
+  .form-section__title { font-size: var(--text-label); font-weight: var(--weight-semibold);
+                         color: var(--color-text-muted); margin: 0 0 var(--space-3);
+                         padding-bottom: var(--space-2);
+                         border-bottom: var(--border-width) solid var(--color-border); }
+
+  .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+  .kanban__card { background: var(--color-surface);
+                  border: var(--border-width) solid var(--color-border);
+                  border-radius: var(--radius-lg); padding: var(--space-4); }
+  .kanban__avatar { width: var(--space-7); height: var(--space-7);
+                    border-radius: var(--radius-full); background: var(--color-primary-subtle);
+                    color: var(--color-primary); font-family: var(--font-numeric);
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: var(--text-body-sm); margin-bottom: var(--space-3); }
+  .kanban__name { font-weight: var(--weight-semibold); }
+  .kanban__meta { font-size: var(--text-body-sm); color: var(--color-text-muted); }
+
+  .smart-buttons { display: flex; gap: var(--space-3); margin-bottom: var(--space-5); }
+  .smart-btn { background: var(--color-surface);
+               border: var(--border-width) solid var(--color-border-strong);
+               border-radius: var(--radius-md); padding: var(--space-2) var(--space-4);
+               text-align: left; cursor: pointer; }
+  .smart-btn__label { display: block; font-size: var(--text-caption);
+                      color: var(--color-text-muted); }
+  .smart-btn__count { display: block; font-family: var(--font-numeric);
+                      font-size: var(--text-h3); font-weight: var(--weight-semibold);
+                      color: var(--color-primary); }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-4);
+              margin-bottom: var(--space-5); }
+  .kpi { background: var(--color-surface);
+         border: var(--border-width) solid var(--color-border);
+         border-radius: var(--radius-lg); padding: var(--space-4); }
+  .kpi__label { font-size: var(--text-label); color: var(--color-text-muted); }
+  .kpi__value { font-family: var(--font-numeric); font-size: var(--text-metric);
+                font-weight: var(--weight-semibold); color: var(--color-primary);
+                line-height: var(--leading-tight); margin: var(--space-2) 0 var(--space-1); }
+  .kpi__note { font-size: var(--text-caption); color: var(--color-text-muted); }
+  .kpi__note--up { color: var(--color-success); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);
+            margin-bottom: var(--space-4); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4);
+            margin-bottom: var(--space-4); }
+
+  .bars { display: flex; align-items: flex-end; gap: var(--space-4); height: var(--space-8);
+          padding-top: var(--space-5); }
+  .bars__col { flex: 1; text-align: center; }
+  .bars__bar { background: var(--color-chart-1); border-radius: var(--radius-sm); }
+  .bars__val { font-family: var(--font-numeric); font-size: var(--text-caption);
+               color: var(--color-text-muted); display: block; margin-bottom: var(--space-1); }
+  .bars__key { font-family: var(--font-numeric); font-size: var(--text-caption);
+               color: var(--color-text-muted); display: block; margin-top: var(--space-2); }
+
+  .spark { display: flex; align-items: flex-end; gap: var(--space-3); height: var(--space-8); }
+  .spark__col { flex: 1; text-align: center; }
+  .spark__dot { height: var(--space-1); background: var(--color-chart-1);
+                border-radius: var(--radius-sm); }
+
+  .ring { display: flex; align-items: center; gap: var(--space-4); }
+  .ring__circle { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full);
+                  background: conic-gradient(var(--color-chart-1) 0 90deg,
+                                             var(--color-chart-track) 90deg 360deg);
+                  display: flex; align-items: center; justify-content: center; }
+  .ring__hole { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-full);
+                background: var(--color-surface); }
+
+  .banner { display: flex; align-items: center; justify-content: space-between;
+            gap: var(--space-4); padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md); font-size: var(--text-body-sm);
+            margin-bottom: var(--space-4); }
+  .banner--danger  { background: var(--color-danger-subtle);
+                     border: var(--border-width) solid var(--color-danger); color: var(--color-danger); }
+  .banner--warning { background: var(--color-warning-subtle);
+                     border: var(--border-width) solid var(--color-warning); color: var(--color-warning); }
+
+  .modal-scrim { background: var(--color-surface-sunken); padding: var(--space-6);
+                 display: flex; justify-content: center; }
+  .modal { width: 100%; max-width: var(--container-narrow);
+           background: var(--color-surface-raised); border-radius: var(--radius-lg);
+           box-shadow: var(--shadow-lg); }
+  .modal__head { display: flex; align-items: center; justify-content: space-between;
+                 padding: var(--space-4) var(--space-5);
+                 border-bottom: var(--border-width) solid var(--color-border); }
+  .modal__title { margin: 0; font-size: var(--text-h3); font-weight: var(--weight-semibold); }
+  .modal__step { font-family: var(--font-numeric); font-size: var(--text-caption);
+                 color: var(--color-text-muted); }
+  .modal__body { padding: var(--space-5); }
+  .modal__foot { display: flex; justify-content: flex-end; gap: var(--space-2);
+                 padding: var(--space-4) var(--space-5);
+                 border-top: var(--border-width) solid var(--color-border); }
+
+  .popover { width: 280px; background: var(--color-surface-raised);
+             border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+             padding: var(--space-4); }
+  .popover__row { display: flex; justify-content: space-between; font-size: var(--text-body-sm);
+                  margin-bottom: var(--space-2); }
+  .popover__time { font-family: var(--font-numeric); font-size: var(--text-h2);
+                   font-weight: var(--weight-semibold); color: var(--color-primary);
+                   text-align: center; margin: var(--space-3) 0; }
+
+  .auth-wrap { display: flex; justify-content: center; padding: var(--space-8) var(--space-5); }
+  .auth-card { width: 100%; max-width: 380px; background: var(--color-surface);
+               border: var(--border-width) solid var(--color-border);
+               border-radius: var(--radius-lg); padding: var(--space-6); }
+  .auth-card__brand { font-size: var(--text-h2); font-weight: var(--weight-semibold);
+                      color: var(--color-primary); letter-spacing: var(--tracking-tight);
+                      margin-bottom: var(--space-1); }
+  .auth-card__sub { color: var(--color-text-muted); font-size: var(--text-body-sm);
+                    margin-bottom: var(--space-5); }
+  .auth-card .field { margin-bottom: var(--space-4); }
+  .auth-card__foot { margin-top: var(--space-4); font-size: var(--text-caption);
+                     color: var(--color-text-muted); text-align: center; }
+
+  .yearcal { width: 100%; border-collapse: collapse; font-family: var(--font-numeric);
+             font-size: var(--text-caption); }
+  .yearcal th { padding: var(--space-1); background: transparent; border: 0;
+                color: var(--color-text-subtle); font-family: var(--font-numeric);
+                font-weight: var(--weight-regular); text-align: center; }
+  .yearcal td { padding: 0; border: var(--border-width) solid var(--color-surface);
+                text-align: center; height: var(--space-5); width: var(--space-5);
+                color: var(--color-text-muted); background: var(--color-surface); }
+  .yearcal td.mon { text-align: left; padding-left: var(--space-2);
+                    color: var(--color-text-muted); font-weight: var(--weight-medium); }
+  .yearcal td.off  { background: var(--color-surface-sunken); }
+  .yearcal td.hol  { background: var(--color-border-strong); color: var(--color-text-inverse); }
+  .yearcal td.pto  { background: var(--color-chart-1); color: var(--color-on-accent); }
+  .yearcal td.sick { background: var(--color-chart-5); color: var(--color-on-accent); }
+  .yearcal td.comp { background: var(--color-chart-4); color: var(--color-on-accent); }
+  .yearcal td.today { outline: var(--border-width-strong) solid var(--color-accent); }
+
+  .legend { display: flex; gap: var(--space-4); font-size: var(--text-caption);
+            color: var(--color-text-muted); margin-top: var(--space-3); }
+  .legend__swatch { display: inline-block; width: var(--space-3); height: var(--space-3);
+                    border-radius: var(--radius-sm); margin-right: var(--space-1);
+                    vertical-align: middle; }
+
+  .tabs { display: flex; gap: var(--space-4); border-bottom: var(--border-width) solid var(--color-border);
+          margin-bottom: var(--space-4); }
+  .tabs__item { padding: var(--space-2) 0; font-size: var(--text-label);
+                color: var(--color-text-muted); cursor: pointer; }
+  .tabs__item--active { color: var(--color-text); font-weight: var(--weight-semibold);
+                        box-shadow: inset 0 calc(-1 * var(--border-width-strong)) 0 var(--color-accent); }
+
+  .dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4);
+        margin-bottom: var(--space-5); }
+  .dl__k { font-size: var(--text-caption); color: var(--color-text-muted); display: block; }
+  .dl__v { font-size: var(--text-body-sm); }
+  .dl__v--num { font-family: var(--font-numeric); }
+
+  @media (max-width: 900px) {
+    .kanban, .kpi-grid, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .form-grid, .form-grid--3, .grid-2, .dl { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================================================================
+     SCREEN: /login
+     ==================================================================== -->
+<div class="screen-label">/login &nbsp;·&nbsp; Sign in &nbsp;·&nbsp; module: auth</div>
+<div class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-card__brand">PeoplePay360</div>
+      <p class="auth-card__sub">Sign in to continue to your workspace.</p>
+      <div class="field">
+        <label class="field__label">Work email</label>
+        <input class="field__input" value="payroll.manager@peoplepay360.test">
+      </div>
+      <div class="field">
+        <label class="field__label">Password</label>
+        <input class="field__input" type="password" value="............">
+      </div>
+      <button class="btn btn--accent" style="width:100%">Sign in</button>
+      <p class="auth-card__foot"><a href="#">Forgot password?</a></p>
+      <p class="auth-card__foot">Accounts are created by an administrator.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /login — error state
+     ==================================================================== -->
+<div class="screen-label">/login &nbsp;·&nbsp; Sign in — invalid credentials</div>
+<div class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-card__brand">PeoplePay360</div>
+      <p class="auth-card__sub">Sign in to continue to your workspace.</p>
+      <div class="banner banner--danger"><span>That email and password do not match.</span></div>
+      <div class="field field--error">
+        <label class="field__label">Work email</label>
+        <input class="field__input" value="payroll.manager@peoplepay360.test">
+      </div>
+      <div class="field field--error">
+        <label class="field__label">Password</label>
+        <input class="field__input" type="password" value="......">
+        <span class="field__help">Check your password and try again.</span>
+      </div>
+      <button class="btn btn--accent" style="width:100%">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /forgot-password
+     ==================================================================== -->
+<div class="screen-label">/forgot-password &nbsp;·&nbsp; Forgot password &nbsp;·&nbsp; module: auth</div>
+<div class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-card__brand">PeoplePay360</div>
+      <p class="auth-card__sub">Enter your work email and we will send a reset link.</p>
+      <div class="field">
+        <label class="field__label">Work email</label>
+        <input class="field__input" placeholder="name@peoplepay360.test">
+      </div>
+      <button class="btn btn--accent" style="width:100%">Send reset link</button>
+      <p class="auth-card__foot">If that address has an account, a link is on its way.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /set-password
+     ==================================================================== -->
+<div class="screen-label">/set-password &nbsp;·&nbsp; Set password &nbsp;·&nbsp; module: auth</div>
+<div class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-card__brand">PeoplePay360</div>
+      <p class="auth-card__sub">Choose a password for aarav.mehta@peoplepay360.test.</p>
+      <div class="field">
+        <label class="field__label">New password</label>
+        <input class="field__input" type="password">
+        <span class="field__help">At least 8 characters.</span>
+      </div>
+      <div class="field">
+        <label class="field__label">Confirm password</label>
+        <input class="field__input" type="password">
+      </div>
+      <button class="btn btn--accent" style="width:100%">Set password</button>
+      <p class="auth-card__foot">This link expires 72 hours after it was sent.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /employees — Kanban view (default)
+     ==================================================================== -->
+<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory, Kanban &nbsp;·&nbsp; module: employees</div>
+<div class="screen">
+  <nav class="nav">
+    <span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu">
+      <span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span>
+    </div>
+    <div class="nav__right">
+      <span class="nav__dot"></span>
+      <span>Check out</span>
+      <span class="nav__count">3</span>
+      <span>Nisha Rao</span>
+    </div>
+  </nav>
+  <main class="page">
+    <div class="page__head">
+      <div>
+        <h1 class="page__title">Employees</h1>
+        <p class="page__sub">38 active across 5 departments</p>
+      </div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">List</button>
+        <button class="btn btn--secondary">Kanban</button>
+        <button class="btn btn--accent">New employee</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><input class="field__input" placeholder="Search employees"></div>
+      <div class="field"><select class="field__input"><option>All departments</option><option>Finance</option></select></div>
+      <div class="field"><select class="field__input"><option>All types</option><option>Full time</option></select></div>
+    </div>
+    <div class="kanban">
+      <div class="kanban__card">
+        <div class="kanban__avatar">AM</div>
+        <div class="kanban__name">Aarav Mehta</div>
+        <div class="kanban__meta">Payroll Specialist</div>
+        <div class="kanban__meta">Finance</div>
+        <div style="margin-top:var(--space-3)"><span class="badge badge--success">active</span></div>
+      </div>
+      <div class="kanban__card">
+        <div class="kanban__avatar">SK</div>
+        <div class="kanban__name">Sara Khan</div>
+        <div class="kanban__meta">HR Officer</div>
+        <div class="kanban__meta">HR</div>
+        <div style="margin-top:var(--space-3)"><span class="badge badge--success">active</span></div>
+      </div>
+      <div class="kanban__card">
+        <div class="kanban__avatar">JD</div>
+        <div class="kanban__name">John Dsouza</div>
+        <div class="kanban__meta">Developer</div>
+        <div class="kanban__meta">Engineering</div>
+        <div style="margin-top:var(--space-3)"><span class="badge badge--success">active</span></div>
+      </div>
+      <div class="kanban__card">
+        <div class="kanban__avatar">NP</div>
+        <div class="kanban__name">Neha Patel</div>
+        <div class="kanban__meta">Recruiter</div>
+        <div class="kanban__meta">HR</div>
+        <div style="margin-top:var(--space-3)"><span class="badge badge--neutral">inactive</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /employees — List view
+     ==================================================================== -->
+<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory, List &nbsp;·&nbsp; module: employees</div>
+<div class="screen">
+  <nav class="nav">
+    <span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu">
+      <span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span>
+    </div>
+    <div class="nav__right"><span class="nav__dot"></span><span>Nisha Rao</span></div>
+  </nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Employees</h1></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Kanban</button>
+        <button class="btn btn--accent">New employee</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><input class="field__input" placeholder="Search employees"></div>
+      <div class="field"><select class="field__input"><option>Finance</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead>
+          <tr><th>Employee</th><th>Work email</th><th>Job position</th><th>Department</th>
+              <th>Type</th><th>Schedule</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td class="code">aarav.mehta@oxp.test</td><td>Payroll Specialist</td>
+              <td>Finance</td><td>Full time</td><td class="code">40 Hours / Week</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Sara Khan</td><td class="code">sara.khan@oxp.test</td><td>HR Officer</td>
+              <td>HR</td><td>Full time</td><td class="code">40 Hours / Week</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>John Dsouza</td><td class="code">john.dsouza@oxp.test</td><td>Developer</td>
+              <td>Engineering</td><td>Full time</td><td class="code">Flexible Hybrid</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Priya Nair</td><td class="code">priya.nair@oxp.test</td><td>Support Lead</td>
+              <td>Support</td><td>Part time</td><td class="code">Part-time 20h</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Neha Patel</td><td class="code">neha.patel@oxp.test</td><td>Recruiter</td>
+              <td>HR</td><td>Contract</td><td class="code">40 Hours / Week</td>
+              <td><span class="badge badge--neutral">inactive</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /employees — EMPTY state
+     ==================================================================== -->
+<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory — empty state</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span></div></nav>
+  <main class="page">
+    <div class="page__head"><div><h1 class="page__title">Employees</h1></div></div>
+    <div class="toolbar">
+      <div class="field"><input class="field__input" value="Engineering"></div>
+    </div>
+    <div class="card empty">
+      <p>No employees match these filters.</p>
+      <button class="btn btn--secondary">Clear filters</button>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /employees — ERROR state
+     ==================================================================== -->
+<div class="screen-label">/employees &nbsp;·&nbsp; Employee directory — error state</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span></div></nav>
+  <main class="page">
+    <div class="page__head"><div><h1 class="page__title">Employees</h1></div></div>
+    <div class="card error-state">
+      <p>The employee list could not be loaded.</p>
+      <button class="btn btn--secondary">Try again</button>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /employees/:id
+     ==================================================================== -->
+<div class="screen-label">/employees/:id &nbsp;·&nbsp; Employee form &nbsp;·&nbsp; module: employees</div>
+<div class="screen">
+  <nav class="nav">
+    <span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu">
+      <span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span>
+    </div>
+    <div class="nav__right"><span class="nav__dot"></span><span>Nisha Rao</span></div>
+  </nav>
+  <main class="page">
+    <div class="page__head">
+      <div>
+        <h1 class="page__title">Aarav Mehta</h1>
+        <p class="page__sub">Payroll Specialist · Finance · <span class="code">aarav.mehta@oxp.test</span></p>
+      </div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--accent">Save employee</button>
+      </div>
+    </div>
+    <div class="smart-buttons">
+      <button class="smart-btn"><span class="smart-btn__label">Contracts</span><span class="smart-btn__count">2</span></button>
+      <button class="smart-btn"><span class="smart-btn__label">Attendance</span><span class="smart-btn__count">21</span></button>
+      <button class="smart-btn"><span class="smart-btn__label">Time off</span><span class="smart-btn__count">3</span></button>
+      <button class="smart-btn"><span class="smart-btn__label">Allocations</span><span class="smart-btn__count">2</span></button>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-section">
+        <p class="form-section__title">Work information</p>
+        <div class="form-grid">
+          <div class="field"><label class="field__label">First name</label><input class="field__input" value="Aarav"></div>
+          <div class="field"><label class="field__label">Last name</label><input class="field__input" value="Mehta"></div>
+          <div class="field"><label class="field__label">Work email</label><input class="field__input" value="aarav.mehta@oxp.test"></div>
+          <div class="field"><label class="field__label">Phone</label><input class="field__input" value="+91 98765 43210"></div>
+          <div class="field"><label class="field__label">Department</label><select class="field__input"><option>Finance</option></select></div>
+          <div class="field"><label class="field__label">Job position</label><input class="field__input" value="Payroll Specialist"></div>
+          <div class="field"><label class="field__label">Manager</label><select class="field__input"><option>Sara Khan</option></select></div>
+          <div class="field"><label class="field__label">Working schedule</label><select class="field__input"><option>40 Hours / Week</option></select></div>
+          <div class="field"><label class="field__label">Employee type</label><select class="field__input"><option>Full time</option></select></div>
+          <div class="field"><label class="field__label">Joining date</label><input class="field__input field__input--num" value="2025-07-01"></div>
+          <div class="field"><label class="field__label">Work location</label><input class="field__input" value="Mumbai"></div>
+          <div class="field"><label class="field__label">Status</label><select class="field__input"><option>Active</option></select></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <p class="form-section__title">Bank details</p>
+        <div class="form-grid">
+          <div class="field"><label class="field__label">Bank name</label><input class="field__input" value="State Bank of India"></div>
+          <div class="field"><label class="field__label">Account holder</label><input class="field__input" value="Aarav Mehta"></div>
+          <div class="field"><label class="field__label">Account number</label><input class="field__input field__input--num" value="XXXX XXXX 4417"></div>
+          <div class="field"><label class="field__label">IFSC</label><input class="field__input field__input--num" value="SBIN0001234"></div>
+        </div>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /departments
+     ==================================================================== -->
+<div class="screen-label">/departments &nbsp;·&nbsp; Departments &nbsp;·&nbsp; module: employees</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Departments</h1></div>
+      <div class="page__actions"><button class="btn btn--accent">New department</button></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Department</th><th>Code</th><th>Manager</th><th class="num">Headcount</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Finance</td><td class="code">FIN</td><td>Sara Khan</td><td class="num">6</td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td>Engineering</td><td class="code">ENG</td><td>John Dsouza</td><td class="num">14</td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td>Sales</td><td class="code">SLS</td><td>Rohan Patel</td><td class="num">10</td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td>Support</td><td class="code">SUP</td><td>Priya Nair</td><td class="num">7</td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td>HR</td><td class="code">HR</td><td>Maya Shah</td><td class="num">5</td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /contracts
+     ==================================================================== -->
+<div class="screen-label">/contracts &nbsp;·&nbsp; Contracts &nbsp;·&nbsp; module: contracts</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Contracts</h1>
+        <p class="page__sub">Filtered to Aarav Mehta</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New contract</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><input class="field__input" placeholder="Search contracts"></div>
+      <div class="field"><select class="field__input"><option>All statuses</option><option>Running</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Reference</th><th>Employee</th><th>Start</th><th>End</th>
+                   <th class="num">Wage / month</th><th>Structure</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="code">CON/2026/0042</td><td>Aarav Mehta</td><td class="code">2026-01-01</td>
+              <td class="code">—</td><td class="num">₹85,000.00</td><td>Regular Salary</td>
+              <td><span class="badge badge--success">running</span></td></tr>
+          <tr><td class="code">CON/2025/0018</td><td>Aarav Mehta</td><td class="code">2025-07-01</td>
+              <td class="code">2025-12-31</td><td class="num">₹78,000.00</td><td>Regular Salary</td>
+              <td><span class="badge badge--danger">expired</span></td></tr>
+          <tr><td class="code">CON/2026/0031</td><td>Sara Khan</td><td class="code">2026-01-01</td>
+              <td class="code">—</td><td class="num">₹95,000.00</td><td>Regular Salary</td>
+              <td><span class="badge badge--success">running</span></td></tr>
+          <tr><td class="code">CON/2026/0055</td><td>Eli Lambert</td><td class="code">2026-03-01</td>
+              <td class="code">2026-09-30</td><td class="num">$4,350.00</td><td>Contractor</td>
+              <td><span class="badge badge--success">running</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /contracts/:id
+     ==================================================================== -->
+<div class="screen-label">/contracts/:id &nbsp;·&nbsp; Contract form &nbsp;·&nbsp; module: contracts</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">CON/2026/0042</h1>
+        <p class="page__sub">Aarav Mehta · <span class="badge badge--success">running</span></p></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--accent">Save contract</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Employee</label><select class="field__input"><option>Aarav Mehta</option></select></div>
+        <div class="field"><label class="field__label">Department</label><select class="field__input"><option>Finance</option></select></div>
+        <div class="field"><label class="field__label">Job position</label><input class="field__input" value="Payroll Specialist"></div>
+        <div class="field"><label class="field__label">Working schedule</label><select class="field__input"><option>40 Hours / Week</option></select></div>
+        <div class="field"><label class="field__label">Salary structure</label><select class="field__input"><option>Regular Salary</option></select></div>
+        <div class="field"><label class="field__label">Status</label><select class="field__input"><option>Running</option></select></div>
+        <div class="field"><label class="field__label">Start date</label><input class="field__input field__input--num" value="2026-01-01"></div>
+        <div class="field"><label class="field__label">End date</label><input class="field__input field__input--num" placeholder="open-ended"></div>
+        <div class="field"><label class="field__label">Wage / month</label><input class="field__input field__input--num" value="85000.00"></div>
+        <div class="field"><label class="field__label">Currency</label><select class="field__input"><option>INR</option><option>USD</option></select></div>
+      </div>
+      <div class="banner banner--warning" style="margin-top:var(--space-5)">
+        <span>This running contract is the source for payroll in any period it overlaps.</span>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /contracts/:id — overlap conflict (error state)
+     ==================================================================== -->
+<div class="screen-label">/contracts/:id &nbsp;·&nbsp; Contract form — overlap conflict</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span></div></nav>
+  <main class="page">
+    <div class="page__head"><div><h1 class="page__title">New contract</h1></div></div>
+    <div class="card"><div class="card__body">
+      <div class="banner banner--danger">
+        <span>Aarav Mehta already has a running contract for this period: CON/2026/0042.</span>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Employee</label><select class="field__input"><option>Aarav Mehta</option></select></div>
+        <div class="field field--error"><label class="field__label">Start date</label>
+          <input class="field__input field__input--num" value="2026-06-01">
+          <span class="field__help">Overlaps CON/2026/0042, which runs from 2026-01-01.</span></div>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /schedules
+     ==================================================================== -->
+<div class="screen-label">/schedules &nbsp;·&nbsp; Working schedules &nbsp;·&nbsp; module: schedules</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Working schedules</h1></div>
+      <div class="page__actions"><button class="btn btn--accent">New schedule</button></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Schedule name</th><th class="num">Days / week</th><th class="num">Hours / week</th>
+                   <th class="num">Employees</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>40 Hours / Week</td><td class="num">5</td><td class="num">40.00</td><td class="num">28</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Night Shift</td><td class="num">5</td><td class="num">40.00</td><td class="num">4</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Flexible Hybrid</td><td class="num">5</td><td class="num">37.50</td><td class="num">8</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Part-time 20h</td><td class="num">4</td><td class="num">20.00</td><td class="num">2</td>
+              <td><span class="badge badge--neutral">inactive</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /schedules/:id
+     ==================================================================== -->
+<div class="screen-label">/schedules/:id &nbsp;·&nbsp; Working schedule form &nbsp;·&nbsp; module: schedules</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">40 Hours / Week</h1></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Back to list</button>
+        <button class="btn btn--accent">Save schedule</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid--3 form-grid" style="margin-bottom:var(--space-5)">
+        <div class="field"><label class="field__label">Schedule name</label><input class="field__input" value="40 Hours / Week"></div>
+        <div class="field"><label class="field__label">Days per week</label><input class="field__input field__input--derived" value="5" readonly></div>
+        <div class="field"><label class="field__label">Hours per week</label><input class="field__input field__input--derived" value="40.00" readonly></div>
+      </div>
+      <table class="table">
+        <thead><tr><th>Day</th><th>Start time</th><th>End time</th><th class="num">Break</th>
+                   <th class="num">Hours</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Monday</td><td class="code">09:00</td><td class="code">18:00</td><td class="num">1.00</td><td class="num">8.00</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td>Tuesday</td><td class="code">09:00</td><td class="code">18:00</td><td class="num">1.00</td><td class="num">8.00</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td>Wednesday</td><td class="code">09:00</td><td class="code">18:00</td><td class="num">1.00</td><td class="num">8.00</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td>Thursday</td><td class="code">09:00</td><td class="code">18:00</td><td class="num">1.00</td><td class="num">8.00</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td>Friday</td><td class="code">09:00</td><td class="code">18:00</td><td class="num">1.00</td><td class="num">8.00</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr class="total"><td colspan="4">Total weekly hours</td><td class="num">40.00</td><td></td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:var(--space-4)"><button class="btn btn--secondary">Add day</button></div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /holidays
+     ==================================================================== -->
+<div class="screen-label">/holidays &nbsp;·&nbsp; Public holidays &nbsp;·&nbsp; module: schedules</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Employees</span>
+      <span class="nav__item">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Public holidays</h1>
+        <p class="page__sub">Excluded from scheduled working days everywhere they are counted</p></div>
+      <div class="page__actions"><button class="btn btn--accent">Add holiday</button></div>
+    </div>
+    <div class="toolbar"><div class="field"><select class="field__input"><option>2026</option></select></div></div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Date</th><th>Name</th><th>Weekday</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="code">2026-01-26</td><td>Republic Day</td><td>Monday</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td class="code">2026-03-04</td><td>Holi</td><td>Wednesday</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td class="code">2026-08-15</td><td>Independence Day</td><td>Saturday</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td class="code">2026-09-14</td><td>Ganesh Chaturthi</td><td>Monday</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+          <tr><td class="code">2026-09-25</td><td>Company Foundation Day</td><td>Friday</td>
+              <td style="text-align:right"><button class="btn btn--danger btn--sm">Remove</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /attendance (with the check-in popover shown open)
+     ==================================================================== -->
+<div class="screen-label">/attendance &nbsp;·&nbsp; Attendance &nbsp;·&nbsp; module: attendance</div>
+<div class="screen">
+  <nav class="nav">
+    <span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span>
+      <span class="nav__item nav__item--active">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div>
+    <div class="nav__right"><span class="nav__dot"></span><span>Checked in</span><span>Aarav Mehta</span></div>
+  </nav>
+  <main class="page">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4)">
+      <div class="popover">
+        <div class="popover__row"><span>Welcome back, Aarav</span><span class="badge badge--success">open</span></div>
+        <div class="popover__row"><span>Checked in</span><span class="code">09:48</span></div>
+        <div class="popover__time">06:56</div>
+        <div class="popover__row"><span>Today</span><span class="code">6.93 h</span></div>
+        <button class="btn btn--accent" style="width:100%">Check out</button>
+      </div>
+    </div>
+    <div class="page__head">
+      <div><h1 class="page__title">Attendance</h1>
+        <p class="page__sub">September 2026</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New record</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><select class="field__input"><option>All employees</option><option>Aarav Mehta</option></select></div>
+      <div class="field"><input class="field__input field__input--num" value="2026-09-01"></div>
+      <div class="field"><input class="field__input field__input--num" value="2026-09-30"></div>
+      <div class="field"><select class="field__input"><option>All statuses</option><option>Absent</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Employee</th><th>Date</th><th>Check in</th><th>Check out</th>
+                   <th class="num">Worked hours</th><th class="num">Overtime</th><th>Status</th><th>Edited</th></tr></thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td class="code">2026-09-04</td><td class="code">09:05</td><td class="code">18:10</td>
+              <td class="num">9.08</td><td class="num">0.50</td>
+              <td><span class="badge badge--success">present</span></td><td></td></tr>
+          <tr><td>Aarav Mehta</td><td class="code">2026-09-03</td><td class="code">10:12</td><td class="code">18:02</td>
+              <td class="num">7.83</td><td class="num">0.00</td>
+              <td><span class="badge badge--warning">late</span></td><td></td></tr>
+          <tr><td>Sara Khan</td><td class="code">2026-09-04</td><td class="code">09:15</td><td class="code">—</td>
+              <td class="num">0.00</td><td class="num">0.00</td>
+              <td><span class="badge badge--warning">late</span></td><td class="code">manual</td></tr>
+          <tr><td>John Dsouza</td><td class="code">2026-09-04</td><td class="code">09:32</td><td class="code">17:58</td>
+              <td class="num">8.43</td><td class="num">0.00</td>
+              <td><span class="badge badge--success">present</span></td><td></td></tr>
+          <tr><td>Neha Patel</td><td class="code">2026-09-04</td><td class="code">—</td><td class="code">—</td>
+              <td class="num">0.00</td><td class="num">0.00</td>
+              <td><span class="badge badge--danger">absent</span></td><td></td></tr>
+          <tr><td>Priya Nair</td><td class="code">2026-09-04</td><td class="code">09:00</td><td class="code">13:00</td>
+              <td class="num">4.00</td><td class="num">0.00</td>
+              <td><span class="badge badge--info">half day</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /attendance/:id
+     ==================================================================== -->
+<div class="screen-label">/attendance/:id &nbsp;·&nbsp; Attendance form &nbsp;·&nbsp; module: attendance</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span>
+      <span class="nav__item nav__item--active">Attendance</span><span class="nav__item">Time off</span>
+      <span class="nav__item">Payroll</span><span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Aarav Mehta · 2026-09-04</h1>
+        <p class="page__sub">Finance · manager Sara Khan</p></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--accent">Save record</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Employee</label><input class="field__input" value="Aarav Mehta" readonly></div>
+        <div class="field"><label class="field__label">Date</label><input class="field__input field__input--num" value="2026-09-04" readonly></div>
+        <div class="field"><label class="field__label">Check in</label><input class="field__input field__input--num" value="2026-09-04 09:05"></div>
+        <div class="field"><label class="field__label">Check out</label><input class="field__input field__input--num" value="2026-09-04 18:10"></div>
+        <div class="field"><label class="field__label">Worked hours</label><input class="field__input field__input--derived" value="9.08" readonly></div>
+        <div class="field"><label class="field__label">Overtime hours</label><input class="field__input field__input--num" value="0.50"></div>
+        <div class="field"><label class="field__label">Status</label><select class="field__input"><option>Present</option></select></div>
+        <div class="field"><label class="field__label">Notes</label><input class="field__input" placeholder="Reason for a correction"></div>
+      </div>
+      <p class="field__help" style="margin-top:var(--space-4)">
+        Worked hours are derived from check in and check out and cannot be typed.</p>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off — dashboard
+     ==================================================================== -->
+<div class="screen-label">/time-off &nbsp;·&nbsp; Time off dashboard &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav">
+    <span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div>
+    <div class="nav__right"><span class="nav__dot"></span><span>Aarav Mehta</span></div>
+  </nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">My time off</h1>
+        <p class="page__sub">Aarav Mehta · 40 Hours / Week · 12.00 days remaining</p></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">2025</button>
+        <button class="btn btn--secondary">2026</button>
+        <button class="btn btn--accent">New request</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:var(--space-4)">
+      <div class="card__head">
+        <h2 class="card__title">Year calendar</h2>
+        <span class="card__sub">2026-01-01 — 2026-12-31</span>
+      </div>
+      <div class="card__body">
+        <table class="yearcal">
+          <thead><tr><th></th>
+            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+            <th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th><th>20</th>
+            <th>21</th><th>22</th><th>23</th><th>24</th><th>25</th><th>26</th><th>27</th><th>28</th><th>29</th><th>30</th><th>31</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="mon">Jan</td>
+              <td>1</td><td>2</td><td class="off">3</td><td class="off">4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td class="off">10</td>
+              <td class="off">11</td><td>12</td><td>13</td><td class="pto">14</td><td>15</td><td>16</td><td class="off">17</td><td class="off">18</td><td>19</td><td>20</td>
+              <td>21</td><td>22</td><td>23</td><td class="off">24</td><td class="off">25</td><td class="hol">26</td><td>27</td><td>28</td><td>29</td><td>30</td><td class="off">31</td></tr>
+            <tr><td class="mon">Aug</td>
+              <td class="off">1</td><td class="off">2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td class="off">8</td><td class="off">9</td><td>10</td>
+              <td>11</td><td>12</td><td>13</td><td>14</td><td class="hol">15</td><td class="off">16</td><td>17</td><td>18</td><td>19</td><td>20</td>
+              <td>21</td><td class="off">22</td><td class="off">23</td><td>24</td><td>25</td><td>26</td><td>27</td><td class="comp">28</td><td class="off">29</td><td class="off">30</td><td>31</td></tr>
+            <tr><td class="mon">Sep</td>
+              <td>1</td><td>2</td><td>3</td><td>4</td><td class="today">5</td><td class="off">6</td><td class="off">7</td><td>8</td><td>9</td><td>10</td>
+              <td>11</td><td class="pto">12</td><td class="off">13</td><td class="hol">14</td><td class="pto">15</td><td>16</td><td>17</td><td class="sick">18</td><td>19</td><td class="off">20</td>
+              <td>21</td><td>22</td><td>23</td><td>24</td><td class="hol">25</td><td>26</td><td class="off">27</td><td>28</td><td>29</td><td>30</td><td></td></tr>
+          </tbody>
+        </table>
+        <!-- The real screen renders all twelve month rows in this pattern. -->
+        <div class="legend">
+          <span><span class="legend__swatch" style="background:var(--color-chart-1)"></span>Paid Time Off</span>
+          <span><span class="legend__swatch" style="background:var(--color-chart-5)"></span>Sick Leave</span>
+          <span><span class="legend__swatch" style="background:var(--color-chart-4)"></span>Comp Off</span>
+          <span><span class="legend__swatch" style="background:var(--color-border-strong)"></span>Public holiday</span>
+          <span><span class="legend__swatch" style="background:var(--color-surface-sunken)"></span>Non-working</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Entitlements</h2></div>
+        <div class="card__body">
+          <div class="ring" style="margin-bottom:var(--space-5)">
+            <div class="ring__circle"><div class="ring__hole"></div></div>
+            <div style="flex:1">
+              <div style="font-weight:var(--weight-semibold)">Paid Time Off</div>
+              <table class="table"><tbody>
+                <tr><td>Allocated</td><td class="num">20.00</td></tr>
+                <tr><td>Taken</td><td class="num">8.00</td></tr>
+                <tr><td>Remaining</td><td class="num num-strong">12.00</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+          <div class="ring">
+            <div class="ring__circle" style="background:conic-gradient(var(--color-chart-4) 0 60deg, var(--color-chart-track) 60deg 360deg)"><div class="ring__hole"></div></div>
+            <div style="flex:1">
+              <div style="font-weight:var(--weight-semibold)">Comp Off</div>
+              <table class="table"><tbody>
+                <tr><td>Allocated</td><td class="num">16.00 h</td></tr>
+                <tr><td>Taken</td><td class="num">4.00 h</td></tr>
+                <tr><td>Remaining</td><td class="num num-strong">12.00 h</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Unplanned absence</h2></div>
+        <div class="card__body">
+          <table class="table"><tbody>
+            <tr><td>Recorded in last 30 days</td><td class="num">0.00</td></tr>
+            <tr><td>Recorded in last 3 months</td><td class="num">1.00</td></tr>
+            <tr><td>Recorded in last 6 months</td><td class="num">1.00</td></tr>
+            <tr class="total"><td>Recorded this year</td><td class="num">2.00</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off/requests
+     ==================================================================== -->
+<div class="screen-label">/time-off/requests &nbsp;·&nbsp; Time off requests &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Time off requests</h1></div>
+      <div class="page__actions"><button class="btn btn--accent">New request</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><select class="field__input"><option>All employees</option></select></div>
+      <div class="field"><select class="field__input"><option>All types</option></select></div>
+      <div class="field"><select class="field__input"><option>To approve</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Employee</th><th>Type</th><th>Start</th><th>End</th><th>Duration</th>
+                   <th class="num">Days</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td>Paid Time Off</td><td class="code">2026-09-12</td><td class="code">2026-09-15</td>
+              <td>Full day</td><td class="num">3.00</td><td><span class="badge badge--success">approved</span></td></tr>
+          <tr><td>Sara Khan</td><td>Sick Leave</td><td class="code">2026-09-18</td><td class="code">2026-09-18</td>
+              <td>Full day</td><td class="num">1.00</td><td><span class="badge badge--success">approved</span></td></tr>
+          <tr><td>Priya Nair</td><td>Paid Time Off</td><td class="code">2026-09-22</td><td class="code">2026-09-22</td>
+              <td>Half day</td><td class="num">0.50</td><td><span class="badge badge--warning">to approve</span></td></tr>
+          <tr><td>John Dsouza</td><td>Comp Off</td><td class="code">2026-09-28</td><td class="code">2026-09-28</td>
+              <td>Hours</td><td class="num">0.25</td><td><span class="badge badge--warning">to approve</span></td></tr>
+          <tr><td>Eli Lambert</td><td>Unpaid Leave</td><td class="code">2026-09-08</td><td class="code">2026-09-09</td>
+              <td>Full day</td><td class="num">2.00</td><td><span class="badge badge--danger">refused</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off/requests/:id
+     ==================================================================== -->
+<div class="screen-label">/time-off/requests/:id &nbsp;·&nbsp; Request form &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Priya Nair · Paid Time Off</h1>
+        <p class="page__sub"><span class="badge badge--warning">to approve</span></p></div>
+      <div class="page__actions">
+        <button class="btn btn--danger">Refuse</button>
+        <button class="btn btn--accent">Approve</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Employee</label><input class="field__input" value="Priya Nair" readonly></div>
+        <div class="field"><label class="field__label">Time off type</label><select class="field__input"><option>Paid Time Off</option></select></div>
+        <div class="field"><label class="field__label">Start date</label><input class="field__input field__input--num" value="2026-09-22"></div>
+        <div class="field"><label class="field__label">End date</label><input class="field__input field__input--num" value="2026-09-22"></div>
+        <div class="field"><label class="field__label">Duration type</label><select class="field__input"><option>Half day</option><option>Full day</option><option>Hours</option></select></div>
+        <div class="field"><label class="field__label">Hours</label><input class="field__input field__input--num" value="4.00">
+          <span class="field__help">Defaults to half of the contracted daily hours.</span></div>
+        <div class="field"><label class="field__label">Duration in days</label><input class="field__input field__input--derived" value="0.50" readonly></div>
+        <div class="field"><label class="field__label">Approver</label><input class="field__input" value="Sara Khan" readonly></div>
+        <div class="field"><label class="field__label">Allocation used</label><input class="field__input" value="Paid Time Off 2026" readonly></div>
+        <div class="field"><label class="field__label">Reason</label><input class="field__input" value="Family function"></div>
+      </div>
+      <div class="banner banner--warning" style="margin-top:var(--space-5)">
+        <span>Approving this consumes 0.50 days from Paid Time Off 2026, leaving 11.50 days.</span>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off/types
+     ==================================================================== -->
+<div class="screen-label">/time-off/types &nbsp;·&nbsp; Time off types &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Time off types</h1>
+        <p class="page__sub">Policies, not employee transactions</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New type</button></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Type</th><th>Code</th><th>Unit</th><th>Allocation</th><th>Paid</th>
+                   <th>Approval</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Paid Time Off</td><td class="code">PTO</td><td>Days</td><td>Required</td><td>Yes</td>
+              <td>HR Manager</td><td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Sick Leave</td><td class="code">SICK</td><td>Days</td><td>Not required</td><td>Yes</td>
+              <td>HR Manager</td><td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Comp Off</td><td class="code">COMP</td><td>Hours</td><td>Required</td><td>Yes</td>
+              <td>HR Manager</td><td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Unpaid Leave</td><td class="code">UNPAID</td><td>Days</td><td>Not required</td><td>No</td>
+              <td>HR Manager</td><td><span class="badge badge--success">active</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off/types/:id
+     ==================================================================== -->
+<div class="screen-label">/time-off/types/:id &nbsp;·&nbsp; Time off type form &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Paid Time Off</h1></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--accent">Save type</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Type name</label><input class="field__input" value="Paid Time Off"></div>
+        <div class="field"><label class="field__label">Code</label><input class="field__input field__input--num" value="PTO"></div>
+        <div class="field"><label class="field__label">Unit</label><select class="field__input"><option>Days</option><option>Hours</option></select></div>
+        <div class="field"><label class="field__label">Requires allocation</label><select class="field__input"><option>Yes</option><option>No</option></select></div>
+        <div class="field"><label class="field__label">Counts as paid</label><select class="field__input"><option>Yes</option><option>No</option></select>
+          <span class="field__help">Paid leave counts toward worked days on a payslip.</span></div>
+        <div class="field"><label class="field__label">Approval role</label><select class="field__input"><option>HR Manager</option></select></div>
+        <div class="field"><label class="field__label">Display colour</label><input class="field__input field__input--num" value="#2563a8"></div>
+        <div class="field"><label class="field__label">Active</label><select class="field__input"><option>True</option></select></div>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off/allocations
+     ==================================================================== -->
+<div class="screen-label">/time-off/allocations &nbsp;·&nbsp; Allocations &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Allocations</h1>
+        <p class="page__sub">A balance is available only once the allocation is approved</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New allocation</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><select class="field__input"><option>All employees</option></select></div>
+      <div class="field"><select class="field__input"><option>All types</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Employee</th><th>Type</th><th class="num">Allocated</th><th class="num">Taken</th>
+                   <th class="num">Remaining</th><th>Valid from</th><th>Valid to</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td>Paid Time Off</td><td class="num">20.00</td><td class="num">8.00</td>
+              <td class="num num-strong">12.00</td><td class="code">2026-01-01</td><td class="code">2026-12-31</td>
+              <td><span class="badge badge--success">approved</span></td></tr>
+          <tr><td>Sara Khan</td><td>Paid Time Off</td><td class="num">18.00</td><td class="num">4.00</td>
+              <td class="num num-strong">14.00</td><td class="code">2026-01-01</td><td class="code">2026-12-31</td>
+              <td><span class="badge badge--success">approved</span></td></tr>
+          <tr><td>John Dsouza</td><td>Comp Off</td><td class="num">16.00</td><td class="num">4.00</td>
+              <td class="num num-strong">12.00</td><td class="code">2026-01-01</td><td class="code">2026-12-31</td>
+              <td><span class="badge badge--success">approved</span></td></tr>
+          <tr><td>Neha Patel</td><td>Comp Off</td><td class="num">8.00</td><td class="num">0.00</td>
+              <td class="num num-strong">8.00</td><td class="code">2026-01-01</td><td class="code">2026-12-31</td>
+              <td><span class="badge badge--warning">draft</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /time-off/allocations/:id
+     ==================================================================== -->
+<div class="screen-label">/time-off/allocations/:id &nbsp;·&nbsp; Allocation form &nbsp;·&nbsp; module: timeoff</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item nav__item--active">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Aarav Mehta · Paid Time Off</h1>
+        <p class="page__sub"><span class="badge badge--success">approved</span></p></div>
+      <div class="page__actions">
+        <button class="btn btn--danger">Refuse</button>
+        <button class="btn btn--accent">Save allocation</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Employee</label><input class="field__input" value="Aarav Mehta" readonly></div>
+        <div class="field"><label class="field__label">Time off type</label><select class="field__input"><option>Paid Time Off</option></select></div>
+        <div class="field"><label class="field__label">Allocated</label><input class="field__input field__input--num" value="20.00"></div>
+        <div class="field"><label class="field__label">Approver</label><input class="field__input" value="Sara Khan" readonly></div>
+        <div class="field"><label class="field__label">Valid from</label><input class="field__input field__input--num" value="2026-01-01"></div>
+        <div class="field"><label class="field__label">Valid to</label><input class="field__input field__input--num" value="2026-12-31"></div>
+        <div class="field"><label class="field__label">Taken</label><input class="field__input field__input--derived" value="8.00" readonly></div>
+        <div class="field"><label class="field__label">Remaining</label><input class="field__input field__input--derived" value="12.00" readonly></div>
+        <div class="field"><label class="field__label">Description</label><input class="field__input" value="Annual leave balance granted at start of policy year"></div>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll — dashboard
+     ==================================================================== -->
+<div class="screen-label">/payroll &nbsp;·&nbsp; Payroll dashboard &nbsp;·&nbsp; module: dashboard</div>
+<div class="screen">
+  <nav class="nav">
+    <span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div>
+    <div class="nav__right"><span class="nav__dot nav__dot--off"></span><span>Check in</span>
+      <span class="nav__count">3</span><span>Nisha Rao</span></div>
+  </nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Payroll dashboard</h1>
+        <p class="page__sub">Payments, staffing impact, leave patterns and attendance quality</p></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><label class="field__label">Period</label><select class="field__input"><option>2026-09</option></select></div>
+      <div class="field"><label class="field__label">Department</label><select class="field__input"><option>All departments</option></select></div>
+      <div class="field"><label class="field__label">Employee type</label><select class="field__input"><option>All types</option></select></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><span class="kpi__label">Total net paid</span>
+        <div class="kpi__value">₹18.40L</div><span class="kpi__note kpi__note--up">+8.5% vs August</span></div>
+      <div class="kpi"><span class="kpi__label">Payslips generated</span>
+        <div class="kpi__value">148</div><span class="kpi__note">142 paid · 6 pending</span></div>
+      <div class="kpi"><span class="kpi__label">Average salary</span>
+        <div class="kpi__value">₹12,432</div><span class="kpi__note">Across selected filters</span></div>
+      <div class="kpi"><span class="kpi__label">Approved time off</span>
+        <div class="kpi__value">34.00</div><span class="kpi__note">Days in selected period</span></div>
+      <div class="kpi"><span class="kpi__label">Attendance health</span>
+        <div class="kpi__value">94%</div><span class="kpi__note">Present of reviewed records</span></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Salary cost by department</h2>
+          <span class="card__sub">payslips + department</span></div>
+        <div class="card__body">
+          <div class="bars">
+            <div class="bars__col"><span class="bars__val">₹1.10L</span>
+              <div class="bars__bar" style="height:var(--space-6)"></div><span class="bars__key">HR</span></div>
+            <div class="bars__col"><span class="bars__val">₹1.50L</span>
+              <div class="bars__bar" style="height:var(--space-7)"></div><span class="bars__key">Sales</span></div>
+            <div class="bars__col"><span class="bars__val">₹0.90L</span>
+              <div class="bars__bar" style="height:var(--space-5)"></div><span class="bars__key">Support</span></div>
+            <div class="bars__col"><span class="bars__val">₹1.30L</span>
+              <div class="bars__bar" style="height:var(--space-6)"></div><span class="bars__key">Finance</span></div>
+            <div class="bars__col"><span class="bars__val">₹1.70L</span>
+              <div class="bars__bar" style="height:var(--space-8)"></div><span class="bars__key">Eng</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Monthly net salary trend</h2>
+          <span class="card__sub">historical payslips</span></div>
+        <div class="card__body">
+          <div class="spark">
+            <div class="spark__col"><span class="bars__val">14.8L</span><div class="spark__dot" style="margin-bottom:var(--space-4)"></div><span class="bars__key">Apr</span></div>
+            <div class="spark__col"><span class="bars__val">15.2L</span><div class="spark__dot" style="margin-bottom:var(--space-5)"></div><span class="bars__key">May</span></div>
+            <div class="spark__col"><span class="bars__val">14.3L</span><div class="spark__dot" style="margin-bottom:var(--space-3)"></div><span class="bars__key">Jun</span></div>
+            <div class="spark__col"><span class="bars__val">15.0L</span><div class="spark__dot" style="margin-bottom:var(--space-5)"></div><span class="bars__key">Jul</span></div>
+            <div class="spark__col"><span class="bars__val">17.1L</span><div class="spark__dot" style="margin-bottom:var(--space-6)"></div><span class="bars__key">Aug</span></div>
+            <div class="spark__col"><span class="bars__val">18.4L</span><div class="spark__dot" style="margin-bottom:var(--space-7)"></div><span class="bars__key">Sep</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Payroll alerts</h2></div>
+        <div class="card__body">
+          <table class="table"><tbody>
+            <tr><td>Employees missing bank account</td><td class="num">2</td></tr>
+            <tr><td>Duplicate payslip warnings</td><td class="num">1</td></tr>
+            <tr><td>Drafts not yet validated</td><td class="num">4</td></tr>
+            <tr><td>Contracts expiring this month</td><td class="num">3</td></tr>
+            <tr><td>Days with no attendance recorded</td><td class="num">7</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Attendance overview</h2></div>
+        <div class="card__body">
+          <table class="table"><tbody>
+            <tr><td>Present</td><td class="num">94</td></tr>
+            <tr><td>Late</td><td class="num">18</td></tr>
+            <tr><td>Absent</td><td class="num">9</td></tr>
+            <tr><td>Overtime hours</td><td class="num">22.00</td></tr>
+            <tr><td>Missing check-outs</td><td class="num">5</td></tr>
+            <tr><td>Manual edits</td><td class="num">7</td></tr>
+            <tr class="total"><td>Coverage</td><td class="num">94%</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Time off overview</h2></div>
+        <div class="card__body">
+          <table class="table">
+            <thead><tr><th>Type</th><th class="num">Approved</th><th class="num">Pending</th><th class="num">Balance</th></tr></thead>
+            <tbody>
+              <tr><td>Paid Time Off</td><td class="num">24.00</td><td class="num">3</td><td class="num">118.00</td></tr>
+              <tr><td>Sick Leave</td><td class="num">6.00</td><td class="num">1</td><td class="num">—</td></tr>
+              <tr><td>Comp Off</td><td class="num">4.00</td><td class="num">2</td><td class="num">11.00</td></tr>
+              <tr><td>Unpaid Leave</td><td class="num">2.00</td><td class="num">0</td><td class="num">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__head"><h2 class="card__title">Department overview</h2>
+        <span class="card__sub">employees + contracts + payslips</span></div>
+      <table class="table">
+        <thead><tr><th>Department</th><th class="num">Headcount</th><th class="num">Monthly salary</th>
+                   <th class="num">Share of cost</th></tr></thead>
+        <tbody>
+          <tr><td>Engineering</td><td class="num">14</td><td class="num">₹4.20L</td><td class="num">31%</td></tr>
+          <tr><td>Sales</td><td class="num">10</td><td class="num">₹5.70L</td><td class="num">26%</td></tr>
+          <tr><td>Support</td><td class="num">7</td><td class="num">₹3.10L</td><td class="num">18%</td></tr>
+          <tr><td>Finance</td><td class="num">6</td><td class="num">₹3.20L</td><td class="num">15%</td></tr>
+          <tr><td>HR</td><td class="num">5</td><td class="num">₹1.90L</td><td class="num">10%</td></tr>
+          <tr class="total"><td>Total</td><td class="num">42</td><td class="num">₹18.40L</td><td class="num">100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payruns
+     ==================================================================== -->
+<div class="screen-label">/payroll/payruns &nbsp;·&nbsp; Pay runs &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Pay runs</h1>
+        <p class="page__sub">One pay run per payroll period</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New pay run</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><select class="field__input"><option>2026</option></select></div>
+      <div class="field"><select class="field__input"><option>All statuses</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Pay run</th><th>Period</th><th>Structure</th><th class="num">Payslips</th>
+                   <th class="num">Total net</th><th class="num">Warnings</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>September 2026</td><td class="code">2026-09-01 — 2026-09-30</td><td>Regular Salary</td>
+              <td class="num">0</td><td class="num">₹0.00</td><td class="num">0</td>
+              <td><span class="badge badge--warning">draft</span></td></tr>
+          <tr><td>August 2026</td><td class="code">2026-08-01 — 2026-08-31</td><td>Regular Salary</td>
+              <td class="num">38</td><td class="num">₹17,12,400.00</td><td class="num">2</td>
+              <td><span class="badge badge--info">validated</span></td></tr>
+          <tr><td>July 2026</td><td class="code">2026-07-01 — 2026-07-31</td><td>Regular Salary</td>
+              <td class="num">38</td><td class="num">₹15,04,800.00</td><td class="num">0</td>
+              <td><span class="badge badge--success">paid</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payruns — wizard step 1 (modal open)
+     ==================================================================== -->
+<div class="screen-label">/payroll/payruns &nbsp;·&nbsp; Pay run wizard, step 1 of 2 &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Payroll</span></div></nav>
+  <div class="modal-scrim">
+    <div class="modal">
+      <div class="modal__head">
+        <h2 class="modal__title">New pay run</h2>
+        <span class="modal__step">Step 1 / 2 · scope</span>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field"><label class="field__label">Pay run name</label><input class="field__input" value="September 2026"></div>
+          <div class="field"><label class="field__label">Salary structure</label><select class="field__input"><option>Regular Salary</option></select></div>
+          <div class="field"><label class="field__label">Period start</label><input class="field__input field__input--num" value="2026-09-01"></div>
+          <div class="field"><label class="field__label">Period end</label><input class="field__input field__input--num" value="2026-09-30"></div>
+          <div class="field"><label class="field__label">Employee type</label><select class="field__input"><option>All types</option></select></div>
+          <div class="field"><label class="field__label">Payout currency</label><select class="field__input"><option>INR</option><option>USD</option></select></div>
+          <div class="field"><label class="field__label">Exchange rate</label><input class="field__input field__input--num" value="1.000000">
+            <span class="field__help">Frozen onto every payslip at compute time.</span></div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--secondary">Discard</button>
+        <button class="btn btn--accent">Continue</button>
+      </div>
+    </div>
+  </div>
+  <div class="page" style="padding-top:0">
+    <p class="field__help">Continue collects the scope only. No pay run exists yet.</p>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payruns — wizard step 2 (modal open)
+     ==================================================================== -->
+<div class="screen-label">/payroll/payruns &nbsp;·&nbsp; Pay run wizard, step 2 of 2 &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Payroll</span></div></nav>
+  <div class="modal-scrim">
+    <div class="modal">
+      <div class="modal__head">
+        <h2 class="modal__title">Select employee records</h2>
+        <span class="modal__step">Step 2 / 2 · 5 of 22 selected</span>
+      </div>
+      <div class="modal__body">
+        <div class="toolbar"><div class="field" style="flex:1">
+          <input class="field__input" placeholder="Search employees"></div></div>
+        <table class="table">
+          <thead><tr><th></th><th>Employee</th><th class="num">Hours / week</th>
+                     <th>Contract start</th><th class="num">Wage</th></tr></thead>
+          <tbody>
+            <tr><td><input type="checkbox" checked></td><td>Aarav Mehta</td><td class="num">40.00</td>
+                <td class="code">2026-01-01</td><td class="num">₹85,000.00</td></tr>
+            <tr><td><input type="checkbox" checked></td><td>Sara Khan</td><td class="num">40.00</td>
+                <td class="code">2026-01-01</td><td class="num">₹95,000.00</td></tr>
+            <tr><td><input type="checkbox" checked></td><td>John Dsouza</td><td class="num">37.50</td>
+                <td class="code">2026-01-01</td><td class="num">₹72,000.00</td></tr>
+            <tr><td><input type="checkbox" checked></td><td>Priya Nair</td><td class="num">20.00</td>
+                <td class="code">2026-09-02</td><td class="num">₹31,000.00</td></tr>
+            <tr><td><input type="checkbox" checked></td><td>Eli Lambert</td><td class="num">40.00</td>
+                <td class="code">2026-03-01</td><td class="num">$4,350.00</td></tr>
+            <tr><td><input type="checkbox"></td><td>Neha Patel</td><td class="num">40.00</td>
+                <td class="code">2026-01-01</td><td class="num">₹64,000.00</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--secondary">Back</button>
+        <button class="btn btn--accent">Create pay run</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payruns/:id
+     ==================================================================== -->
+<div class="screen-label">/payroll/payruns/:id &nbsp;·&nbsp; Pay run processing &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">September 2026</h1>
+        <p class="page__sub"><span class="badge badge--warning">computed</span></p></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Compute</button>
+        <button class="btn btn--secondary" disabled>Mark paid</button>
+        <button class="btn btn--secondary" disabled>Send payslips</button>
+        <button class="btn btn--accent">Validate</button>
+      </div>
+    </div>
+    <div class="banner banner--danger">
+      <span>1 payslip has a blocking warning. Resolve it before validating this pay run.</span>
+      <span class="num-strong">1</span>
+    </div>
+    <div class="banner banner--warning">
+      <span>2 advisory warnings: a contract expiring inside the period and unrecorded attendance.</span>
+      <span class="num-strong">2</span>
+    </div>
+    <div class="dl">
+      <div><span class="dl__k">Salary structure</span><span class="dl__v">Regular Salary</span></div>
+      <div><span class="dl__k">Period</span><span class="dl__v dl__v--num">2026-09-01 — 2026-09-30</span></div>
+      <div><span class="dl__k">Payout currency</span><span class="dl__v dl__v--num">INR · 1.000000</span></div>
+      <div><span class="dl__k">Total net</span><span class="dl__v dl__v--num num-strong">₹3,31,140.00</span></div>
+    </div>
+    <div class="card">
+      <div class="card__head"><h2 class="card__title">Payslips in this pay run</h2>
+        <span class="card__sub">5 employees</span></div>
+      <table class="table">
+        <thead><tr><th>Employee</th><th>Warning</th><th class="num">Worked</th><th class="num">Basic</th>
+                   <th class="num">Gross</th><th class="num">Net</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td>—</td><td class="num">21.00</td><td class="num">₹40,500.00</td>
+              <td class="num">₹79,700.00</td><td class="num">₹74,538.00</td>
+              <td><span class="badge badge--warning">computed</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">PDF</button></td></tr>
+          <tr><td>Sara Khan</td><td><span class="badge badge--danger">bank account</span></td><td class="num">22.00</td>
+              <td class="num">₹47,500.00</td><td class="num">₹95,000.00</td><td class="num">₹87,850.00</td>
+              <td><span class="badge badge--warning">computed</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">PDF</button></td></tr>
+          <tr><td>John Dsouza</td><td>—</td><td class="num">22.00</td><td class="num">₹36,000.00</td>
+              <td class="num">₹72,000.00</td><td class="num">₹66,360.00</td>
+              <td><span class="badge badge--warning">computed</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">PDF</button></td></tr>
+          <tr><td>Priya Nair</td><td><span class="badge badge--warning">unrecorded</span></td><td class="num">15.50</td>
+              <td class="num">₹10,972.00</td><td class="num">₹21,944.00</td><td class="num">₹20,192.00</td>
+              <td><span class="badge badge--warning">computed</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">PDF</button></td></tr>
+          <tr><td>Eli Lambert</td><td><span class="badge badge--warning">expiring</span></td><td class="num">22.00</td>
+              <td class="num">$2,175.00</td><td class="num">$4,350.00</td><td class="num">$4,024.00</td>
+              <td><span class="badge badge--warning">computed</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">PDF</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payruns/:id — EMPTY state (draft, not yet computed)
+     ==================================================================== -->
+<div class="screen-label">/payroll/payruns/:id &nbsp;·&nbsp; Pay run processing — empty state</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Payroll</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">September 2026</h1>
+        <p class="page__sub"><span class="badge badge--warning">draft</span></p></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary" disabled>Validate</button>
+        <button class="btn btn--accent">Compute</button>
+      </div>
+    </div>
+    <div class="card empty">
+      <p>No payslips yet. Compute this pay run to generate one payslip per selected employee.</p>
+      <button class="btn btn--secondary">Compute</button>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payruns/:id — ERROR state
+     ==================================================================== -->
+<div class="screen-label">/payroll/payruns/:id &nbsp;·&nbsp; Pay run processing — error state</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Payroll</span></div></nav>
+  <main class="page">
+    <div class="page__head"><div><h1 class="page__title">September 2026</h1></div></div>
+    <div class="banner banner--danger">
+      <span>Compute stopped: Priya Nair has no running contract covering this period.</span>
+    </div>
+    <div class="card error-state">
+      <p>This pay run could not be computed.</p>
+      <button class="btn btn--secondary">Try again</button>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payslips
+     ==================================================================== -->
+<div class="screen-label">/payroll/payslips &nbsp;·&nbsp; Payslips &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Payslips</h1></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><select class="field__input"><option>2026-09</option></select></div>
+      <div class="field"><select class="field__input"><option>All departments</option></select></div>
+      <div class="field"><select class="field__input"><option>All statuses</option></select></div>
+      <div class="field"><select class="field__input"><option>Hide archived</option><option>Show archived</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Employee</th><th>Period</th><th>Structure</th><th class="num">Basic</th>
+                   <th class="num">Gross</th><th class="num">Net</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td class="code">2026-09</td><td>Regular Salary</td>
+              <td class="num">₹40,500.00</td><td class="num">₹79,700.00</td><td class="num">₹74,538.00</td>
+              <td><span class="badge badge--warning">computed</span></td></tr>
+          <tr><td>Sara Khan</td><td class="code">2026-09</td><td>Regular Salary</td>
+              <td class="num">₹47,500.00</td><td class="num">₹95,000.00</td><td class="num">₹87,850.00</td>
+              <td><span class="badge badge--warning">computed</span></td></tr>
+          <tr><td>Aarav Mehta</td><td class="code">2026-08</td><td>Regular Salary</td>
+              <td class="num">₹42,500.00</td><td class="num">₹85,000.00</td><td class="num">₹78,650.00</td>
+              <td><span class="badge badge--info">done</span></td></tr>
+          <tr><td>Aarav Mehta</td><td class="code">2026-07</td><td>Regular Salary</td>
+              <td class="num">₹42,500.00</td><td class="num">₹85,000.00</td><td class="num">₹78,650.00</td>
+              <td><span class="badge badge--success">paid</span></td></tr>
+          <tr><td>Neha Patel</td><td class="code">2026-08</td><td>Regular Salary</td>
+              <td class="num">₹32,000.00</td><td class="num">₹64,000.00</td><td class="num">₹59,120.00</td>
+              <td><span class="badge badge--neutral">archived</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/payslips/:id
+     ==================================================================== -->
+<div class="screen-label">/payroll/payslips/:id &nbsp;·&nbsp; Payslip detail &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Aarav Mehta · September 2026</h1>
+        <p class="page__sub">Regular Salary · CON/2026/0042 · <span class="badge badge--warning">computed</span></p></div>
+      <div class="page__actions">
+        <button class="btn btn--danger">Archive</button>
+        <button class="btn btn--secondary">INR / USD</button>
+        <button class="btn btn--accent">Print payslip</button>
+      </div>
+    </div>
+    <div class="dl">
+      <div><span class="dl__k">Period</span><span class="dl__v dl__v--num">2026-09-01 — 2026-09-30</span></div>
+      <div><span class="dl__k">Scheduled days</span><span class="dl__v dl__v--num">21.00</span></div>
+      <div><span class="dl__k">Worked days</span><span class="dl__v dl__v--num num-strong">20.50</span></div>
+      <div><span class="dl__k">Proration</span><span class="dl__v dl__v--num">0.976190</span></div>
+      <div><span class="dl__k">Paid leave</span><span class="dl__v dl__v--num">2.50</span></div>
+      <div><span class="dl__k">Unpaid leave</span><span class="dl__v dl__v--num">0.00</span></div>
+      <div><span class="dl__k">Absent</span><span class="dl__v dl__v--num">1.00</span></div>
+      <div><span class="dl__k">Overtime</span><span class="dl__v dl__v--num">1.50 h</span></div>
+    </div>
+    <div class="card">
+      <div class="card__head"><h2 class="card__title">Salary computation</h2>
+        <span class="card__sub">12 rules · sequence order</span></div>
+      <table class="table">
+        <thead><tr><th class="num">Seq</th><th>Rule</th><th>Code</th><th>Category</th>
+                   <th class="num">Amount (INR)</th><th class="num">Payout (INR)</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>Basic Salary</td><td class="code">BASIC</td><td>Basic</td>
+              <td class="num">₹41,488.00</td><td class="num">₹41,488.00</td></tr>
+          <tr><td class="num">10</td><td>House Rent Allowance</td><td class="code">HRA</td><td>Allowance</td>
+              <td class="num">₹8,298.00</td><td class="num">₹8,298.00</td></tr>
+          <tr><td class="num">20</td><td>Standard Allowance</td><td class="code">STD</td><td>Allowance</td>
+              <td class="num">₹10,000.00</td><td class="num">₹10,000.00</td></tr>
+          <tr><td class="num">30</td><td>Performance Bonus</td><td class="code">BONUS</td><td>Allowance</td>
+              <td class="num">₹2,074.00</td><td class="num">₹2,074.00</td></tr>
+          <tr><td class="num">40</td><td>Leave Travel Allowance</td><td class="code">LTA</td><td>Allowance</td>
+              <td class="num">₹5,000.00</td><td class="num">₹5,000.00</td></tr>
+          <tr><td class="num">50</td><td>Fixed Allowance</td><td class="code">FIX</td><td>Allowance</td>
+              <td class="num">₹16,116.00</td><td class="num">₹16,116.00</td></tr>
+          <tr><td class="num">60</td><td>Gross Salary</td><td class="code">GROSS</td><td>Gross</td>
+              <td class="num num-strong">₹82,976.00</td><td class="num num-strong">₹82,976.00</td></tr>
+          <tr><td class="num">70</td><td>LWF Fund</td><td class="code">LWF</td><td>Deduction</td>
+              <td class="num neg">-₹200.00</td><td class="num neg">-₹200.00</td></tr>
+          <tr><td class="num">80</td><td>Provident Fund</td><td class="code">PF</td><td>Deduction</td>
+              <td class="num neg">-₹4,979.00</td><td class="num neg">-₹4,979.00</td></tr>
+          <tr><td class="num">90</td><td>ESIC</td><td class="code">ESIC</td><td>Deduction</td>
+              <td class="num neg">-₹622.00</td><td class="num neg">-₹622.00</td></tr>
+          <tr><td class="num">100</td><td>Professional Tax</td><td class="code">PT</td><td>Deduction</td>
+              <td class="num neg">-₹200.00</td><td class="num neg">-₹200.00</td></tr>
+          <tr class="total"><td class="num">110</td><td>Net Salary</td><td class="code">NET</td><td>Net</td>
+              <td class="num">₹76,975.00</td><td class="num">₹76,975.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/structures
+     ==================================================================== -->
+<div class="screen-label">/payroll/structures &nbsp;·&nbsp; Salary structures &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Salary structures</h1>
+        <p class="page__sub">The structure chosen on a pay run decides which rules calculate each payslip</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New structure</button></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Structure name</th><th>Code</th><th class="num">Rules</th>
+                   <th class="num">Employees</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Regular Salary</td><td class="code">REGULAR</td><td class="num">12</td><td class="num">28</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Intern Salary</td><td class="code">INTERN</td><td class="num">8</td><td class="num">3</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+          <tr><td>Contractor</td><td class="code">CONTRACT</td><td class="num">6</td><td class="num">7</td>
+              <td><span class="badge badge--success">active</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/structures/:id
+     ==================================================================== -->
+<div class="screen-label">/payroll/structures/:id &nbsp;·&nbsp; Structure form &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Regular Salary</h1></div>
+      <div class="page__actions">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--accent">Save structure</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:var(--space-4)"><div class="card__body">
+      <div class="form-grid--3 form-grid">
+        <div class="field"><label class="field__label">Structure name</label><input class="field__input" value="Regular Salary"></div>
+        <div class="field"><label class="field__label">Code</label><input class="field__input field__input--num" value="REGULAR"></div>
+        <div class="field"><label class="field__label">Active</label><select class="field__input"><option>True</option></select></div>
+      </div>
+    </div></div>
+    <div class="card">
+      <div class="card__head"><h2 class="card__title">Salary rules</h2>
+        <span class="card__sub">executed in ascending sequence</span></div>
+      <table class="table">
+        <thead><tr><th class="num">Seq</th><th>Rule name</th><th>Code</th><th>Category</th>
+                   <th>Computation</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>Basic Salary</td><td class="code">BASIC</td><td>Basic</td><td class="code">formula</td></tr>
+          <tr><td class="num">10</td><td>House Rent Allowance</td><td class="code">HRA</td><td>Allowance</td><td class="code">20% of basic</td></tr>
+          <tr><td class="num">20</td><td>Standard Allowance</td><td class="code">STD</td><td>Allowance</td><td class="code">fixed 10000.00</td></tr>
+          <tr><td class="num">30</td><td>Performance Bonus</td><td class="code">BONUS</td><td>Allowance</td><td class="code">formula</td></tr>
+          <tr><td class="num">40</td><td>Leave Travel Allowance</td><td class="code">LTA</td><td>Allowance</td><td class="code">fixed 5000.00</td></tr>
+          <tr><td class="num">50</td><td>Fixed Allowance</td><td class="code">FIX</td><td>Allowance</td><td class="code">formula</td></tr>
+          <tr><td class="num">60</td><td>Gross Salary</td><td class="code">GROSS</td><td>Gross</td><td class="code">formula</td></tr>
+          <tr><td class="num">70</td><td>LWF Fund</td><td class="code">LWF</td><td>Deduction</td><td class="code">fixed 200.00</td></tr>
+          <tr><td class="num">80</td><td>Provident Fund</td><td class="code">PF</td><td>Deduction</td><td class="code">12% of basic</td></tr>
+          <tr><td class="num">90</td><td>ESIC</td><td class="code">ESIC</td><td>Deduction</td><td class="code">formula</td></tr>
+          <tr><td class="num">100</td><td>Professional Tax</td><td class="code">PT</td><td>Deduction</td><td class="code">fixed 200.00</td></tr>
+          <tr><td class="num">110</td><td>Net Salary</td><td class="code">NET</td><td>Net</td><td class="code">formula</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/rules
+     ==================================================================== -->
+<div class="screen-label">/payroll/rules &nbsp;·&nbsp; Salary rules &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Salary rules</h1></div>
+      <div class="page__actions"><button class="btn btn--accent">New rule</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><select class="field__input"><option>Regular Salary</option></select></div>
+      <div class="field"><select class="field__input"><option>All categories</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Rule name</th><th>Code</th><th>Category</th><th>Structure</th>
+                   <th class="num">Sequence</th><th>Computation</th></tr></thead>
+        <tbody>
+          <tr><td>Basic Salary</td><td class="code">BASIC</td><td>Basic</td><td>Regular Salary</td>
+              <td class="num">1</td><td class="code">formula</td></tr>
+          <tr><td>House Rent Allowance</td><td class="code">HRA</td><td>Allowance</td><td>Regular Salary</td>
+              <td class="num">10</td><td class="code">percentage</td></tr>
+          <tr><td>Standard Allowance</td><td class="code">STD</td><td>Allowance</td><td>Regular Salary</td>
+              <td class="num">20</td><td class="code">fixed</td></tr>
+          <tr><td>Gross Salary</td><td class="code">GROSS</td><td>Gross</td><td>Regular Salary</td>
+              <td class="num">60</td><td class="code">formula</td></tr>
+          <tr><td>Provident Fund</td><td class="code">PF</td><td>Deduction</td><td>Regular Salary</td>
+              <td class="num">80</td><td class="code">percentage</td></tr>
+          <tr><td>Stipend</td><td class="code">STIPEND</td><td>Basic</td><td>Intern Salary</td>
+              <td class="num">1</td><td class="code">fixed</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/rules/:id
+     ==================================================================== -->
+<div class="screen-label">/payroll/rules/:id &nbsp;·&nbsp; Salary rule form &nbsp;·&nbsp; module: payroll</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item nav__item--active">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Basic Salary</h1>
+        <p class="page__sub">Regular Salary · sequence 1</p></div>
+      <div class="page__actions">
+        <button class="btn btn--danger">Delete</button>
+        <button class="btn btn--accent">Save rule</button>
+      </div>
+    </div>
+    <div class="card"><div class="card__body">
+      <div class="form-grid">
+        <div class="field"><label class="field__label">Rule name</label><input class="field__input" value="Basic Salary"></div>
+        <div class="field"><label class="field__label">Code</label><input class="field__input field__input--num" value="BASIC"></div>
+        <div class="field"><label class="field__label">Category</label><select class="field__input"><option>Basic</option></select></div>
+        <div class="field"><label class="field__label">Sequence</label><input class="field__input field__input--num" value="1"></div>
+        <div class="field"><label class="field__label">Salary structure</label><select class="field__input"><option>Regular Salary</option></select></div>
+        <div class="field"><label class="field__label">Computation</label><select class="field__input"><option>Formula</option><option>Fixed amount</option><option>Percentage of base</option></select></div>
+      </div>
+      <div class="form-section" style="margin-top:var(--space-5)">
+        <p class="form-section__title">Formula</p>
+        <div class="field">
+          <input class="field__input field__input--num" value="CONTRACT_WAGE * 0.5 * PRORATION">
+          <span class="field__help">Variables: CONTRACT_WAGE, SCHEDULED_DAYS, WORKED_DAYS, PAID_LEAVE_DAYS,
+            UNPAID_LEAVE_DAYS, ABSENT_DAYS, OVERTIME_HOURS, DAILY_RATE, HOURLY_RATE, PRORATION,
+            BASIC, ALLOWANCE, GROSS, DEDUCTION. Reference an earlier rule as {CODE}. Functions:
+            min, max, round.</span>
+        </div>
+      </div>
+      <div class="banner banner--warning">
+        <span>A formula may only reference rules with a lower sequence than this one.</span>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /payroll/rules/:id — formula error state
+     ==================================================================== -->
+<div class="screen-label">/payroll/rules/:id &nbsp;·&nbsp; Salary rule form — invalid formula</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item nav__item--active">Payroll</span></div></nav>
+  <main class="page">
+    <div class="page__head"><div><h1 class="page__title">House Rent Allowance</h1></div></div>
+    <div class="card"><div class="card__body">
+      <div class="banner banner--danger">
+        <span>This rule could not be saved.</span>
+      </div>
+      <div class="field field--error">
+        <label class="field__label">Formula</label>
+        <input class="field__input field__input--num" value="{GROSS} * 20%">
+        <span class="field__help">GROSS has sequence 60, which is not lower than this rule's sequence 10.</span>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /reports
+     ==================================================================== -->
+<div class="screen-label">/reports &nbsp;·&nbsp; Reports &nbsp;·&nbsp; module: reports</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item nav__item--active">Reports</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Reports</h1></div>
+      <div class="page__actions"><button class="btn btn--accent">Export CSV</button></div>
+    </div>
+    <div class="tabs">
+      <span class="tabs__item tabs__item--active">Salary register</span>
+      <span class="tabs__item">Attendance register</span>
+      <span class="tabs__item">Leave balance</span>
+      <span class="tabs__item">Contract expiry</span>
+      <span class="tabs__item">Department cost</span>
+    </div>
+    <div class="toolbar">
+      <div class="field"><label class="field__label">Period start</label><input class="field__input field__input--num" value="2026-09-01"></div>
+      <div class="field"><label class="field__label">Period end</label><input class="field__input field__input--num" value="2026-09-30"></div>
+      <div class="field"><label class="field__label">Department</label><select class="field__input"><option>All departments</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Employee</th><th>Department</th><th class="num">Worked days</th><th class="num">Basic</th>
+                   <th class="num">Allowances</th><th class="num">Deductions</th><th class="num">Net</th></tr></thead>
+        <tbody>
+          <tr><td>Aarav Mehta</td><td>Finance</td><td class="num">20.50</td><td class="num">₹41,488.00</td>
+              <td class="num">₹41,488.00</td><td class="num neg">-₹6,001.00</td><td class="num">₹76,975.00</td></tr>
+          <tr><td>Sara Khan</td><td>HR</td><td class="num">22.00</td><td class="num">₹47,500.00</td>
+              <td class="num">₹47,500.00</td><td class="num neg">-₹7,150.00</td><td class="num">₹87,850.00</td></tr>
+          <tr><td>John Dsouza</td><td>Engineering</td><td class="num">22.00</td><td class="num">₹36,000.00</td>
+              <td class="num">₹36,000.00</td><td class="num neg">-₹5,640.00</td><td class="num">₹66,360.00</td></tr>
+          <tr><td>Priya Nair</td><td>Support</td><td class="num">15.50</td><td class="num">₹10,972.00</td>
+              <td class="num">₹10,972.00</td><td class="num neg">-₹1,752.00</td><td class="num">₹20,192.00</td></tr>
+          <tr class="total"><td>Total</td><td></td><td class="num">80.00</td><td class="num">₹1,35,960.00</td>
+              <td class="num">₹1,35,960.00</td><td class="num neg">-₹20,543.00</td><td class="num">₹2,51,377.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /users
+     ==================================================================== -->
+<div class="screen-label">/users &nbsp;·&nbsp; User management &nbsp;·&nbsp; module: users</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div>
+    <div class="nav__right"><span>Admin</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Users</h1>
+        <p class="page__sub">Accounts are created here and linked to an employee record</p></div>
+      <div class="page__actions"><button class="btn btn--accent">New user</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="field"><input class="field__input" placeholder="Search users or email"></div>
+      <div class="field"><select class="field__input"><option>All roles</option></select></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Work email</th><th>Linked employee</th><th>Role</th><th>Last sign-in</th>
+                   <th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="code">admin@peoplepay360.test</td><td>—</td><td>Admin</td>
+              <td class="code">2026-09-05 08:14</td><td><span class="badge badge--success">active</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td class="code">payroll.manager@peoplepay360.test</td><td>Nisha Rao</td><td>HR Payroll Manager</td>
+              <td class="code">2026-09-05 09:02</td><td><span class="badge badge--success">active</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td class="code">payroll.user@peoplepay360.test</td><td>Rohan Patel</td><td>HR Payroll User</td>
+              <td class="code">2026-09-04 17:40</td><td><span class="badge badge--success">active</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td class="code">hr.manager@peoplepay360.test</td><td>Sara Khan</td><td>HR Manager</td>
+              <td class="code">2026-09-05 09:20</td><td><span class="badge badge--success">active</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Edit</button></td></tr>
+          <tr><td class="code">maya.shah@peoplepay360.test</td><td>Maya Shah</td><td>Employee</td>
+              <td class="code">—</td><td><span class="badge badge--warning">invited</span></td>
+              <td style="text-align:right"><button class="btn btn--secondary btn--sm">Resend invite</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /users — create user (modal open)
+     ==================================================================== -->
+<div class="screen-label">/users &nbsp;·&nbsp; Create user &nbsp;·&nbsp; module: users</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span></div>
+    <div class="nav__right"><span>Admin</span></div></nav>
+  <div class="modal-scrim">
+    <div class="modal">
+      <div class="modal__head">
+        <h2 class="modal__title">New user</h2>
+        <span class="modal__step">admin only</span>
+      </div>
+      <div class="modal__body">
+        <div class="field" style="margin-bottom:var(--space-4)">
+          <label class="field__label">Work email</label>
+          <input class="field__input" placeholder="name@peoplepay360.test">
+          <span class="field__help">An invite link is emailed to this address.</span>
+        </div>
+        <div class="field" style="margin-bottom:var(--space-4)">
+          <label class="field__label">Linked employee</label>
+          <select class="field__input"><option>Select an employee</option><option>Maya Shah</option></select>
+        </div>
+        <div class="field">
+          <label class="field__label">Role</label>
+          <select class="field__input">
+            <option>Employee</option><option>HR Manager</option><option>HR Payroll User</option>
+            <option>HR Payroll Manager</option><option>Admin</option>
+          </select>
+          <span class="field__help">One role per user. Users cannot change their own role.</span>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--secondary">Cancel</button>
+        <button class="btn btn--accent">Create user and send invite</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCREEN: /notifications
+     ==================================================================== -->
+<div class="screen-label">/notifications &nbsp;·&nbsp; Notifications &nbsp;·&nbsp; module: notifications</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div>
+    <div class="nav__right"><span class="nav__count">3</span><span>Nisha Rao</span></div></nav>
+  <main class="page">
+    <div class="page__head">
+      <div><h1 class="page__title">Notifications</h1>
+        <p class="page__sub">3 unread</p></div>
+      <div class="page__actions"><button class="btn btn--secondary">Mark all read</button></div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>When</th><th>Notification</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="code">2026-09-05 09:12</td>
+              <td><strong>Time off requested</strong> — Priya Nair requested a half day of Paid Time Off on 2026-09-22.</td>
+              <td><span class="badge badge--info">unread</span></td></tr>
+          <tr><td class="code">2026-09-04 16:40</td>
+              <td><strong>Time off approved</strong> — Aarav Mehta's Paid Time Off from 2026-09-12 to 2026-09-15 was approved.</td>
+              <td><span class="badge badge--info">unread</span></td></tr>
+          <tr><td class="code">2026-09-01 11:05</td>
+              <td><strong>Pay run validated</strong> — August 2026 was validated with 38 payslips.</td>
+              <td><span class="badge badge--info">unread</span></td></tr>
+          <tr><td class="code">2026-08-31 18:22</td>
+              <td><strong>Payslips sent</strong> — 38 payslips were emailed for July 2026.</td>
+              <td><span class="badge badge--neutral">read</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ====================================================================
+     SCREEN: * — Not found
+     ==================================================================== -->
+<div class="screen-label">* &nbsp;·&nbsp; Not found</div>
+<div class="screen">
+  <nav class="nav"><span class="nav__brand">PeoplePay360</span>
+    <div class="nav__menu"><span class="nav__item">Employees</span><span class="nav__item">Attendance</span>
+      <span class="nav__item">Time off</span><span class="nav__item">Payroll</span>
+      <span class="nav__item">Reports</span></div></nav>
+  <main class="page">
+    <div class="card empty">
+      <p>That page does not exist.</p>
+      <button class="btn btn--secondary">Go to employees</button>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

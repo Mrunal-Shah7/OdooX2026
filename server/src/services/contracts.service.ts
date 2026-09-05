@@ -1,39 +1,172 @@
+import { Prisma } from '@prisma/client';
+import { prisma } from '../db/client.js';
+import { ApiError } from '../lib/apiError.js';
 import { paginationMeta } from '../lib/pagination.js';
 
-const stubEmployeeRef = {
-  id: '11111111-1111-4111-8111-111111111111',
-  firstName: 'Priya',
-  lastName: 'Sharma',
-  workEmail: 'priya.sharma@peoplepay360.com',
-  jobPosition: 'Software Engineer',
-  departmentName: 'Engineering',
-};
-
-const stubContract = {
-  id: '55555555-5555-4555-8555-555555555555',
-  reference: 'CTR-2026-001',
-  employee: stubEmployeeRef,
-  department: { id: '33333333-3333-4333-8333-333333333333', name: 'Engineering', code: 'ENG' },
-  jobPosition: 'Software Engineer',
+function mapContract(c: {
+  id: string;
+  reference: string;
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    jobPosition: string;
+    department: { name: string };
+  };
+  department: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  jobPosition: string;
   workingSchedule: {
-    id: '66666666-6666-4666-8666-666666666666',
-    name: 'Standard 40h',
-    hoursPerWeek: '40.00',
+    id: string;
+    name: string;
+    hoursPerWeek: Prisma.Decimal;
+  };
+  salaryStructure: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  startDate: Date;
+  endDate: Date | null;
+  wage: Prisma.Decimal;
+  currency: string;
+  status: string;
+  notes: string | null;
+}) {
+  return {
+    id: c.id,
+    reference: c.reference,
+    employee: {
+      id: c.employee.id,
+      firstName: c.employee.firstName,
+      lastName: c.employee.lastName,
+      workEmail: c.employee.workEmail,
+      jobPosition: c.employee.jobPosition,
+      departmentName: c.employee.department.name,
+    },
+    department: {
+      id: c.department.id,
+      name: c.department.name,
+      code: c.department.code,
+    },
+    jobPosition: c.jobPosition,
+    workingSchedule: {
+      id: c.workingSchedule.id,
+      name: c.workingSchedule.name,
+      hoursPerWeek: c.workingSchedule.hoursPerWeek.toString(),
+    },
+    salaryStructure: {
+      id: c.salaryStructure.id,
+      name: c.salaryStructure.name,
+      code: c.salaryStructure.code,
+    },
+    startDate: c.startDate instanceof Date ? c.startDate.toISOString().slice(0, 10) : String(c.startDate).slice(0, 10),
+    endDate: c.endDate ? (c.endDate instanceof Date ? c.endDate.toISOString().slice(0, 10) : String(c.endDate).slice(0, 10)) : null,
+    wage: c.wage.toString(),
+    currency: c.currency as 'INR' | 'USD',
+    status: c.status as 'draft' | 'running' | 'expired' | 'cancelled',
+    notes: c.notes,
+  };
+}
+
+const contractIncludes = {
+  employee: {
+    include: {
+      department: true,
+    },
   },
-  salaryStructure: { id: '77777777-7777-4777-8777-777777777777', name: 'India Monthly', code: 'IN-MON' },
-  startDate: '2025-01-01',
-  endDate: null,
-  wage: '85000.00',
-  currency: 'INR' as const,
-  status: 'running' as const,
-  notes: null,
+  department: true,
+  workingSchedule: true,
+  salaryStructure: true,
 };
 
-export async function listContracts(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+async function checkOverlap(
+  employeeId: string,
+  startDateStr: string,
+  endDateStr?: string | null,
+  excludeContractId?: string,
+) {
+  const start = new Date(startDateStr);
+  const end = endDateStr ? new Date(endDateStr) : new Date('9999-12-31');
+
+  const runningContracts = await prisma.contract.findMany({
+    where: {
+      employeeId,
+      status: 'running',
+      ...(excludeContractId ? { id: { not: excludeContractId } } : {}),
+    },
+  });
+
+  for (const rc of runningContracts) {
+    const rcStart = rc.startDate;
+    const rcEnd = rc.endDate ?? new Date('9999-12-31');
+    if (start <= rcEnd && rcStart <= end) {
+      throw ApiError.conflict(`Overlaps with contract ${rc.reference}`);
+    }
+  }
+}
+
+async function generateContractReference(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `CON/${year}/`;
+  const count = await prisma.contract.count({
+    where: {
+      reference: { startsWith: prefix },
+    },
+  });
+  const num = (count + 1).toString().padStart(4, '0');
+  return `${prefix}${num}`;
+}
+
+export async function listContracts(query: {
+  q?: string;
+  employeeId?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const page = query.page ?? 1;
+  const pageSize = query.pageSize ?? 20;
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.ContractWhereInput = {};
+
+  if (query.employeeId) {
+    where.employeeId = query.employeeId;
+  }
+
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  if (query.q) {
+    const q = query.q.trim();
+    where.OR = [
+      { reference: { contains: q, mode: 'insensitive' } },
+      { jobPosition: { contains: q, mode: 'insensitive' } },
+      { employee: { firstName: { contains: q, mode: 'insensitive' } } },
+      { employee: { lastName: { contains: q, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [total, rows] = await Promise.all([
+    prisma.contract.count({ where }),
+    prisma.contract.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: 'desc' },
+      include: contractIncludes,
+    }),
+  ]);
+
   return {
-    data: [stubContract],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    data: rows.map(mapContract),
+    meta: paginationMeta(page, pageSize, total),
   };
 }
 
@@ -50,24 +183,46 @@ export async function createContract(body: {
   status?: 'draft' | 'running' | 'expired' | 'cancelled';
   notes?: string | null;
 }) {
-  // TODO: STUB
-  return {
-    ...stubContract,
-    id: '66666666-6666-4666-8666-666666666666',
-    reference: 'CTR-2026-002',
-    jobPosition: body.jobPosition,
-    startDate: body.startDate,
-    endDate: body.endDate ?? null,
-    wage: body.wage,
-    currency: body.currency,
-    status: body.status ?? 'draft',
-    notes: body.notes ?? null,
-  };
+  const targetStatus = body.status ?? 'draft';
+
+  if (targetStatus === 'running') {
+    await checkOverlap(body.employeeId, body.startDate, body.endDate);
+  }
+
+  const reference = await generateContractReference();
+
+  const created = await prisma.contract.create({
+    data: {
+      reference,
+      employeeId: body.employeeId,
+      departmentId: body.departmentId,
+      jobPosition: body.jobPosition,
+      workingScheduleId: body.workingScheduleId,
+      salaryStructureId: body.salaryStructureId,
+      startDate: new Date(body.startDate),
+      endDate: body.endDate ? new Date(body.endDate) : null,
+      wage: new Prisma.Decimal(body.wage),
+      currency: body.currency,
+      status: targetStatus,
+      notes: body.notes ?? null,
+    },
+    include: contractIncludes,
+  });
+
+  return mapContract(created);
 }
 
 export async function getContract(id: string) {
-  // TODO: STUB
-  return { ...stubContract, id };
+  const c = await prisma.contract.findUnique({
+    where: { id },
+    include: contractIncludes,
+  });
+
+  if (!c) {
+    throw ApiError.notFound('Contract not found');
+  }
+
+  return mapContract(c);
 }
 
 export async function updateContract(
@@ -85,16 +240,39 @@ export async function updateContract(
     notes: string | null;
   }>,
 ) {
-  // TODO: STUB
-  return {
-    ...stubContract,
-    id,
-    ...(body.jobPosition !== undefined ? { jobPosition: body.jobPosition } : {}),
-    ...(body.startDate !== undefined ? { startDate: body.startDate } : {}),
-    ...(body.endDate !== undefined ? { endDate: body.endDate } : {}),
-    ...(body.wage !== undefined ? { wage: body.wage } : {}),
-    ...(body.currency !== undefined ? { currency: body.currency } : {}),
-    ...(body.status !== undefined ? { status: body.status } : {}),
-    ...(body.notes !== undefined ? { notes: body.notes } : {}),
-  };
+  const current = await prisma.contract.findUnique({
+    where: { id },
+    include: contractIncludes,
+  });
+
+  if (!current) {
+    throw ApiError.notFound('Contract not found');
+  }
+
+  const nextStatus = body.status ?? current.status;
+  const nextStart = body.startDate ?? current.startDate.toISOString().slice(0, 10);
+  const nextEnd = body.endDate !== undefined ? body.endDate : (current.endDate ? current.endDate.toISOString().slice(0, 10) : null);
+
+  if (nextStatus === 'running') {
+    await checkOverlap(current.employeeId, nextStart, nextEnd, id);
+  }
+
+  const updated = await prisma.contract.update({
+    where: { id },
+    data: {
+      ...(body.departmentId !== undefined ? { departmentId: body.departmentId } : {}),
+      ...(body.jobPosition !== undefined ? { jobPosition: body.jobPosition } : {}),
+      ...(body.workingScheduleId !== undefined ? { workingScheduleId: body.workingScheduleId } : {}),
+      ...(body.salaryStructureId !== undefined ? { salaryStructureId: body.salaryStructureId } : {}),
+      ...(body.startDate !== undefined ? { startDate: new Date(body.startDate) } : {}),
+      ...(body.endDate !== undefined ? { endDate: body.endDate ? new Date(body.endDate) : null } : {}),
+      ...(body.wage !== undefined ? { wage: new Prisma.Decimal(body.wage) } : {}),
+      ...(body.currency !== undefined ? { currency: body.currency } : {}),
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.notes !== undefined ? { notes: body.notes } : {}),
+    },
+    include: contractIncludes,
+  });
+
+  return mapContract(updated);
 }

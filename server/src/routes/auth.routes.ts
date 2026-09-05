@@ -8,7 +8,7 @@ import {
 } from '../schemas/auth.schema.js';
 import * as authService from '../services/auth.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.post('/login', validate({ body: loginSchema }), async (req, res, next) => { // TODO: STUB
   try {

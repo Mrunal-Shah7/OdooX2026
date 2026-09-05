@@ -11,7 +11,7 @@ import dashboardRoutes from './dashboard.routes.js';
 import reportsRoutes from './reports.routes.js';
 import notificationsRoutes from './notifications.routes.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);

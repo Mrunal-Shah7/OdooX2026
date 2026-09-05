@@ -12,7 +12,7 @@ import {
 } from '../schemas/users.schema.js';
 import * as usersService from '../services/users.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/',

@@ -1,40 +1,182 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type ColumnDef } from '@tanstack/react-table';
+import { useMemo, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { Field } from '../../components/ui/Field';
+import { Input } from '../../components/ui/Input';
+import { Modal } from '../../components/ui/Modal';
+import { Select } from '../../components/ui/Select';
+import { apiFetch } from '../../lib/apiFetch';
+import { queryKeys } from '../../lib/queryKeys';
+
+type PublicHoliday = {
+  id: string;
+  name: string;
+  date: string;
+};
 
 export default function HolidaysPage() {
+  const queryClient = useQueryClient();
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newHolidayName, setNewHolidayName] = useState('');
+  const [newHolidayDate, setNewHolidayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: queryKeys.holidays(selectedYear),
+    queryFn: () =>
+      apiFetch<{ data: PublicHoliday[] }>(`/public-holidays?year=${selectedYear}`),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      setAddError(null);
+      return apiFetch<{ data: PublicHoliday }>('/public-holidays', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newHolidayName,
+          date: newHolidayDate,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['holidays'] });
+      setIsAddOpen(false);
+      setNewHolidayName('');
+    },
+    onError: (err: any) => {
+      setAddError(err.message || 'Failed to add public holiday');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiFetch(`/public-holidays/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['holidays'] });
+    },
+  });
+
+  const columns = useMemo<ColumnDef<PublicHoliday, any>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'Holiday Name',
+        cell: (info) => <span className="font-medium text-text">{info.getValue()}</span>,
+      },
+      {
+        accessorKey: 'date',
+        header: 'Date',
+        meta: { code: true } as ColumnMeta,
+        cell: (info) => <span className="font-mono text-caption">{info.getValue()}</span>,
+      },
+      {
+        id: 'actions',
+        header: '',
+        enableColumnFilter: false,
+        cell: (info) => (
+          <div className="flex justify-end">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                if (window.confirm(`Delete holiday "${info.row.original.name}"?`)) {
+                  deleteMutation.mutate(info.row.original.id);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [deleteMutation],
+  );
+
   return (
     <>
-      <PageHeader title="Public holidays" actions={<Button variant="accent">Add holiday</Button>} />
-      <div className="px-5 pb-6">
-        <Card>
-          <table className="w-full border-collapse text-body-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                <th className="px-4 py-3">Holiday</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { name: 'Republic Day', date: '2026-01-26' },
-                { name: 'Teachers Day', date: '2026-09-05' },
-                { name: 'Hindi Diwas', date: '2026-09-14' },
-                { name: 'Gandhi Jayanti', date: '2026-10-02' },
-              ].map((row) => (
-                <tr key={row.date} className="border-b border-border">
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3 font-mono text-caption">{row.date}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="danger" size="sm">Delete</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <PageHeader
+        title="Public Holidays"
+        subtitle="Excluded from scheduled working days"
+        actions={
+          <div className="flex items-center gap-3">
+            <Select
+              options={[
+                { value: '2025', label: '2025' },
+                { value: '2026', label: '2026' },
+                { value: '2027', label: '2027' },
+              ]}
+              value={String(selectedYear)}
+              onValueChange={(val) => setSelectedYear(Number(val))}
+            />
+            <Button variant="accent" onClick={() => setIsAddOpen(true)}>
+              Add holiday
+            </Button>
+          </div>
+        }
+      />
+      <div className="space-y-4 px-5 pb-6">
+        <Card className="p-0 overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={response?.data ?? []}
+            isLoading={isLoading}
+            enablePagination={false}
+            emptyMessage="No public holidays configured for this year."
+          />
         </Card>
       </div>
+
+      <Modal
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        title="Add Public Holiday"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !newHolidayName.trim() || !newHolidayDate}
+            >
+              {createMutation.isPending ? 'Adding...' : 'Add holiday'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 py-2">
+          {addError && (
+            <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
+              {addError}
+            </div>
+          )}
+
+          <Field label="Holiday Name">
+            <Input
+              value={newHolidayName}
+              onChange={(e) => setNewHolidayName(e.target.value)}
+              placeholder="e.g. Republic Day"
+            />
+          </Field>
+
+          <Field label="Date">
+            <Input
+              type="date"
+              value={newHolidayDate}
+              onChange={(e) => setNewHolidayDate(e.target.value)}
+            />
+          </Field>
+        </div>
+      </Modal>
     </>
   );
 }

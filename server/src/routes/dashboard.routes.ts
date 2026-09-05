@@ -7,7 +7,7 @@ import { validate } from '../middleware/validate.js';
 import { payrollDashboardQuerySchema } from '../schemas/dashboard.schema.js';
 import * as dashboardService from '../services/dashboard.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/payroll',

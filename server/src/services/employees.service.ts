@@ -497,3 +497,25 @@ export async function updateEmployee(
   return mapEmployee(updated);
 }
 
+export async function deleteEmployee(id: string) {
+  const current = await prisma.employee.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          contracts: true,
+          attendanceRecords: true,
+          timeOffRequests: true,
+        },
+      },
+    },
+  });
+
+  if (!current) throw ApiError.notFound('Employee not found');
+  if (current._count.contracts > 0) {
+    throw ApiError.conflict('Cannot delete an employee with active or past contracts');
+  }
+
+  await prisma.employee.delete({ where: { id } });
+}
+

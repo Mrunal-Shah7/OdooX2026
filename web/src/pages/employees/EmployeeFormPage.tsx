@@ -77,6 +77,17 @@ async function fetchSchedules(): Promise<WorkingScheduleOption[]> {
   return body.data ?? [];
 }
 
+async function fetchAllEmployees(): Promise<{ id: string; firstName: string; lastName: string }[]> {
+  const headers: Record<string, string> = {};
+  const token = getStoredAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch('/api/employees?pageSize=100', { headers, credentials: 'include' });
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.data ?? [];
+}
+
 export default function EmployeeFormPage() {
   const { id } = useParams({ from: '/app/employees/$id' });
   const navigate = useNavigate();
@@ -91,6 +102,7 @@ export default function EmployeeFormPage() {
     phone: '',
     departmentId: '',
     jobPosition: '',
+    managerId: '',
     workingScheduleId: '',
     employeeType: 'full_time' as 'full_time' | 'part_time' | 'contract' | 'intern',
     status: 'active' as 'active' | 'inactive',
@@ -114,6 +126,11 @@ export default function EmployeeFormPage() {
     queryFn: fetchSchedules,
   });
 
+  const allEmployeesQuery = useQuery({
+    queryKey: queryKeys.employees.all(),
+    queryFn: fetchAllEmployees,
+  });
+
   const employeeQuery = useQuery({
     queryKey: queryKeys.employees.detail(id),
     queryFn: () => fetchEmployeeDetail(id),
@@ -123,18 +140,20 @@ export default function EmployeeFormPage() {
   useEffect(() => {
     if (employeeQuery.data?.employee) {
       const emp = employeeQuery.data.employee;
+      const formattedDate = emp.joiningDate ? emp.joiningDate.slice(0, 10) : '';
       setForm({
         firstName: emp.firstName,
         lastName: emp.lastName,
         workEmail: emp.workEmail,
         personalEmail: emp.personalEmail ?? '',
         phone: emp.phone ?? '',
-        departmentId: emp.department.id,
-        jobPosition: emp.jobPosition,
-        workingScheduleId: emp.workingSchedule.id,
-        employeeType: emp.employeeType,
-        status: emp.status,
-        joiningDate: emp.joiningDate,
+        departmentId: emp.department?.id ?? '',
+        jobPosition: emp.jobPosition ?? '',
+        managerId: emp.manager?.id ?? 'none',
+        workingScheduleId: emp.workingSchedule?.id ?? '',
+        employeeType: emp.employeeType ?? 'full_time',
+        status: emp.status ?? 'active',
+        joiningDate: formattedDate,
         workLocation: emp.workLocation ?? '',
         bankName: emp.bankName ?? '',
         bankAccountHolder: emp.bankAccountHolder ?? '',
@@ -154,13 +173,17 @@ export default function EmployeeFormPage() {
         phone: form.phone || null,
         departmentId: form.departmentId,
         jobPosition: form.jobPosition,
+        managerId: form.managerId && form.managerId !== 'none' ? form.managerId : null,
         workingScheduleId: form.workingScheduleId,
         employeeType: form.employeeType,
         joiningDate: form.joiningDate,
         workLocation: form.workLocation || null,
         bankName: form.bankName || null,
         bankAccountHolder: form.bankAccountHolder || null,
-        bankAccountNumber: form.bankAccountNumber && !form.bankAccountNumber.startsWith('••') ? form.bankAccountNumber : undefined,
+        bankAccountNumber:
+          form.bankAccountNumber && !form.bankAccountNumber.startsWith('••')
+            ? form.bankAccountNumber
+            : undefined,
         bankIfsc: form.bankIfsc || null,
       };
 
@@ -206,9 +229,27 @@ export default function EmployeeFormPage() {
 
   const departments = departmentsQuery.data ?? [];
   const schedules = schedulesQuery.data ?? [];
+  const allEmployees = allEmployeesQuery.data ?? [];
 
   const deptOptions = departments.map((d) => ({ value: d.id, label: d.name }));
   const scheduleOptions = schedules.map((s) => ({ value: s.id, label: `${s.name} (${s.hoursPerWeek}h)` }));
+  const managerOptions = [
+    { value: 'none', label: 'None' },
+    ...allEmployees
+      .filter((e) => e.id !== id)
+      .map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
+  ];
+
+  useEffect(() => {
+    if (isNew) {
+      if (deptOptions.length > 0 && !form.departmentId) {
+        setForm((f) => ({ ...f, departmentId: deptOptions[0].value }));
+      }
+      if (scheduleOptions.length > 0 && !form.workingScheduleId) {
+        setForm((f) => ({ ...f, workingScheduleId: scheduleOptions[0].value }));
+      }
+    }
+  }, [isNew, deptOptions, scheduleOptions, form.departmentId, form.workingScheduleId]);
 
   const typeOptions = [
     { value: 'full_time', label: 'Full time' },
@@ -222,8 +263,17 @@ export default function EmployeeFormPage() {
     { value: 'inactive', label: 'Inactive' },
   ];
 
-  if (!isNew && employeeQuery.isLoading) {
-    return <Spinner />;
+  const isDataLoading =
+    (!isNew && employeeQuery.isLoading) ||
+    departmentsQuery.isLoading ||
+    schedulesQuery.isLoading;
+
+  if (isDataLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Spinner />
+      </div>
+    );
   }
 
   if (!isNew && employeeQuery.isError) {
@@ -232,7 +282,9 @@ export default function EmployeeFormPage() {
 
   const counts = employeeQuery.data?.counts ?? { contracts: 0, attendance: 0, timeOff: 0, allocations: 0 };
   const empTitle = isNew ? 'New employee' : `${form.firstName} ${form.lastName}`;
-  const empSubtitle = isNew ? undefined : `${form.jobPosition || 'Employee'} · ${employeeQuery.data?.employee?.department?.name ?? 'Department'}`;
+  const empSubtitle = isNew
+    ? undefined
+    : `${form.jobPosition || 'Employee'} · ${employeeQuery.data?.employee?.department?.name ?? 'Department'}`;
 
   return (
     <>
@@ -339,6 +391,7 @@ export default function EmployeeFormPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Department *">
                   <Select
+                    key={`dept-${form.departmentId}-${deptOptions.length}`}
                     options={deptOptions}
                     value={form.departmentId}
                     onValueChange={(val) => setForm((f) => ({ ...f, departmentId: val }))}
@@ -354,8 +407,19 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
+                <Field label="Manager">
+                  <Select
+                    key={`mgr-${form.managerId}-${managerOptions.length}`}
+                    options={managerOptions}
+                    value={form.managerId}
+                    onValueChange={(val) => setForm((f) => ({ ...f, managerId: val }))}
+                    placeholder="Select manager..."
+                  />
+                </Field>
+
                 <Field label="Working schedule *">
                   <Select
+                    key={`sched-${form.workingScheduleId}-${scheduleOptions.length}`}
                     options={scheduleOptions}
                     value={form.workingScheduleId}
                     onValueChange={(val) => setForm((f) => ({ ...f, workingScheduleId: val }))}
@@ -365,6 +429,7 @@ export default function EmployeeFormPage() {
 
                 <Field label="Employee type *">
                   <Select
+                    key={`type-${form.employeeType}`}
                     options={typeOptions}
                     value={form.employeeType}
                     onValueChange={(val) =>

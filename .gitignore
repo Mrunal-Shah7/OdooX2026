@@ -9,3 +9,8 @@ server/prisma/*.db-journal
 web/dist/
 server/dist/
 .vite/
+# pnpm
+.pnpm-store
+.pnpm-debug.log*
+pnpm-debug.log*
+.modules.yaml

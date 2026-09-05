@@ -1,17 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { ErrorState } from '../../components/ui/ErrorState';
-import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
-import { apiClient } from '../../lib/apiClient';
+import { DataTable } from '../../components/ui/DataTable';
+import { Modal } from '../../components/ui/Modal';
+import { ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
+import { getStoredAuthToken } from '../../lib/session';
 
 export type EmployeeListItem = {
   id: string;
@@ -50,23 +50,13 @@ export type EmployeeListResponse = {
   };
 };
 
-import { getStoredAuthToken } from '../../lib/session';
-
 async function fetchEmployees(params: {
   q?: string;
-  departmentId?: string;
-  status?: string;
-  employeeType?: string;
   page?: number;
   pageSize?: number;
 }): Promise<EmployeeListResponse> {
   const query = new URLSearchParams();
   if (params.q) query.set('q', params.q);
-  if (params.departmentId && params.departmentId !== 'all')
-    query.set('departmentId', params.departmentId);
-  if (params.status && params.status !== 'all') query.set('status', params.status);
-  if (params.employeeType && params.employeeType !== 'all')
-    query.set('employeeType', params.employeeType);
   if (params.page) query.set('page', String(params.page));
   if (params.pageSize) query.set('pageSize', String(params.pageSize));
 
@@ -82,23 +72,34 @@ async function fetchEmployees(params: {
   return res.json();
 }
 
-export default function EmployeeDirectoryPage() {
-  const [q, setQ] = useState('');
-  const [departmentId, setDepartmentId] = useState('all');
-  const [status, setStatus] = useState('all');
-  const [employeeType, setEmployeeType] = useState('all');
-  const [page, setPage] = useState(1);
+async function deleteEmployee(id: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getStoredAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const departmentsQuery = useQuery({
-    queryKey: queryKeys.departments.all,
-    queryFn: () => apiClient.listDepartments(),
+  const res = await fetch(`/api/employees/${id}`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
   });
 
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new ApiClientError(
+      err?.error?.code ?? 'CONFLICT',
+      err?.error?.message ?? 'Failed to delete employee',
+    );
+  }
+}
+
+export default function EmployeeDirectoryPage() {
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+
+  const [deletingEmp, setDeletingEmp] = useState<EmployeeListItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const queryParams = {
-    ...(q ? { q } : {}),
-    ...(departmentId !== 'all' ? { departmentId } : {}),
-    ...(status !== 'all' ? { status } : {}),
-    ...(employeeType !== 'all' ? { employeeType } : {}),
     page: String(page),
   };
 
@@ -106,33 +107,99 @@ export default function EmployeeDirectoryPage() {
     queryKey: queryKeys.employees.all(queryParams),
     queryFn: () =>
       fetchEmployees({
-        q: q || undefined,
-        departmentId: departmentId !== 'all' ? departmentId : undefined,
-        status: status !== 'all' ? status : undefined,
-        employeeType: employeeType !== 'all' ? employeeType : undefined,
         page,
-        pageSize: 20,
+        pageSize: 10,
       }),
   });
 
-  const departments = departmentsQuery.data ?? [];
-  const deptOptions = [
-    { value: 'all', label: 'All departments' },
-    ...departments.map((d) => ({ value: d.id, label: d.name })),
-  ];
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEmployee(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setDeletingEmp(null);
+      setDeleteError(null);
+    },
+    onError: (err: unknown) => {
+      setDeleteError(err instanceof ApiClientError ? err.message : 'Delete failed');
+    },
+  });
 
-  const statusOptions = [
-    { value: 'all', label: 'All status' },
-    { value: 'active', label: 'Active' },
-    { value: 'inactive', label: 'Inactive' },
-  ];
-
-  const typeOptions = [
-    { value: 'all', label: 'All types' },
-    { value: 'full_time', label: 'Full time' },
-    { value: 'part_time', label: 'Part time' },
-    { value: 'contract', label: 'Contract' },
-    { value: 'intern', label: 'Intern' },
+  const columns: ColumnDef<EmployeeListItem>[] = [
+    {
+      accessorKey: 'firstName',
+      header: 'Employee',
+      meta: { filterVariant: 'text' },
+      cell: ({ row }) => (
+        <Link
+          to="/employees/$id"
+          params={{ id: row.original.id }}
+          className="font-semibold text-accent no-underline hover:underline"
+        >
+          {row.original.firstName} {row.original.lastName}
+        </Link>
+      ),
+    },
+    {
+      accessorKey: 'workEmail',
+      header: 'Work email',
+      meta: { code: true, filterVariant: 'text' },
+    },
+    {
+      accessorKey: 'department.name',
+      header: 'Department',
+      meta: { filterVariant: 'text' },
+      cell: ({ row }) => row.original.department.name,
+    },
+    {
+      accessorKey: 'jobPosition',
+      header: 'Position',
+      meta: { filterVariant: 'text' },
+    },
+    {
+      accessorKey: 'employeeType',
+      header: 'Type',
+      meta: { filterVariant: 'text' },
+      cell: ({ row }) => (
+        <span className="capitalize">{row.original.employeeType.replace('_', ' ')}</span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      meta: { filterVariant: 'text' },
+      cell: ({ row }) => (
+        <Badge variant={row.original.status === 'active' ? 'success' : 'neutral'}>
+          {row.original.status}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableColumnFilter: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Link to="/employees/$id" params={{ id: row.original.id }}>
+            <Button variant="secondary" size="sm" className="flex items-center gap-1">
+              <Pencil className="size-3.5" />
+              <span>Edit</span>
+            </Button>
+          </Link>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => {
+              setDeletingEmp(row.original);
+              setDeleteError(null);
+            }}
+            className="flex items-center gap-1"
+          >
+            <Trash2 className="size-3.5" />
+            <span>Delete</span>
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   const employees = employeesQuery.data?.data ?? [];
@@ -146,138 +213,73 @@ export default function EmployeeDirectoryPage() {
         subtitle={`${total} ${total === 1 ? 'employee' : 'employees'} found`}
         actions={
           <Link to="/employees/$id" params={{ id: 'new' }}>
-            <Button variant="accent">New employee</Button>
+            <Button variant="accent" className="flex items-center gap-1.5">
+              <Plus className="size-4" />
+              <span>Create Employee</span>
+            </Button>
           </Link>
         }
       />
       <div className="space-y-4 px-5 pb-6">
-        <div className="flex flex-wrap items-end gap-3">
-          <Input
-            placeholder="Search employees..."
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-            className="min-w-40 max-w-xs"
-          />
-          <Select
-            options={deptOptions}
-            value={departmentId}
-            onValueChange={(val) => {
-              setDepartmentId(val);
-              setPage(1);
-            }}
-          />
-          <Select
-            options={statusOptions}
-            value={status}
-            onValueChange={(val) => {
-              setStatus(val);
-              setPage(1);
-            }}
-          />
-          <Select
-            options={typeOptions}
-            value={employeeType}
-            onValueChange={(val) => {
-              setEmployeeType(val);
-              setPage(1);
-            }}
-          />
-        </div>
-
         <Card>
-          {employeesQuery.isLoading ? (
-            <Spinner />
-          ) : employeesQuery.isError ? (
-            <ErrorState onRetry={() => employeesQuery.refetch()} />
-          ) : employees.length === 0 ? (
-            <EmptyState
-              message="No employees found matching the filters."
-              action={
-                <Link to="/employees/$id" params={{ id: 'new' }}>
-                  <Button variant="accent">New employee</Button>
-                </Link>
-              }
-            />
-          ) : (
-            <>
-              <table className="w-full border-collapse text-body-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                    <th className="px-4 py-3">Employee</th>
-                    <th className="px-4 py-3">Work email</th>
-                    <th className="px-4 py-3">Department</th>
-                    <th className="px-4 py-3">Position</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees.map((emp) => (
-                    <tr
-                      key={emp.id}
-                      className="border-b border-border hover:bg-primary-subtle"
-                    >
-                      <td className="px-4 py-3 font-semibold text-accent">
-                        <Link
-                          to="/employees/$id"
-                          params={{ id: emp.id }}
-                          className="text-accent no-underline hover:underline"
-                        >
-                          {emp.firstName} {emp.lastName}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-caption">
-                        {emp.workEmail}
-                      </td>
-                      <td className="px-4 py-3">{emp.department.name}</td>
-                      <td className="px-4 py-3">{emp.jobPosition}</td>
-                      <td className="px-4 py-3 capitalize">
-                        {emp.employeeType.replace('_', ' ')}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          variant={emp.status === 'active' ? 'success' : 'neutral'}
-                        >
-                          {emp.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {meta && meta.totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-border px-4 py-3 text-body-sm">
-                  <span className="text-text-muted">
-                    Page {meta.page} of {meta.totalPages} ({meta.total} items)
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={page >= meta.totalPages}
-                      onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+          <DataTable
+            columns={columns}
+            data={employees}
+            isLoading={employeesQuery.isLoading}
+            emptyMessage="No employees found."
+            manualPagination={true}
+            totalCount={total}
+            pageCount={meta?.totalPages ?? 1}
+            pagination={{
+              pageIndex: page - 1,
+              pageSize: 10,
+            }}
+            onPaginationChange={(updater) => {
+              const nextState =
+                typeof updater === 'function'
+                  ? updater({ pageIndex: page - 1, pageSize: 10 })
+                  : updater;
+              setPage(nextState.pageIndex + 1);
+            }}
+          />
         </Card>
       </div>
+
+      <Modal
+        open={Boolean(deletingEmp)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingEmp(null);
+            setDeleteError(null);
+          }
+        }}
+        title="Confirm Delete Employee"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletingEmp(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deletingEmp) deleteMutation.mutate(deletingEmp.id);
+              }}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete Employee'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm">
+          Are you sure you want to delete employee{' '}
+          <strong className="text-primary">
+            {deletingEmp?.firstName} {deletingEmp?.lastName}
+          </strong>
+          ? This action cannot be undone.
+        </p>
+        {deleteError && <p className="mt-3 text-caption text-danger">{deleteError}</p>}
+      </Modal>
     </>
   );
 }

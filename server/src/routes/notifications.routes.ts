@@ -11,7 +11,7 @@ const listNotificationsQuerySchema = paginationQuerySchema.extend({
   unreadOnly: z.coerce.boolean().default(false),
 });
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/',

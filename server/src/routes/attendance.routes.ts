@@ -13,7 +13,7 @@ import {
 import { idParamSchema } from '../schemas/employees.schema.js';
 import * as attendanceService from '../services/attendance.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/',

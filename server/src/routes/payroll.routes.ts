@@ -23,7 +23,7 @@ import * as payslipsService from '../services/payroll/payslips.service.js';
 import * as rulesService from '../services/payroll/rules.service.js';
 import * as structuresService from '../services/payroll/structures.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/structures',

@@ -99,6 +99,22 @@ router.patch(
   },
 );
 
+// Delete employee (supported on /employees/:id and /admin/employees/:id)
+router.delete(
+  ['/employees/:id', '/admin/employees/:id'],
+  requireAuth,
+  requireRole(USER_ROLE.admin),
+  validate({ params: idParamSchema }),
+  async (req, res, next) => {
+    try {
+      await employeesService.deleteEmployee(pathId(req));
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.get('/departments', requireAuth, async (_req, res, next) => {
   try {
     const data = await employeesService.listDepartments();

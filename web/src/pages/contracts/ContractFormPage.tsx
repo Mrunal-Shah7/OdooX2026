@@ -1,39 +1,352 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Spinner } from '../../components/ui/Spinner';
+import { apiFetch } from '../../lib/apiFetch';
+import { queryKeys } from '../../lib/queryKeys';
+
+type ContractDetail = {
+  id: string;
+  reference: string;
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    jobPosition: string;
+  };
+  department: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  jobPosition: string;
+  workingSchedule: {
+    id: string;
+    name: string;
+  };
+  salaryStructure: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  startDate: string;
+  endDate: string | null;
+  wage: string;
+  currency: 'INR' | 'USD';
+  status: 'draft' | 'running' | 'expired' | 'cancelled';
+  notes: string | null;
+};
 
 export default function ContractFormPage() {
+  const { id } = useParams({ strict: false }) as { id?: string };
+  const isNew = !id || id === 'new';
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Form states
+  const [employeeId, setEmployeeId] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [jobPosition, setJobPosition] = useState('');
+  const [workingScheduleId, setWorkingScheduleId] = useState('');
+  const [salaryStructureId, setSalaryStructureId] = useState('');
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState('');
+  const [wage, setWage] = useState('0.00');
+  const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
+  const [status, setStatus] = useState<'draft' | 'running' | 'expired' | 'cancelled'>('draft');
+  const [notes, setNotes] = useState('');
+
+  // Fetch dropdown options
+  const { data: employeesData } = useQuery({
+    queryKey: queryKeys.employees.all({ pageSize: '100' }),
+    queryFn: () =>
+      apiFetch<{ data: Array<{ id: string; firstName: string; lastName: string; departmentId: string; jobPosition: string; workingScheduleId: string }> }>('/employees?pageSize=100'),
+  });
+
+  const { data: departmentsData } = useQuery({
+    queryKey: queryKeys.departments.all,
+    queryFn: () => apiFetch<{ data: Array<{ id: string; name: string }> }>('/departments'),
+  });
+
+  const { data: schedulesData } = useQuery({
+    queryKey: queryKeys.schedules.all,
+    queryFn: () => apiFetch<{ data: Array<{ id: string; name: string }> }>('/working-schedules?pageSize=100'),
+  });
+
+  const { data: structuresData } = useQuery({
+    queryKey: queryKeys.payroll.structures,
+    queryFn: () => apiFetch<{ data: Array<{ id: string; name: string }> }>('/payroll/structures'),
+  });
+
+  // Fetch contract detail if editing
+  const { data: contractData, isLoading: isContractLoading } = useQuery({
+    queryKey: queryKeys.contracts.detail(id ?? ''),
+    queryFn: () => apiFetch<{ data: ContractDetail }>(`/contracts/${id}`),
+    enabled: !isNew,
+  });
+
+  useEffect(() => {
+    if (contractData?.data) {
+      const c = contractData.data;
+      setEmployeeId(c.employee.id);
+      setDepartmentId(c.department.id);
+      setJobPosition(c.jobPosition);
+      setWorkingScheduleId(c.workingSchedule.id);
+      setSalaryStructureId(c.salaryStructure.id);
+      setStartDate(c.startDate);
+      setEndDate(c.endDate ?? '');
+      setWage(c.wage);
+      setCurrency(c.currency);
+      setStatus(c.status);
+      setNotes(c.notes ?? '');
+    }
+  }, [contractData]);
+
+  const handleEmployeeChange = (empId: string) => {
+    setEmployeeId(empId);
+    if (isNew && employeesData?.data) {
+      const emp = employeesData.data.find((e) => e.id === empId);
+      if (emp) {
+        if (emp.departmentId) setDepartmentId(emp.departmentId);
+        if (emp.jobPosition) setJobPosition(emp.jobPosition);
+        if (emp.workingScheduleId) setWorkingScheduleId(emp.workingScheduleId);
+      }
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      setFormError(null);
+      const payload = {
+        employeeId,
+        departmentId,
+        jobPosition,
+        workingScheduleId,
+        salaryStructureId,
+        startDate,
+        endDate: endDate.trim() ? endDate : null,
+        wage: parseFloat(wage).toFixed(2),
+        currency,
+        status,
+        notes: notes.trim() ? notes : null,
+      };
+
+      if (isNew) {
+        return apiFetch<{ data: ContractDetail }>('/contracts', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        return apiFetch<{ data: ContractDetail }>(`/contracts/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      navigate({ to: '/contracts' });
+    },
+    onError: (err: any) => {
+      setFormError(err.message || 'Failed to save contract');
+    },
+  });
+
+  const employeeOptions = (employeesData?.data ?? []).map((e) => ({
+    value: e.id,
+    label: `${e.firstName} ${e.lastName}`,
+  }));
+
+  const departmentOptions = (departmentsData?.data ?? []).map((d) => ({
+    value: d.id,
+    label: d.name,
+  }));
+
+  const scheduleOptions = (schedulesData?.data ?? []).map((s) => ({
+    value: s.id,
+    label: s.name,
+  }));
+
+  const structureOptions = (structuresData?.data ?? []).map((st) => ({
+    value: st.id,
+    label: st.name,
+  }));
+
+  if (!isNew && isContractLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
+  const contract = contractData?.data;
+
   return (
     <>
       <PageHeader
-        title="CON/2026/0042"
+        title={isNew ? 'New Contract' : (contract?.reference ?? 'Contract')}
         subtitle={
-          <>
-            Aarav Mehta · <Badge variant="success">running</Badge>
-          </>
+          isNew ? (
+            'Create employment contract'
+          ) : (
+            <>
+              {contract?.employee?.firstName} {contract?.employee?.lastName} ·{' '}
+              <Badge
+                variant={
+                  status === 'running'
+                    ? 'success'
+                    : status === 'draft'
+                    ? 'warning'
+                    : status === 'expired'
+                    ? 'danger'
+                    : 'neutral'
+                }
+              >
+                {status}
+              </Badge>
+            </>
+          )
         }
         actions={
           <>
-            <Button variant="secondary">Cancel</Button>
-            <Button variant="accent">Save contract</Button>
+            <Button variant="secondary" onClick={() => navigate({ to: '/contracts' })}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? 'Saving...' : 'Save contract'}
+            </Button>
           </>
         }
       />
       <div className="px-5 pb-6">
         <Card>
-          <CardBody>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Employee"><Select options={[{ value: '1', label: 'Aarav Mehta' }]} value="1" /></Field>
-              <Field label="Department"><Select options={[{ value: 'eng', label: 'Engineering' }]} value="eng" /></Field>
-              <Field label="Start date"><Input defaultValue="2026-01-01" /></Field>
-              <Field label="Wage"><Input defaultValue="85000.00" numeric /></Field>
-              <Field label="Structure"><Select options={[{ value: 'reg', label: 'Regular Salary' }]} value="reg" /></Field>
-              <Field label="Schedule"><Select options={[{ value: '40', label: '40 Hours / Week' }]} value="40" /></Field>
+          <CardBody className="space-y-6">
+            {formError && (
+              <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
+                {formError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Employee">
+                <Select
+                  options={employeeOptions}
+                  value={employeeId}
+                  onValueChange={handleEmployeeChange}
+                  placeholder="Select employee"
+                  disabled={!isNew}
+                />
+              </Field>
+
+              <Field label="Department">
+                <Select
+                  options={departmentOptions}
+                  value={departmentId}
+                  onValueChange={setDepartmentId}
+                  placeholder="Select department"
+                />
+              </Field>
+
+              <Field label="Job Position">
+                <Input
+                  value={jobPosition}
+                  onChange={(e) => setJobPosition(e.target.value)}
+                  placeholder="e.g. Software Engineer"
+                />
+              </Field>
+
+              <Field label="Working Schedule">
+                <Select
+                  options={scheduleOptions}
+                  value={workingScheduleId}
+                  onValueChange={setWorkingScheduleId}
+                  placeholder="Select working schedule"
+                />
+              </Field>
+
+              <Field label="Salary Structure">
+                <Select
+                  options={structureOptions}
+                  value={salaryStructureId}
+                  onValueChange={setSalaryStructureId}
+                  placeholder="Select salary structure"
+                />
+              </Field>
+
+              <Field label="Status">
+                <Select
+                  options={[
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'running', label: 'Running' },
+                    { value: 'expired', label: 'Expired' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                  value={status}
+                  onValueChange={(val) => setStatus(val as any)}
+                />
+              </Field>
+
+              <Field label="Start Date">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </Field>
+
+              <Field label="End Date (Optional)">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Monthly Wage">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={wage}
+                  onChange={(e) => setWage(e.target.value)}
+                  numeric
+                />
+              </Field>
+
+              <Field label="Currency">
+                <Select
+                  options={[
+                    { value: 'INR', label: 'INR (₹)' },
+                    { value: 'USD', label: 'USD ($)' },
+                  ]}
+                  value={currency}
+                  onValueChange={(val) => setCurrency(val as 'INR' | 'USD')}
+                />
+              </Field>
             </div>
+
+            <Field label="Notes">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Contract terms or notes..."
+                className="w-full rounded border border-border bg-surface px-3 py-2 text-body-sm text-text outline-none focus:border-focus-ring min-h-[80px]"
+              />
+            </Field>
           </CardBody>
         </Card>
       </div>

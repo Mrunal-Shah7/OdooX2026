@@ -21,7 +21,7 @@ import {
 } from '../schemas/timeoff.schema.js';
 import * as timeoffService from '../services/timeoff.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/types',

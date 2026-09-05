@@ -746,6 +746,24 @@ export async function createTimeOffRequest(body: {
     body.requestedHours,
   );
 
+  const startT = new Date(`${body.startDate}T00:00:00.000Z`);
+  const endT = new Date(`${body.endDate}T00:00:00.000Z`);
+
+  const overlap = await prisma.timeOffRequest.findFirst({
+    where: {
+      employeeId: body.employeeId,
+      status: { in: ['to_approve', 'approved'] },
+      AND: [
+        { startDate: { lte: endT } },
+        { endDate: { gte: startT } },
+      ],
+    },
+  });
+
+  if (overlap) {
+    throw ApiError.conflict('A request already exists for this time period');
+  }
+
   let allocationId: string | null = null;
   if (type.requiresAllocation) {
     const allocation = await prisma.timeOffAllocation.findFirst({
@@ -943,6 +961,25 @@ export async function updateTimeOffRequest(
     durationType,
     requestedHours,
   );
+
+  const startT = new Date(`${startDate}T00:00:00.000Z`);
+  const endT = new Date(`${endDate}T00:00:00.000Z`);
+
+  const overlap = await prisma.timeOffRequest.findFirst({
+    where: {
+      id: { not: id },
+      employeeId: request.employeeId,
+      status: { in: ['to_approve', 'approved'] },
+      AND: [
+        { startDate: { lte: endT } },
+        { endDate: { gte: startT } },
+      ],
+    },
+  });
+
+  if (overlap) {
+    throw ApiError.conflict('A request already exists for this time period');
+  }
 
   let allocationId = request.allocationId;
   if (request.timeOffType.requiresAllocation) {
@@ -1337,29 +1374,6 @@ export async function getTimeOffDashboard(
     };
   });
 
-  // Unplanned leave summary
-  // Unplanned leave is leave on types with requiresAllocation === false (or Sick Leave)
-  const now = new Date();
-  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const d90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const d180 = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-  let last30 = 0;
-  let last90 = 0;
-  let last180 = 0;
-  let thisYr = 0;
-
-  for (const r of approvedRequests) {
-    if (!r.timeOffType.requiresAllocation || r.timeOffType.code === 'SL') {
-      const dur = Number(r.durationDays);
-      const startStr = toDateOnly(r.startDate);
-      if (startStr >= d30) last30 += dur;
-      if (startStr >= d90) last90 += dur;
-      if (startStr >= d180) last180 += dur;
-      if (startStr >= yearStart && startStr <= yearEnd) thisYr += dur;
-    }
-  }
-
   return {
     employee: mapEmployeeRef(employee),
     year,
@@ -1368,19 +1382,24 @@ export async function getTimeOffDashboard(
           id: employee.workingSchedule.id,
           name: employee.workingSchedule.name,
           hoursPerWeek: quantityString(employee.workingSchedule.hoursPerWeek),
+          workingHoursPerDay: employee.workingSchedule.days?.[0]?.hours
+            ? quantityString(employee.workingSchedule.days[0].hours)
+            : '8.00',
+          breakPolicy: '1 hour unpaid lunch',
+          days: (employee.workingSchedule.days ?? []).map((d) => ({
+            dayOfWeek: d.dayOfWeek,
+            dayType: 'working',
+          })),
         }
       : {
           id: '00000000-0000-0000-0000-000000000000',
           name: 'Standard 40h',
           hoursPerWeek: '40.00',
+          workingHoursPerDay: '8.00',
+          breakPolicy: '1 hour unpaid lunch',
+          days: [1, 2, 3, 4, 5].map((d) => ({ dayOfWeek: d, dayType: 'working' })),
         },
     days,
     entitlements,
-    unplannedSummary: {
-      last30Days: quantityString(roundHalfUp(last30, 2)),
-      last3Months: quantityString(roundHalfUp(last90, 2)),
-      last6Months: quantityString(roundHalfUp(last180, 2)),
-      thisYear: quantityString(roundHalfUp(thisYr, 2)),
-    },
   };
 }

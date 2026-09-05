@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
 import { useNavigate } from '@tanstack/react-router';
@@ -7,7 +8,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { Select } from '../../components/ui/Select';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
@@ -27,6 +28,9 @@ type TimeOffDashboardData = {
     id: string;
     name: string;
     hoursPerWeek: string;
+    workingHoursPerDay: string;
+    breakPolicy: string;
+    days: { dayOfWeek: number; dayType: string }[];
   };
   days: TimeOffCalendarDay[];
   entitlements: {
@@ -42,12 +46,6 @@ type TimeOffDashboardData = {
     remaining: string;
     pending: string;
   }[];
-  unplannedSummary: {
-    last30Days: string;
-    last3Months: string;
-    last6Months: string;
-    thisYear: string;
-  };
 };
 
 async function apiRequest<T>(path: string): Promise<T> {
@@ -77,19 +75,29 @@ export default function TimeOffDashboardPage() {
   const canSwitchEmployee = user ? isHrManagerOrAbove(user.role) : false;
 
   const [employeePage, setEmployeePage] = useState(1);
+  const [employeeSearch, setEmployeeSearch] = useState('');
   const [employeesList, setEmployeesList] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
   const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
 
+  useEffect(() => {
+    setEmployeePage(1);
+    setEmployeesList([]);
+  }, [employeeSearch]);
+
   const { isFetching: isFetchingEmployees } = useQuery({
-    queryKey: ['employees', { page: employeePage, pageSize: 20 }],
+    queryKey: ['employees', { page: employeePage, pageSize: 10, q: employeeSearch }],
     queryFn: async () => {
-      const res = await apiRequest<any>(`/api/employees?page=${employeePage}&pageSize=20`);
-      if (res?.data) {
+      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '10' });
+      if (employeeSearch) qs.set('q', employeeSearch);
+      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
+      const data = Array.isArray(res) ? res : res?.data;
+      const meta = Array.isArray(res) ? undefined : res?.meta;
+      if (data) {
         setEmployeesList((prev) => {
-          const merged = [...prev, ...res.data];
+          const merged = [...prev, ...data];
           return Array.from(new Map(merged.map((e) => [e.id, e])).values());
         });
-        setHasMoreEmployees(res.meta?.page < res.meta?.totalPages);
+        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
       }
       return res;
     },
@@ -167,7 +175,7 @@ export default function TimeOffDashboardPage() {
           <div className="flex flex-wrap items-center gap-2">
             {canSwitchEmployee && (
               <div className="w-48">
-                <Select
+                <SearchableSelect
                   options={[
                     { value: user?.employee?.id ?? 'my_records', label: 'My records' },
                     ...employeesList.map((e) => ({
@@ -186,6 +194,8 @@ export default function TimeOffDashboardPage() {
                     }
                     setSelectedEmployeeId(val);
                   }}
+                  onSearch={setEmployeeSearch}
+                  loading={isFetchingEmployees}
                 />
               </div>
             )}
@@ -249,32 +259,44 @@ export default function TimeOffDashboardPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Unplanned absence" />
+            <CardHeader title="Working Schedule & Details" />
             <CardBody>
               <table className="w-full border-collapse text-body-sm">
                 <tbody>
                   <tr className="border-b border-border">
-                    <td className="py-2.5 text-text-muted">Recorded in last 30 days</td>
-                    <td className="py-2.5 text-right font-mono text-text">
-                      {data.unplannedSummary.last30Days}
+                    <td className="py-2.5 text-text-muted">Assigned Schedule</td>
+                    <td className="py-2.5 text-right font-medium text-text">
+                      {data.workingSchedule.name}
                     </td>
                   </tr>
                   <tr className="border-b border-border">
-                    <td className="py-2.5 text-text-muted">Recorded in last 3 months</td>
+                    <td className="py-2.5 text-text-muted">Weekly Hours</td>
                     <td className="py-2.5 text-right font-mono text-text">
-                      {data.unplannedSummary.last3Months}
+                      {data.workingSchedule.hoursPerWeek}h
                     </td>
                   </tr>
                   <tr className="border-b border-border">
-                    <td className="py-2.5 text-text-muted">Recorded in last 6 months</td>
+                    <td className="py-2.5 text-text-muted">Daily Hours</td>
                     <td className="py-2.5 text-right font-mono text-text">
-                      {data.unplannedSummary.last6Months}
+                      {data.workingSchedule.workingHoursPerDay}h
                     </td>
                   </tr>
-                  <tr className="border-b border-border font-semibold">
-                    <td className="py-2.5 text-text">Recorded this year</td>
-                    <td className="py-2.5 text-right font-mono text-text">
-                      {data.unplannedSummary.thisYear}
+                  <tr className="border-b border-border">
+                    <td className="py-2.5 text-text-muted">Working Days</td>
+                    <td className="py-2.5 text-right text-text">
+                      {data.workingSchedule.days
+                        .filter((d) => d.dayType === 'working' || d.dayType === 'morning' || d.dayType === 'afternoon')
+                        .map((d) => {
+                          const wdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                          return wdays[d.dayOfWeek];
+                        })
+                        .join(', ')}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 text-text-muted">Department</td>
+                    <td className="py-2.5 text-right text-text">
+                      {data.employee.departmentName}
                     </td>
                   </tr>
                 </tbody>

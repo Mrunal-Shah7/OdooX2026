@@ -75,7 +75,7 @@ export default function TypesPage() {
 
   const canManage = user ? isHrManagerOrAbove(user.role) : false;
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['timeOff', 'types', page, pageSize],
     queryFn: () => fetchTypes(page, pageSize),
   });
@@ -210,7 +210,7 @@ export default function TypesPage() {
             <DataTable
               columns={columns}
               data={data?.data ?? []}
-              isLoading={isLoading}
+              isLoading={isLoading || isFetching}
               emptyMessage="No time off types have been configured yet."
               manualPagination={true}
               totalCount={data?.meta?.total ?? 0}

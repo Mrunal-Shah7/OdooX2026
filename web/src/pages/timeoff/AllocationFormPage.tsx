@@ -9,7 +9,8 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { showToast } from '../../lib/toast';
 
 type AllocationDetail = {
   id: string;
@@ -45,6 +46,22 @@ type AllocationDetail = {
   } | null;
 };
 
+async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  headers.set('Content-Type', 'application/json');
+  const userId = sessionStorage.getItem('pp360_user_id');
+  if (userId) {
+    headers.set('x-user-id', userId);
+  }
+  const res = await fetch(path, { ...options, headers, credentials: 'include' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error?.message ?? 'Request failed');
+  }
+  const json = await res.json();
+  return json.data;
+}
+
 async function fetchAllocationDetail(id: string): Promise<AllocationDetail> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
   const userId = sessionStorage.getItem('pp360_user_id');
@@ -62,16 +79,6 @@ async function fetchAllocationDetail(id: string): Promise<AllocationDetail> {
   return json.data;
 }
 
-async function fetchEmployees(page = 1): Promise<any> {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const userId = sessionStorage.getItem('pp360_user_id');
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
-  const res = await fetch(`/api/employees?page=${page}&pageSize=20`, { headers, credentials: 'include' });
-  if (!res.ok) throw new Error();
-  return res.json();
-}
 
 async function fetchTypes(page = 1): Promise<any> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
@@ -109,21 +116,32 @@ export default function AllocationFormPage() {
   const [validFrom, setValidFrom] = useState('2026-01-01');
   const [validTo, setValidTo] = useState('2026-12-31');
   const [description, setDescription] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [employeePage, setEmployeePage] = useState(1);
-  const [employeesList, setEmployeesList] = useState<any[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeesList, setEmployeesList] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
   const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
 
+  useEffect(() => {
+    setEmployeePage(1);
+    setEmployeesList([]);
+  }, [employeeSearch]);
+
   const { isFetching: isFetchingEmployees } = useQuery({
-    queryKey: ['employees', 'options', employeePage],
+    queryKey: ['employees', { page: employeePage, pageSize: 10, q: employeeSearch }],
     queryFn: async () => {
-      const res = await fetchEmployees(employeePage);
-      setEmployeesList((prev) => {
-        const merged = [...prev, ...res.data];
-        return Array.from(new Map(merged.map((e) => [e.id, e])).values());
-      });
-      setHasMoreEmployees(res.meta?.page < res.meta?.totalPages);
+      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '10' });
+      if (employeeSearch) qs.set('q', employeeSearch);
+      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
+      const data = Array.isArray(res) ? res : res?.data;
+      const meta = Array.isArray(res) ? undefined : res?.meta;
+      if (data) {
+        setEmployeesList((prev) => {
+          const merged = [...prev, ...data];
+          return Array.from(new Map(merged.map((e) => [e.id, e])).values());
+        });
+        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
+      }
       return res;
     },
     enabled: isNew,
@@ -374,7 +392,7 @@ export default function AllocationFormPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="Employee">
                 {isNew ? (
-                  <Select
+                  <SearchableSelect
                     value={employeeId}
                     onValueChange={(val) => {
                       if (val === 'load_more') {
@@ -383,7 +401,8 @@ export default function AllocationFormPage() {
                       }
                       setEmployeeId(val);
                     }}
-                    placeholder="Select employee"
+                    onSearch={setEmployeeSearch}
+                    loading={isFetchingEmployees}
                     options={[
                       ...employeesList.map((e) => ({
                         value: e.id,

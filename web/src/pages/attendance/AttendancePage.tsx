@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { formatWorkedHours } from '../../lib/format';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 
@@ -61,7 +62,7 @@ async function fetchAttendance(params: Record<string, string>): Promise<Attendan
 function formatTime(isoStr: string | null): string {
   if (!isoStr) return '—';
   try {
-    return new Date(isoStr).toLocaleTimeString([], {
+    return new Date(isoStr).toLocaleTimeString('en-IN', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -99,7 +100,7 @@ export default function AttendancePage() {
     page: String(page),
     pageSize: String(pageSize),
   };
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['attendance', 'list', queryParams],
     queryFn: () => fetchAttendance(queryParams),
   });
@@ -142,6 +143,7 @@ export default function AttendancePage() {
         accessorKey: 'workedHours',
         header: 'Worked hours',
         meta: { align: 'right', filterVariant: 'text' } as ColumnMeta,
+        cell: ({ row }) => formatWorkedHours(row.original.workedHours),
       },
       {
         accessorKey: 'overtimeHours',
@@ -215,8 +217,8 @@ export default function AttendancePage() {
             <DataTable
               columns={columns}
               data={data?.data ?? []}
-              isLoading={isLoading}
-              emptyMessage="No attendance records match your current filters."
+              isLoading={isLoading || isFetching}
+              emptyMessage="No attendance records found."
               manualPagination={true}
               totalCount={data?.meta?.total ?? 0}
               pageCount={data?.meta ? Math.ceil(data.meta.total / pageSize) : 1}

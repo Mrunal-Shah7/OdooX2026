@@ -91,7 +91,7 @@ export default function AllocationsPage() {
     pageSize: String(pageSize),
   };
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['timeOff', 'allocations', queryParams],
     queryFn: () => fetchAllocations(queryParams),
   });
@@ -232,7 +232,7 @@ export default function AllocationsPage() {
             <DataTable
               columns={columns}
               data={data?.data ?? []}
-              isLoading={isLoading}
+              isLoading={isLoading || isFetching}
               emptyMessage="No allocations match your criteria."
               manualPagination={true}
               totalCount={data?.meta?.total ?? 0}

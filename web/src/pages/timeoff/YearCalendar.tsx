@@ -52,6 +52,10 @@ export function YearCalendar({
     return map;
   }, [days]);
 
+  const hasPublicHolidays = useMemo(() => {
+    return (days ?? []).some((d) => d.kind === 'holiday');
+  }, [days]);
+
   const todayStr = '2026-09-05';
 
   return (
@@ -90,13 +94,15 @@ export function YearCalendar({
             </span>
           </>
         )}
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block size-3 rounded-sm border border-border-strong"
-            style={{ background: 'var(--color-border-strong)' }}
-          />
-          <span>Public holiday</span>
-        </span>
+        {hasPublicHolidays && (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block size-3 rounded-sm border border-border-strong"
+              style={{ background: 'var(--color-border-strong)' }}
+            />
+            <span>Public holiday</span>
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block size-3 rounded-sm"
@@ -119,8 +125,8 @@ export function YearCalendar({
           <thead>
             <tr className="border-b border-border bg-surface-sunken text-text-muted">
               <th className="w-12 px-2 py-1 text-left font-sans text-label font-medium"></th>
-              {Array.from({ length: 31 }, (_, i) => (
-                <th key={i + 1} className="w-7 px-1 py-1 font-mono text-caption font-semibold">
+              {Array.from({ length: 37 }, (_, i) => (
+                <th key={i} className="w-7 px-1 py-1 font-mono text-caption font-semibold">
                   {WEEKDAY_LETTERS[i % 7]}
                 </th>
               ))}
@@ -134,10 +140,14 @@ export function YearCalendar({
                   <td className="px-2 py-1 text-left font-sans text-label font-medium text-text-muted">
                     {monthName}
                   </td>
-                  {Array.from({ length: 31 }, (_, dIdx) => {
-                    const dayNum = dIdx + 1;
-                    if (dayNum > daysInMonth) {
-                      return <td key={dayNum} className="p-0.5 bg-canvas/30" />;
+                  {Array.from({ length: 37 }, (_, dIdx) => {
+                    const firstDayOfMonth = new Date(year, mIdx, 1);
+                    // 0 is Sunday, 1 is Monday... map to 0=Mon, ..., 6=Sun
+                    const offset = (firstDayOfMonth.getDay() + 6) % 7;
+                    const dayNum = dIdx - offset + 1;
+
+                    if (dayNum < 1 || dayNum > daysInMonth) {
+                      return <td key={dIdx} className="p-0.5 bg-canvas/30" />;
                     }
 
                     const dateStr = `${year}-${String(mIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
@@ -186,7 +196,7 @@ export function YearCalendar({
                     }
 
                     return (
-                      <td key={dayNum} className="p-0.5">
+                      <td key={dIdx} className="p-0.5">
                         <div
                           role={onDateClick ? 'button' : undefined}
                           tabIndex={onDateClick ? 0 : undefined}

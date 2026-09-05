@@ -105,7 +105,7 @@ export default function RequestsPage() {
     pageSize: String(pageSize),
   };
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['timeOff', 'requests', queryParams],
     queryFn: () => fetchRequests(queryParams),
   });
@@ -236,7 +236,7 @@ export default function RequestsPage() {
             <DataTable
               columns={columns}
               data={data?.data ?? []}
-              isLoading={isLoading}
+              isLoading={isLoading || isFetching}
               emptyMessage="No time off requests match your criteria."
               manualPagination={true}
               totalCount={data?.meta?.total ?? 0}

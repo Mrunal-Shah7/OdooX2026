@@ -1,10 +1,12 @@
 import { PageHeader } from '../../components/layout/PageHeader';
+import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 
 export default function StructuresPage() {
   return (
     <>
+      <PayrollNavTabs />
       <PageHeader title="Salary structures" actions={<Button variant="accent">New structure</Button>} />
       <div className="px-5 pb-6">
         <Card>

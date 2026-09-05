@@ -1,4 +1,5 @@
 import { PageHeader } from '../../components/layout/PageHeader';
+import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Amount } from '../../components/ui/Amount';
 import { Card } from '../../components/ui/Card';
@@ -6,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 export default function PayslipsPage() {
   return (
     <>
+      <PayrollNavTabs />
       <PageHeader title="Payslips" subtitle="Your payslip history" />
       <div className="px-5 pb-6">
         <Card>

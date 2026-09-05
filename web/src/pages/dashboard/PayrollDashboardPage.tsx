@@ -1,4 +1,5 @@
 import { PageHeader } from '../../components/layout/PageHeader';
+import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Select } from '../../components/ui/Select';
 import { Amount } from '../../components/ui/Amount';
 import { BarChartCard } from '../../components/charts/BarChartCard';
@@ -8,6 +9,7 @@ import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 export default function PayrollDashboardPage() {
   return (
     <>
+      <PayrollNavTabs />
       <PageHeader title="Payroll dashboard" subtitle="September 2026" />
       <div className="space-y-5 px-5 pb-6">
         <div className="flex gap-3">

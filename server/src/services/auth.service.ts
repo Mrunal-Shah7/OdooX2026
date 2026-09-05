@@ -248,6 +248,27 @@ export async function setPassword(body: { token: string; password: string }) {
   ]);
 }
 
+export async function changePassword(
+  userId: string,
+  body: { currentPassword: string; newPassword: string },
+) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.passwordHash) {
+    throw ApiError.unauthenticated('User not found');
+  }
+  const valid = await verifyPassword(body.currentPassword, user.passwordHash);
+  if (!valid) {
+    throw ApiError.validation('Current password is incorrect', [
+      { field: 'currentPassword', message: 'Current password does not match' },
+    ]);
+  }
+  const passwordHash = await hashPassword(body.newPassword);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+}
+
 function toSessionUser(user: UserWithEmployee) {
   return {
     id: user.id,

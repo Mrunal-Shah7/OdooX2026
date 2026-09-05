@@ -136,13 +136,15 @@ export type PayslipDetail = {
     sentAt: string | null;
     warnings: { code: string; message: string; blocking: boolean }[];
   };
-  lines: {
-    ruleCode: string;
-    ruleName: string;
-    category: 'basic' | 'allowance' | 'gross' | 'deduction' | 'net';
-    sequence: number;
-    amount: string;
-  }[];
+  lines: PayslipLine[];
+};
+
+export type PayslipLine = {
+  ruleCode: string;
+  ruleName: string;
+  category: 'basic' | 'allowance' | 'gross' | 'deduction' | 'net';
+  sequence: number;
+  amount: string;
 };
 
 export const payrollApi = {

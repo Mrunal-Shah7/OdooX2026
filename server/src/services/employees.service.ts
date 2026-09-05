@@ -337,6 +337,110 @@ export async function getEmployeeProfile(employeeId: string) {
   return getEmployee(employeeId);
 }
 
+export async function getOrCreateUserProfile(userId: string, employeeId: string | null) {
+  if (employeeId) {
+    const existing = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+    if (existing) {
+      return getEmployee(employeeId);
+    }
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { employee: true },
+  });
+
+  if (!user) throw ApiError.notFound('User not found');
+
+  if (user.employeeId) {
+    return getEmployee(user.employeeId);
+  }
+
+  // Check if an employee record with user's email exists already
+  const existingEmp = await prisma.employee.findUnique({
+    where: { workEmail: user.email },
+  });
+
+  if (existingEmp) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { employeeId: existingEmp.id },
+    });
+    return getEmployee(existingEmp.id);
+  }
+
+  // Create a linked employee profile for admins or users without an employee row
+  const company = await prisma.company.findFirst();
+  const department = await prisma.department.findFirst();
+  const schedule = await prisma.workingSchedule.findFirst();
+
+  if (company && department && schedule) {
+    const emailPrefix = (user.email || 'user').split('@')[0] || 'user';
+    const nameParts = emailPrefix.split(/[\._-]/);
+    const firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
+    const lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'Account';
+
+    const newEmp = await prisma.employee.create({
+      data: {
+        companyId: company.id,
+        firstName,
+        lastName,
+        workEmail: user.email,
+        departmentId: department.id,
+        jobPosition: user.role === 'admin' ? 'Administrator' : 'System User',
+        workingScheduleId: schedule.id,
+        employeeType: 'full_time',
+        joiningDate: new Date(),
+      },
+    });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { employeeId: newEmp.id },
+    });
+
+    return getEmployee(newEmp.id);
+  }
+
+  return {
+    employee: {
+      id: user.id,
+      firstName: user.email.split('@')[0],
+      lastName: '(User)',
+      workEmail: user.email,
+      personalEmail: null,
+      phone: null,
+      jobPosition: user.role,
+      employeeType: 'full_time',
+      status: user.status,
+      joiningDate: new Date().toISOString().slice(0, 10),
+      workLocation: null,
+      bankName: null,
+      bankAccountHolder: null,
+      bankAccountNumber: null,
+      bankIfsc: null,
+      department: null,
+      manager: null,
+      workingSchedule: null,
+    },
+    counts: { contracts: 0, attendance: 0, timeOff: 0, allocations: 0 },
+  };
+}
+
+export async function updateUserProfile(userId: string, employeeId: string | null, body: any) {
+  let empId = employeeId;
+  if (!empId) {
+    const profile = await getOrCreateUserProfile(userId, null);
+    empId = profile.employee?.id ?? null;
+  }
+  if (!empId) {
+    throw ApiError.notFound('Profile not found');
+  }
+  return updateEmployee(empId, body);
+}
+
 export async function createEmployee(body: {
   firstName: string;
   lastName: string;

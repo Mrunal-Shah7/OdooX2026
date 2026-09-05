@@ -44,7 +44,10 @@ export function TopNav() {
                 </span>
               </button>
             }
-            items={[{ label: "Sign out", onSelect: () => void signOut() }]}
+            items={[
+              { label: "My profile", onSelect: () => void navigate({ to: "/profile" }) },
+              { label: "Sign out", onSelect: () => void signOut() },
+            ]}
           />
         ) : null}
       </div>

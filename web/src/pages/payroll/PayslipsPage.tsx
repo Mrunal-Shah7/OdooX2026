@@ -1,21 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Amount } from '../../components/ui/Amount';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { payrollApi, type PayslipSummary } from './payrollApi';
 
 export default function PayslipsPage() {
-  const navigate = useNavigate();
   const [payslips, setPayslips] = useState<PayslipSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const fetchPayslips = () => {
     setLoading(true);
@@ -38,129 +36,126 @@ export default function PayslipsPage() {
     fetchPayslips();
   }, []);
 
-  const getStatusBadge = (status: string, archived?: boolean) => {
-    if (archived) return <Badge variant="neutral">archived</Badge>;
-    switch (status) {
-      case 'draft':
-        return <Badge variant="warning">draft</Badge>;
-      case 'computed':
-        return <Badge variant="warning">computed</Badge>;
-      case 'done':
-        return <Badge variant="info">validated</Badge>;
-      case 'paid':
-        return <Badge variant="success">paid</Badge>;
-      default:
-        return <Badge variant="neutral">{status}</Badge>;
-    }
-  };
-
-  const filteredPayslips = payslips.filter((ps) => {
-    const empName = `${ps.employee?.firstName || ''} ${ps.employee?.lastName || ''}`.toLowerCase();
-    const dept = (ps.employee?.departmentName || '').toLowerCase();
-    const matchesSearch =
-      search === '' || empName.includes(search.toLowerCase()) || dept.includes(search.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === 'all' || ps.status === statusFilter || (statusFilter === 'done' && ps.status === 'done');
-
-    return matchesSearch && matchesStatus;
-  });
+  const columns = useMemo<ColumnDef<PayslipSummary, any>[]>(
+    () => [
+      {
+        id: 'employeeName',
+        accessorFn: (row) => `${row.employee?.firstName || ''} ${row.employee?.lastName || ''}`.trim(),
+        header: 'Employee',
+        meta: { filterPlaceholder: 'Filter employee...' } as ColumnMeta,
+        cell: (info) => {
+          const ps = info.row.original;
+          const name = info.getValue() || 'Employee';
+          return (
+            <Link
+              to="/payroll/payslips/$id"
+              params={{ id: ps.id }}
+              className={`font-medium text-text hover:text-accent no-underline ${ps.archived ? 'opacity-50' : ''}`}
+            >
+              {name}
+            </Link>
+          );
+        },
+      },
+      {
+        accessorKey: 'employee.departmentName',
+        header: 'Department',
+        meta: { filterPlaceholder: 'Filter dept...' } as ColumnMeta,
+        cell: (info) => info.getValue() || '—',
+      },
+      {
+        accessorKey: 'payrunName',
+        header: 'Pay Run',
+        meta: { code: true, filterPlaceholder: 'Filter pay run...' } as ColumnMeta,
+        cell: (info) => info.getValue() || '—',
+      },
+      {
+        accessorKey: 'workedDays',
+        header: 'Worked Days',
+        meta: { align: 'right', filterPlaceholder: 'Filter days...' } as ColumnMeta,
+        cell: (info) => info.getValue() ?? 0,
+      },
+      {
+        accessorKey: 'basic',
+        header: 'Basic',
+        meta: { align: 'right', filterPlaceholder: 'Filter basic...' } as ColumnMeta,
+        cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
+      },
+      {
+        accessorKey: 'gross',
+        header: 'Gross',
+        meta: { align: 'right', filterPlaceholder: 'Filter gross...' } as ColumnMeta,
+        cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
+      },
+      {
+        id: 'net',
+        accessorKey: 'net',
+        header: 'Net Payable',
+        meta: { align: 'right', filterPlaceholder: 'Filter net...' } as ColumnMeta,
+        cell: (info) => {
+          const ps = info.row.original;
+          return (
+            <span className="font-mono font-semibold">
+              <Amount value={ps.net ?? '0.00'} /> <span className="text-caption text-text-muted">{ps.currency}</span>
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: {
+          filterVariant: 'select',
+          filterOptions: [
+            { label: 'Draft', value: 'draft' },
+            { label: 'Computed', value: 'computed' },
+            { label: 'Validated', value: 'done' },
+            { label: 'Paid', value: 'paid' },
+          ],
+        } as ColumnMeta,
+        cell: (info) => {
+          const ps = info.row.original;
+          if (ps.archived) return <Badge variant="neutral">archived</Badge>;
+          switch (ps.status) {
+            case 'draft':
+              return <Badge variant="warning">draft</Badge>;
+            case 'computed':
+              return <Badge variant="warning">computed</Badge>;
+            case 'done':
+              return <Badge variant="info">validated</Badge>;
+            case 'paid':
+              return <Badge variant="success">paid</Badge>;
+            default:
+              return <Badge variant="neutral">{ps.status}</Badge>;
+          }
+        },
+      },
+    ],
+    [],
+  );
 
   return (
     <>
       <PageHeader
         title="Payslips"
         subtitle="Individual payslips history across all pay runs"
-        actions={
-          <div className="flex items-center space-x-3">
-            <div className="w-64">
-              <Input
-                placeholder="Search employee or dept..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="w-40">
-              <Select
-                value={statusFilter}
-                onValueChange={setStatusFilter}
-                options={[
-                  { value: 'all', label: 'All statuses' },
-                  { value: 'draft', label: 'Draft' },
-                  { value: 'computed', label: 'Computed' },
-                  { value: 'done', label: 'Validated' },
-                  { value: 'paid', label: 'Paid' },
-                ]}
-              />
-            </div>
-          </div>
-        }
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
-        {error && (
-          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
-        <Card>
-          {loading ? (
-            <div className="p-8 text-center text-body-sm text-text-muted">Loading payslips...</div>
+      <div className="px-5 pb-6">
+        <Card className="p-0 overflow-hidden">
+          {error ? (
+            <div className="p-6">
+              <ErrorState message={error} onRetry={fetchPayslips} />
+            </div>
           ) : (
-            <table className="w-full border-collapse text-body-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Pay Run</th>
-                  <th className="px-4 py-3 text-right font-mono">Worked Days</th>
-                  <th className="px-4 py-3 text-right font-mono">Basic</th>
-                  <th className="px-4 py-3 text-right font-mono">Gross</th>
-                  <th className="px-4 py-3 text-right font-mono">Net Payable</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPayslips.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
-                      No payslips found. Create and process a Pay run to generate payslips.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPayslips.map((ps) => (
-                    <tr
-                      key={ps.id}
-                      onClick={() => navigate({ to: '/payroll/payslips/$id', params: { id: ps.id } })}
-                      className={`border-b border-border hover:bg-primary-subtle/50 cursor-pointer transition-colors ${
-                        ps.archived ? 'opacity-50' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-3 font-medium text-text">
-                        {ps.employee?.firstName} {ps.employee?.lastName}
-                      </td>
-                      <td className="px-4 py-3 text-text-muted">{ps.employee?.departmentName || '—'}</td>
-                      <td className="px-4 py-3 font-mono text-caption text-text-muted">
-                        {ps.payrunName || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono">{ps.workedDays}</td>
-                      <td className="px-4 py-3 text-right font-mono">
-                        <Amount value={ps.basic} />
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono">
-                        <Amount value={ps.gross} />
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono font-semibold">
-                        <Amount value={ps.net} /> <span className="text-caption text-text-muted">{ps.currency}</span>
-                      </td>
-                      <td className="px-4 py-3">{getStatusBadge(ps.status, ps.archived)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <DataTable
+              columns={columns}
+              data={payslips}
+              isLoading={loading}
+              enableFiltering={true}
+              emptyMessage="No payslips found. Create and process a Pay run to generate payslips."
+            />
           )}
         </Card>
       </div>

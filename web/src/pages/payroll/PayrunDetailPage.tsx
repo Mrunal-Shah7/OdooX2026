@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Amount } from '../../components/ui/Amount';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import {
   payrollApi,
   type PayrunDetailResponse,
+  type PayslipSummary,
 } from './payrollApi';
 
 export default function PayrunDetailPage() {
@@ -132,6 +135,86 @@ export default function PayrunDetailPage() {
   const blockingWarnings = allWarnings.filter((w) => w.blocking);
   const advisoryWarnings = allWarnings.filter((w) => !w.blocking);
 
+  const columns = useMemo<ColumnDef<PayslipSummary, any>[]>(
+    () => [
+      {
+        id: 'employeeName',
+        header: 'Employee',
+        cell: (info) => {
+          const ps = info.row.original;
+          const name = `${ps.employee?.firstName || ''} ${ps.employee?.lastName || ''}`.trim() || 'Employee';
+          return (
+            <Link
+              to="/payroll/payslips/$id"
+              params={{ id: ps.id }}
+              className={`font-medium text-text hover:text-accent no-underline ${ps.archived ? 'opacity-50' : ''}`}
+            >
+              {name} {ps.archived ? '(archived)' : ''}
+            </Link>
+          );
+        },
+      },
+      {
+        accessorKey: 'employee.departmentName',
+        header: 'Department',
+        cell: (info) => info.getValue() || '—',
+      },
+      {
+        accessorKey: 'workedDays',
+        header: 'Worked days',
+        meta: { align: 'right' } as ColumnMeta,
+        cell: (info) => info.getValue() ?? 0,
+      },
+      {
+        accessorKey: 'basic',
+        header: 'Basic',
+        meta: { align: 'right' } as ColumnMeta,
+        cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
+      },
+      {
+        accessorKey: 'gross',
+        header: 'Gross',
+        meta: { align: 'right' } as ColumnMeta,
+        cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
+      },
+      {
+        accessorKey: 'net',
+        header: 'Net',
+        meta: { align: 'right' } as ColumnMeta,
+        cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
+      },
+      {
+        id: 'warnings',
+        header: 'Warnings',
+        cell: (info) => {
+          const ps = info.row.original;
+          if (ps.warnings && ps.warnings.length > 0) {
+            return (
+              <span
+                className={`font-mono text-caption font-semibold ${
+                  ps.warnings.some((w) => w.blocking) ? 'text-danger' : 'text-warning'
+                }`}
+              >
+                {ps.warnings.length} warning(s)
+              </span>
+            );
+          }
+          return <span className="text-text-muted">—</span>;
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: (info) => {
+          const ps = info.row.original;
+          if (ps.archived) return <Badge variant="neutral">archived</Badge>;
+          return getStatusBadge(ps.status);
+        },
+      },
+    ],
+    [],
+  );
+
   return (
     <>
       <PageHeader
@@ -158,27 +241,27 @@ export default function PayrunDetailPage() {
             )}
             {payrun?.status === 'computed' && (
               <>
+                <Button variant="accent" onClick={handleValidate} disabled={actionLoading}>
+                  {actionLoading ? 'Validating...' : 'Validate & Lock'}
+                </Button>
                 <Button variant="secondary" onClick={handleCompute} disabled={actionLoading}>
                   Re-compute
-                </Button>
-                <Button
-                  variant="accent"
-                  onClick={handleValidate}
-                  disabled={actionLoading || blockingWarnings.length > 0}
-                  title={blockingWarnings.length > 0 ? 'Fix blocking warnings before validating' : ''}
-                >
-                  {actionLoading ? 'Validating...' : 'Validate'}
                 </Button>
               </>
             )}
             {payrun?.status === 'validated' && (
-              <Button variant="accent" onClick={handleMarkPaid} disabled={actionLoading}>
-                {actionLoading ? 'Processing...' : 'Mark paid'}
-              </Button>
+              <>
+                <Button variant="accent" onClick={handleMarkPaid} disabled={actionLoading}>
+                  {actionLoading ? 'Processing...' : 'Mark as Paid'}
+                </Button>
+                <Button variant="secondary" onClick={handleSendPayslips} disabled={actionLoading}>
+                  Email Payslips
+                </Button>
+              </>
             )}
             {payrun?.status === 'paid' && (
               <Button variant="secondary" onClick={handleSendPayslips} disabled={actionLoading}>
-                {actionLoading ? 'Sending...' : 'Send payslips'}
+                Email Payslips
               </Button>
             )}
           </div>
@@ -194,16 +277,22 @@ export default function PayrunDetailPage() {
         )}
 
         {successMessage && (
-          <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
-            {successMessage}
+          <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success flex justify-between items-center">
+            <span>{successMessage}</span>
+            <button
+              className="text-caption text-text-muted hover:text-text"
+              onClick={() => setSuccessMessage(null)}
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
-        {/* Warning Banners */}
+        {/* Blocking Warnings Box */}
         {blockingWarnings.length > 0 && (
           <div className="rounded-lg bg-danger-subtle border border-danger p-4 space-y-2">
             <div className="flex items-center space-x-2 font-semibold text-danger text-body-sm">
-              <span>⚠️ {blockingWarnings.length} Blocking Warning(s) — Validation Refused</span>
+              <span>🛑 {blockingWarnings.length} Blocking Error(s) — Cannot Validate</span>
             </div>
             <ul className="list-disc list-inside text-body-sm text-danger space-y-1">
               {blockingWarnings.map((w, idx) => (
@@ -215,6 +304,7 @@ export default function PayrunDetailPage() {
           </div>
         )}
 
+        {/* Advisory Warnings Box */}
         {advisoryWarnings.length > 0 && (
           <div className="rounded-lg bg-warning-subtle border border-warning p-4 space-y-2">
             <div className="flex items-center space-x-2 font-semibold text-warning text-body-sm">
@@ -231,82 +321,13 @@ export default function PayrunDetailPage() {
         )}
 
         {/* Payslips Table Card */}
-        <Card>
-          {loading ? (
-            <div className="p-8 text-center text-body-sm text-text-muted">Loading pay run details...</div>
-          ) : (
-            <table className="w-full border-collapse text-body-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3 text-right font-mono">Worked days</th>
-                  <th className="px-4 py-3 text-right font-mono">Basic</th>
-                  <th className="px-4 py-3 text-right font-mono">Gross</th>
-                  <th className="px-4 py-3 text-right font-mono">Net</th>
-                  <th className="px-4 py-3">Warnings</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payslips.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-6 text-center text-text-muted">
-                      No payslips found in this pay run. Click "Compute" to generate.
-                    </td>
-                  </tr>
-                ) : (
-                  payslips.map((ps) => {
-                    const emp = ps.employee;
-                    return (
-                      <tr
-                        key={ps.id}
-                        onClick={() => navigate({ to: '/payroll/payslips/$id', params: { id: ps.id } })}
-                        className={`border-b border-border hover:bg-primary-subtle/50 cursor-pointer transition-colors ${
-                          ps.archived ? 'opacity-50' : ''
-                        }`}
-                      >
-                        <td className="px-4 py-3 font-medium text-text">
-                          {emp?.firstName} {emp?.lastName} {ps.archived ? '(archived)' : ''}
-                        </td>
-                        <td className="px-4 py-3 text-text-muted">{emp?.departmentName || '—'}</td>
-                        <td className="px-4 py-3 text-right font-mono">{ps.workedDays}</td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          <Amount value={ps.basic} />
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          <Amount value={ps.gross} />
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono font-medium">
-                          <Amount value={ps.net} />
-                        </td>
-                        <td className="px-4 py-3">
-                          {ps.warnings && ps.warnings.length > 0 ? (
-                            <span
-                              className={`font-mono text-caption font-semibold ${
-                                ps.warnings.some((w) => w.blocking) ? 'text-danger' : 'text-warning'
-                              }`}
-                            >
-                              {ps.warnings.length} warning(s)
-                            </span>
-                          ) : (
-                            <span className="text-text-muted">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {ps.archived ? (
-                            <Badge variant="neutral">archived</Badge>
-                          ) : (
-                            getStatusBadge(ps.status)
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
+        <Card className="p-0 overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={payslips}
+            isLoading={loading}
+            emptyMessage="No payslips found in this pay run. Click 'Compute' above to generate."
+          />
         </Card>
       </div>
     </>

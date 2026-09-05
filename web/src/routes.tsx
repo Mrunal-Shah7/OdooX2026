@@ -41,6 +41,7 @@ import RulesPage from './pages/payroll/RulesPage';
 import RuleFormPage from './pages/payroll/RuleFormPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
+import ProfilePage from './pages/profile/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 
 /** Validate session cookies via /me. Clears local hint on failure. */
@@ -279,6 +280,12 @@ const notificationsRoute = createRoute({
   component: NotificationsPage,
 });
 
+const profileRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/profile',
+  component: ProfilePage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '$',
@@ -320,6 +327,7 @@ const routeTree = rootRoute.addChildren([
     reportsRoute,
     usersRoute,
     notificationsRoute,
+    profileRoute,
   ]),
   notFoundRoute,
 ]);

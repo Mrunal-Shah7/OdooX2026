@@ -4,6 +4,7 @@ import { REFRESH_COOKIE } from '../lib/tokens.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { validate } from '../middleware/validate.js';
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   setPasswordSchema,
@@ -66,6 +67,15 @@ router.post('/forgot-password', validate({ body: forgotPasswordSchema }), async 
 router.post('/set-password', validate({ body: setPasswordSchema }), async (req, res, next) => {
   try {
     await authService.setPassword(req.body);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/change-password', requireAuth, validate({ body: changePasswordSchema }), async (req, res, next) => {
+  try {
+    await authService.changePassword(req.auth!.id, req.body);
     res.status(204).send();
   } catch (err) {
     next(err);

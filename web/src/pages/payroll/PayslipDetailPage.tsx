@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Amount } from '../../components/ui/Amount';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
-import { payrollApi, type PayslipDetail } from './payrollApi';
+import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { payrollApi, type PayslipDetail, type PayslipLine } from './payrollApi';
 
 export default function PayslipDetailPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
@@ -126,6 +128,44 @@ export default function PayslipDetailPage() {
 
   const currentCurrencySymbol =
     displayCurrency === 'payout' && ps?.payoutCurrency ? ps.payoutCurrency : ps?.currency || 'INR';
+
+  const lineColumns = useMemo<ColumnDef<PayslipLine, any>[]>(
+    () => [
+      {
+        accessorKey: 'sequence',
+        header: 'Seq',
+        meta: { code: true } as ColumnMeta,
+        cell: (info) => info.getValue(),
+      },
+      {
+        accessorKey: 'ruleCode',
+        header: 'Rule Code',
+        meta: { code: true } as ColumnMeta,
+        cell: (info) => <span className="font-medium text-text">{info.getValue()}</span>,
+      },
+      {
+        accessorKey: 'ruleName',
+        header: 'Rule Name',
+        cell: (info) => info.getValue(),
+      },
+      {
+        accessorKey: 'category',
+        header: 'Category',
+        cell: (info) => getCategoryBadge(info.getValue()),
+      },
+      {
+        accessorKey: 'amount',
+        header: `Amount (${currentCurrencySymbol})`,
+        meta: { align: 'right' } as ColumnMeta,
+        cell: (info) => (
+          <span className="font-mono font-semibold">
+            <Amount value={formatConverted(info.getValue() ?? '0.00')} />
+          </span>
+        ),
+      },
+    ],
+    [displayCurrency, ps],
+  );
 
   return (
     <>
@@ -288,42 +328,14 @@ export default function PayslipDetailPage() {
             </Card>
 
             {/* Computation Lines Card */}
-            <Card>
+            <Card className="p-0 overflow-hidden">
               <CardHeader title="Salary Rules Breakdown (Sequence Execution Order)" />
-              <CardBody className="p-0">
-                <table className="w-full border-collapse text-body-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
-                      <th className="px-4 py-3 font-mono">Seq</th>
-                      <th className="px-4 py-3 font-mono">Rule Code</th>
-                      <th className="px-4 py-3">Rule Name</th>
-                      <th className="px-4 py-3">Category</th>
-                      <th className="px-4 py-3 text-right font-mono">Amount ({currentCurrencySymbol})</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
-                          No computation lines found. Click "Compute" on the pay run to execute salary rules.
-                        </td>
-                      </tr>
-                    ) : (
-                      lines.map((line, idx) => (
-                        <tr key={idx} className="border-b border-border hover:bg-surface-subtle">
-                          <td className="px-4 py-3 font-mono text-caption text-text-muted">{line.sequence}</td>
-                          <td className="px-4 py-3 font-mono font-medium text-text">{line.ruleCode}</td>
-                          <td className="px-4 py-3 text-text">{line.ruleName}</td>
-                          <td className="px-4 py-3">{getCategoryBadge(line.category)}</td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold">
-                            <Amount value={formatConverted(line.amount)} />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </CardBody>
+              <DataTable
+                columns={lineColumns}
+                data={lines}
+                isLoading={false}
+                emptyMessage="No computation lines found. Click 'Compute' on the pay run to execute salary rules."
+              />
             </Card>
           </>
         )}

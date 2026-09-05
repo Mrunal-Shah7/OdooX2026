@@ -50,16 +50,34 @@ router.post(
   },
 );
 
-// User profile endpoint for the currently logged in employee (accessible by any authenticated user)
+// User profile endpoint for the currently logged in user (accessible by any authenticated role)
 router.get(
   ['/profile', '/employees/profile'],
   requireAuth,
   async (req, res, next) => {
     try {
-      if (!req.auth?.employeeId) {
-        throw ApiError.notFound('Employee profile not linked to user');
-      }
-      const data = await employeesService.getEmployeeProfile(req.auth.employeeId);
+      const data = await employeesService.getOrCreateUserProfile(
+        req.auth!.id,
+        req.auth?.employeeId ?? null,
+      );
+      res.json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.patch(
+  ['/profile', '/employees/profile'],
+  requireAuth,
+  validate({ body: updateEmployeeSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await employeesService.updateUserProfile(
+        req.auth!.id,
+        req.auth?.employeeId ?? null,
+        req.body,
+      );
       res.json({ data });
     } catch (err) {
       next(err);

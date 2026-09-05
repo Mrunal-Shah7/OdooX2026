@@ -9,6 +9,7 @@ import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { payrollApi, type SalaryRule, type SalaryStructure } from './payrollApi';
+import { showToast } from '../../lib/toast';
 
 export default function RuleFormPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
@@ -31,7 +32,6 @@ export default function RuleFormPage() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [syntaxNotice, setSyntaxNotice] = useState<string | null>(null);
 
@@ -64,9 +64,8 @@ export default function RuleFormPage() {
           setPercentageBase(rule.percentageBase || 'contract_wage');
           setFormula(rule.formula || '');
           setActive(rule.active ?? true);
-          setError(null);
         })
-        .catch((err) => setError(err.message))
+        .catch((err) => showToast({ type: 'error', title: 'Error', message: err.message }))
         .finally(() => setLoading(false));
     }
   }, [id, isNew]);
@@ -100,23 +99,53 @@ export default function RuleFormPage() {
     setSyntaxNotice('✓ Formula syntax check passed. Full AST validation will be performed on save.');
   };
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const handleSave = async () => {
+    setSuccess(null);
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
     if (!name.trim()) {
-      setError('Rule name is required.');
-      return;
+      errors.name = 'Rule name is required.';
     }
     if (!code.trim()) {
-      setError('Rule code is required.');
-      return;
+      errors.code = 'Rule code is required.';
+    } else if (!/^[A-Za-z][A-Za-z0-9_]{0,15}$/.test(code.trim())) {
+      errors.code = 'Code must start with a letter and contain only uppercase letters, numbers, and underscores.';
     }
     if (!structureId) {
-      setError('Please select a salary structure.');
+      errors.structureId = 'Please select a salary structure.';
+    }
+    const seqNum = parseInt(sequence, 10);
+    if (isNaN(seqNum) || seqNum < 1) {
+      errors.sequence = 'Sequence must be an integer of 1 or greater.';
+    }
+
+    if (computation === 'fixed') {
+      const amtNum = parseFloat(amount);
+      if (isNaN(amtNum) || amtNum < 0) {
+        errors.amount = 'Fixed amount must be a non-negative number.';
+      }
+    } else if (computation === 'percentage') {
+      const pctNum = parseFloat(percentage);
+      if (isNaN(pctNum) || pctNum <= 0 || pctNum > 100) {
+        errors.percentage = 'Percentage must be between 0 and 100.';
+      }
+    } else if (computation === 'formula') {
+      if (!formula.trim()) {
+        errors.formula = 'Formula expression is required.';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const msg = 'Please resolve the highlighted validation errors before saving.';
+      showToast({ type: 'error', title: 'Rule Validation Failed', message: msg });
       return;
     }
 
     setSaving(true);
-    setError(null);
-    setSuccess(null);
 
     const payload: Partial<SalaryRule> = {
       structureId,
@@ -141,15 +170,25 @@ export default function RuleFormPage() {
       if (isNew) {
         const created = await payrollApi.createSalaryRule(payload);
         setSuccess('Salary rule created successfully.');
+        showToast({ type: 'success', title: 'Rule Created', message: `Salary rule "${name}" created successfully.` });
         if (created?.id) {
           navigate({ to: '/payroll/rules/$id', params: { id: created.id } });
         }
       } else {
         await payrollApi.updateSalaryRule(id, payload);
         setSuccess('Salary rule updated successfully.');
+        showToast({ type: 'success', title: 'Rule Updated', message: `Salary rule "${name}" updated successfully.` });
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to save salary rule');
+      const errMsg = err.message || 'Failed to save salary rule';
+      if (err?.details?.length) {
+        const sErrors: Record<string, string> = {};
+        err.details.forEach((d: { field?: string; message?: string }) => {
+          if (d.field) sErrors[d.field] = d.message || 'Invalid value';
+        });
+        setFieldErrors(sErrors);
+      }
+      showToast({ type: 'error', title: 'Save Failed', message: errMsg });
     } finally {
       setSaving(false);
     }
@@ -159,12 +198,12 @@ export default function RuleFormPage() {
     if (!id || isNew) return;
     if (!confirm('Are you sure you want to delete this salary rule?')) return;
     setDeleting(true);
-    setError(null);
     try {
       await payrollApi.deleteSalaryRule(id);
+      showToast({ type: 'success', title: 'Rule Deleted', message: 'Salary rule deleted.' });
       navigate({ to: '/payroll/rules' });
     } catch (err: any) {
-      setError(err.message || 'Delete rule failed');
+      showToast({ type: 'error', title: 'Delete Failed', message: err.message || 'Delete rule failed' });
     } finally {
       setDeleting(false);
     }
@@ -194,12 +233,6 @@ export default function RuleFormPage() {
       <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
-        {error && (
-          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
         {success && (
           <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
             {success}
@@ -213,7 +246,7 @@ export default function RuleFormPage() {
             <CardHeader title="Salary Rule Configuration" />
             <CardBody className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Salary Structure">
+                <Field label="Salary Structure *" error={fieldErrors.structureId}>
                   <Select
                     value={structureId}
                     onValueChange={setStructureId}
@@ -225,7 +258,7 @@ export default function RuleFormPage() {
                   />
                 </Field>
 
-                <Field label="Sequence Execution Order">
+                <Field label="Sequence Execution Order *" error={fieldErrors.sequence}>
                   <Input
                     type="number"
                     value={sequence}
@@ -234,7 +267,7 @@ export default function RuleFormPage() {
                   />
                 </Field>
 
-                <Field label="Rule Name">
+                <Field label="Rule Name *" error={fieldErrors.name}>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -242,7 +275,7 @@ export default function RuleFormPage() {
                   />
                 </Field>
 
-                <Field label="Rule Code (Uppercase)">
+                <Field label="Rule Code (Uppercase) *" error={fieldErrors.code}>
                   <Input
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
@@ -250,7 +283,7 @@ export default function RuleFormPage() {
                   />
                 </Field>
 
-                <Field label="Rule Category">
+                <Field label="Rule Category *" error={fieldErrors.category}>
                   <Select
                     value={category}
                     onValueChange={(val: any) => setCategory(val)}
@@ -264,7 +297,7 @@ export default function RuleFormPage() {
                   />
                 </Field>
 
-                <Field label="Computation Method">
+                <Field label="Computation Method *" error={fieldErrors.computation}>
                   <Select
                     value={computation}
                     onValueChange={(val: any) => setComputation(val)}
@@ -280,7 +313,7 @@ export default function RuleFormPage() {
               {/* Dynamic Computation Inputs */}
               {computation === 'fixed' && (
                 <div className="rounded-lg bg-surface-sunken p-4 border border-border space-y-3">
-                  <Field label="Fixed Amount">
+                  <Field label="Fixed Amount *" error={fieldErrors.amount}>
                     <Input
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
@@ -292,7 +325,7 @@ export default function RuleFormPage() {
 
               {computation === 'percentage' && (
                 <div className="rounded-lg bg-surface-sunken p-4 border border-border grid grid-cols-2 gap-4">
-                  <Field label="Percentage Value (%)">
+                  <Field label="Percentage Value (%) *" error={fieldErrors.percentage}>
                     <Input
                       value={percentage}
                       onChange={(e) => setPercentage(e.target.value)}

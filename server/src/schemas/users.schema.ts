@@ -14,15 +14,18 @@ export const listUsersQuerySchema = paginationQuerySchema.extend({
 });
 
 export const createUserSchema = z.object({
-  email: z.string().email(),
-  role: z.enum([
-    USER_ROLE.employee,
-    USER_ROLE.hr_manager,
-    USER_ROLE.hr_payroll_user,
-    USER_ROLE.hr_payroll_manager,
-    USER_ROLE.admin,
-  ]),
-  employeeId: z.string().uuid().nullable().optional(),
+  email: z.string().trim().email('Please enter a valid email address'),
+  role: z.enum(
+    [
+      USER_ROLE.employee,
+      USER_ROLE.hr_manager,
+      USER_ROLE.hr_payroll_user,
+      USER_ROLE.hr_payroll_manager,
+      USER_ROLE.admin,
+    ],
+    { errorMap: () => ({ message: 'Please select a valid user role' }) },
+  ),
+  employeeId: z.string().uuid('Please select a valid employee').nullable().optional(),
 });
 
 export const updateUserSchema = z.object({

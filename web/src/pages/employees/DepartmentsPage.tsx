@@ -13,6 +13,7 @@ import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
+import { showToast } from '../../lib/toast';
 
 type DeptForm = { name: string; code: string };
 
@@ -56,12 +57,10 @@ export default function DepartmentsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const [form, setForm] = useState<DeptForm>({ name: '', code: '' });
-  const [formError, setFormError] = useState<string | null>(null);
 
   function openEdit(dept: Department) {
     setEditing(dept);
     setForm({ name: dept.name, code: dept.code });
-    setFormError(null);
     setModalOpen(true);
   }
 
@@ -81,13 +80,14 @@ export default function DepartmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+      showToast({ type: 'success', title: 'Department Saved', message: `Department "${form.name}" saved successfully.` });
       setModalOpen(false);
       setEditing(null);
       setForm({ name: '', code: '' });
-      setFormError(null);
     },
     onError: (err: unknown) => {
-      setFormError(err instanceof ApiClientError ? err.message : 'Save failed');
+      const msg = err instanceof ApiClientError ? err.message : 'Save failed';
+      showToast({ type: 'error', title: 'Save Failed', message: msg });
     },
   });
 
@@ -95,23 +95,39 @@ export default function DepartmentsPage() {
     mutationFn: (id: string) => apiClient.deleteDepartment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+      showToast({ type: 'success', title: 'Department Deleted', message: 'Department removed successfully.' });
       setModalOpen(false);
       setEditing(null);
     },
     onError: (err: unknown) => {
-      setFormError(err instanceof ApiClientError ? err.message : 'Delete failed');
+      const msg = err instanceof ApiClientError ? err.message : 'Delete failed';
+      showToast({ type: 'error', title: 'Delete Failed', message: msg });
     },
   });
 
   function openCreate() {
     setEditing(null);
     setForm({ name: '', code: '' });
-    setFormError(null);
     setModalOpen(true);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!form.name.trim()) {
+      const msg = 'Department name is required';
+      showToast({ type: 'error', title: 'Validation Failed', message: msg });
+      return;
+    }
+    if (!form.code.trim()) {
+      const msg = 'Department code is required';
+      showToast({ type: 'error', title: 'Validation Failed', message: msg });
+      return;
+    }
+    if (form.code.trim().length > 8) {
+      const msg = 'Department code cannot exceed 8 characters';
+      showToast({ type: 'error', title: 'Validation Failed', message: msg });
+      return;
+    }
     saveMutation.mutate();
   }
 
@@ -176,7 +192,6 @@ export default function DepartmentsPage() {
               maxLength={8}
             />
           </Field>
-          {formError ? <p className="text-body-sm text-danger">{formError}</p> : null}
         </form>
       </Modal>
     </>

@@ -10,6 +10,7 @@ import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
+import { showToast } from '../../lib/toast';
 
 type AllocationDetail = {
   id: string;
@@ -111,7 +112,6 @@ export default function AllocationFormPage() {
   const [validFrom, setValidFrom] = useState('2026-01-01');
   const [validTo, setValidTo] = useState('2026-12-31');
   const [description, setDescription] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data: employees = [] } = useQuery({
     queryKey: ['employees', 'options'],
@@ -149,7 +149,12 @@ export default function AllocationFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      setErrorMessage(null);
+      if (isNew && !employeeId) throw new Error('Please select an employee');
+      if (isNew && !timeOffTypeId) throw new Error('Please select a time off type');
+      const allocNum = parseFloat(allocated);
+      if (isNaN(allocNum) || allocNum <= 0) throw new Error('Allocated days/hours must be a positive number');
+      if (validFrom && validTo && validTo < validFrom) throw new Error('Valid To date must be on or after Valid From date');
+
       const headers = new Headers({ 'Content-Type': 'application/json' });
       const userId = sessionStorage.getItem('pp360_user_id');
       if (userId) {
@@ -196,16 +201,16 @@ export default function AllocationFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff', 'allocations'] });
+      showToast({ type: 'success', title: 'Allocation Saved', message: 'Time off allocation saved successfully.' });
       navigate({ to: '/time-off/allocations' });
     },
     onError: (err: Error) => {
-      setErrorMessage(err.message);
+      showToast({ type: 'error', title: 'Allocation Save Failed', message: err.message });
     },
   });
 
   const approveMutation = useMutation({
     mutationFn: async () => {
-      setErrorMessage(null);
       const headers = new Headers({ 'Content-Type': 'application/json' });
       const userId = sessionStorage.getItem('pp360_user_id');
       if (userId) {
@@ -225,15 +230,15 @@ export default function AllocationFormPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff', 'allocations'] });
       queryClient.invalidateQueries({ queryKey: ['timeOff', 'allocation', id] });
+      showToast({ type: 'success', title: 'Allocation Approved', message: 'Time off allocation approved.' });
     },
     onError: (err: Error) => {
-      setErrorMessage(err.message);
+      showToast({ type: 'error', title: 'Approval Failed', message: err.message });
     },
   });
 
   const refuseMutation = useMutation({
     mutationFn: async () => {
-      setErrorMessage(null);
       const headers = new Headers({ 'Content-Type': 'application/json' });
       const userId = sessionStorage.getItem('pp360_user_id');
       if (userId) {
@@ -253,9 +258,10 @@ export default function AllocationFormPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff', 'allocations'] });
       queryClient.invalidateQueries({ queryKey: ['timeOff', 'allocation', id] });
+      showToast({ type: 'success', title: 'Allocation Refused', message: 'Time off allocation refused.' });
     },
     onError: (err: Error) => {
-      setErrorMessage(err.message);
+      showToast({ type: 'error', title: 'Refusal Failed', message: err.message });
     },
   });
 
@@ -340,12 +346,6 @@ export default function AllocationFormPage() {
       />
 
       <div className="space-y-4 px-5 pb-6">
-        {errorMessage && (
-          <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-            {errorMessage}
-          </div>
-        )}
-
         <Card>
           <CardBody>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -6,12 +6,12 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { payrollApi, type SalaryStructure } from './payrollApi';
+import { showToast } from '../../lib/toast';
 
 export default function StructuresPage() {
   const navigate = useNavigate();
   const [structures, setStructures] = useState<SalaryStructure[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchStructures = () => {
     setLoading(true);
@@ -24,9 +24,8 @@ export default function StructuresPage() {
           ? res.data
           : [];
         setStructures(list);
-        setError(null);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => showToast({ type: 'error', title: 'Error', message: err.message }))
       .finally(() => setLoading(false));
   };
 
@@ -48,12 +47,6 @@ export default function StructuresPage() {
       <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
-        {error && (
-          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
         <Card>
           {loading ? (
             <div className="p-8 text-center text-body-sm text-text-muted">Loading salary structures...</div>

@@ -22,6 +22,7 @@ import { Input } from '../../components/ui/Input';
 import { Tabs } from '../../components/ui/Tabs';
 import { apiFetch } from '../../lib/apiFetch';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 
 type ProfileResponse = {
   employee: {
@@ -75,9 +76,7 @@ export default function ProfilePage() {
 
   // Feedback states
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Fetch full employee profile
   const { data: profileData } = useQuery({
@@ -106,7 +105,6 @@ export default function ProfilePage() {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
-      setProfileError(null);
       setProfileSuccess(null);
       return apiFetch<{ data: ProfileResponse }>('/profile', {
         method: 'PATCH',
@@ -125,18 +123,17 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       setIsEditing(false);
-      setProfileSuccess('Profile updated successfully.');
-      setTimeout(() => setProfileSuccess(null), 4000);
+      showToast({ type: 'success', title: 'Profile Updated', message: 'Profile updated successfully.' });
     },
     onError: (err: any) => {
-      setProfileError(err.message || 'Failed to update profile.');
+      const msg = err.message || 'Failed to update profile.';
+      showToast({ type: 'error', title: 'Update Failed', message: msg });
     },
   });
 
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
-      setPasswordError(null);
       setPasswordSuccess(null);
 
       if (!currentPassword) {
@@ -161,11 +158,11 @@ export default function ProfilePage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setPasswordSuccess('Password changed successfully.');
-      setTimeout(() => setPasswordSuccess(null), 4000);
+      showToast({ type: 'success', title: 'Password Changed', message: 'Password changed successfully.' });
     },
     onError: (err: any) => {
-      setPasswordError(err.message || 'Failed to change password.');
+      const msg = err.message || 'Failed to change password.';
+      showToast({ type: 'error', title: 'Password Change Failed', message: msg });
     },
   });
 
@@ -227,7 +224,6 @@ export default function ProfilePage() {
                 <Button
                   variant={isEditing ? 'secondary' : 'accent'}
                   onClick={() => {
-                    setProfileError(null);
                     setIsEditing(!isEditing);
                   }}
                   className="flex items-center gap-2"
@@ -293,12 +289,6 @@ export default function ProfilePage() {
           <div className="rounded-md bg-success-subtle p-4 text-body-sm text-success border border-success flex items-center gap-2">
             <CheckCircle2 className="size-5 shrink-0" />
             <span>{profileSuccess}</span>
-          </div>
-        )}
-
-        {profileError && (
-          <div className="rounded-md bg-danger-subtle p-4 text-body-sm text-danger border border-danger">
-            {profileError}
           </div>
         )}
 
@@ -587,11 +577,6 @@ export default function ProfilePage() {
                         }}
                         className="space-y-4 max-w-md"
                       >
-                        {passwordError && (
-                          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-                            {passwordError}
-                          </div>
-                        )}
                         {passwordSuccess && (
                           <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
                             {passwordSuccess}

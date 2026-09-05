@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Spinner } from '../../components/ui/Spinner';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
+import { showToast } from '../../lib/toast';
 
 const WEEKDAYS = [
   { dayOfWeek: 1, name: 'Monday' },
@@ -52,7 +53,6 @@ export default function ScheduleFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [formError, setFormError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [active, setActive] = useState(true);
 
@@ -126,7 +126,10 @@ export default function ScheduleFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      setFormError(null);
+      if (!name.trim()) {
+        throw new Error('Working schedule name is required.');
+      }
+
       const activeDays = days
         .filter((d) => d.enabled)
         .map((d) => ({
@@ -138,6 +141,13 @@ export default function ScheduleFormPage() {
 
       if (activeDays.length === 0) {
         throw new Error('At least one working day must be selected.');
+      }
+
+      for (const d of activeDays) {
+        if (d.endTime <= d.startTime) {
+          const dayName = WEEKDAYS.find((w) => w.dayOfWeek === d.dayOfWeek)?.name || 'day';
+          throw new Error(`End time must be after start time on ${dayName}.`);
+        }
       }
 
       const payload = {
@@ -160,10 +170,12 @@ export default function ScheduleFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      showToast({ type: 'success', title: 'Schedule Saved', message: `Working schedule "${name}" saved successfully.` });
       navigate({ to: '/schedules' });
     },
     onError: (err: any) => {
-      setFormError(err.message || 'Failed to save schedule');
+      const msg = err.message || 'Failed to save schedule';
+      showToast({ type: 'error', title: 'Save Failed', message: msg });
     },
   });
 
@@ -198,12 +210,6 @@ export default function ScheduleFormPage() {
       <div className="px-5 pb-6 space-y-4">
         <Card>
           <CardBody className="space-y-6">
-            {formError && (
-              <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-                {formError}
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Schedule Name">
                 <Input

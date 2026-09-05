@@ -9,6 +9,7 @@ import { Checkbox } from '../../components/ui/Checkbox';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { payrollApi, type SalaryRule, type SalaryStructureDetail } from './payrollApi';
+import { showToast } from '../../lib/toast';
 
 export default function StructureFormPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
@@ -21,7 +22,6 @@ export default function StructureFormPage() {
   const [rules, setRules] = useState<SalaryRule[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,26 +35,36 @@ export default function StructureFormPage() {
           setCode(detail.code);
           setActive(detail.active ?? true);
           setRules(detail.rules || []);
-          setError(null);
         })
-        .catch((err) => setError(err.message))
+        .catch((err) => showToast({ type: 'error', title: 'Error', message: err.message }))
         .finally(() => setLoading(false));
     }
   }, [id, isNew]);
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const handleSave = async () => {
+    setSuccess(null);
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
     if (!name.trim()) {
-      setError('Structure name is required.');
-      return;
+      errors.name = 'Structure name is required.';
     }
     if (!code.trim()) {
-      setError('Structure code is required.');
+      errors.code = 'Structure code is required.';
+    } else if (!/^[A-Za-z0-9_]{1,12}$/.test(code.trim())) {
+      errors.code = 'Code must contain only uppercase letters, numbers, and underscores (max 12 chars).';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const msg = 'Please resolve the highlighted validation errors before saving.';
+      showToast({ type: 'error', title: 'Structure Validation Failed', message: msg });
       return;
     }
 
     setSaving(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       if (isNew) {
@@ -64,6 +74,7 @@ export default function StructureFormPage() {
           active,
         });
         setSuccess('Structure created successfully.');
+        showToast({ type: 'success', title: 'Structure Created', message: `Salary structure "${name}" created successfully.` });
         if (created?.id) {
           navigate({ to: '/payroll/structures/$id', params: { id: created.id } });
         }
@@ -74,9 +85,18 @@ export default function StructureFormPage() {
           active,
         });
         setSuccess('Structure updated successfully.');
+        showToast({ type: 'success', title: 'Structure Updated', message: `Salary structure "${name}" updated successfully.` });
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to save salary structure');
+      const errMsg = err.message || 'Failed to save salary structure';
+      if (err?.details?.length) {
+        const sErrors: Record<string, string> = {};
+        err.details.forEach((d: { field?: string; message?: string }) => {
+          if (d.field) sErrors[d.field] = d.message || 'Invalid value';
+        });
+        setFieldErrors(sErrors);
+      }
+      showToast({ type: 'error', title: 'Save Failed', message: errMsg });
     } finally {
       setSaving(false);
     }
@@ -118,12 +138,6 @@ export default function StructureFormPage() {
       <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
-        {error && (
-          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
         {success && (
           <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
             {success}
@@ -138,14 +152,14 @@ export default function StructureFormPage() {
             <Card>
               <CardHeader title="Structure Details" />
               <CardBody className="grid grid-cols-2 gap-4">
-                <Field label="Structure Name">
+                <Field label="Structure Name *" error={fieldErrors.name}>
                   <Input
                     placeholder="e.g. Regular Salary"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
                 </Field>
-                <Field label="Structure Code (Uppercase)">
+                <Field label="Structure Code (Uppercase) *" error={fieldErrors.code}>
                   <Input
                     placeholder="e.g. REGULAR"
                     value={code}

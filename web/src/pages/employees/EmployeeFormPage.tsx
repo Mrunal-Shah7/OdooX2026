@@ -12,6 +12,7 @@ import { Spinner } from '../../components/ui/Spinner';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 
 type EmployeeDetailResponse = {
   employee: {
@@ -102,7 +103,7 @@ export default function EmployeeFormPage() {
     bankIfsc: '',
   });
 
-  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const departmentsQuery = useQuery({
     queryKey: queryKeys.departments.all,
@@ -198,16 +199,54 @@ export default function EmployeeFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      showToast({ type: 'success', title: 'Employee Saved', message: `Employee record for ${form.firstName} ${form.lastName} saved successfully.` });
       navigate({ to: '/employees' });
     },
     onError: (err: unknown) => {
-      setFormError(err instanceof ApiClientError ? err.message : 'Save failed');
+      const errMsg = err instanceof ApiClientError ? err.message : 'Save failed';
+      if (err instanceof ApiClientError && err.details?.length) {
+        const sErrors: Record<string, string> = {};
+        err.details.forEach((d) => {
+          if (d.field) sErrors[d.field] = d.message;
+        });
+        setFieldErrors(sErrors);
+      }
+      showToast({ type: 'error', title: 'Validation Error', message: errMsg });
     },
   });
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setFormError(null);
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    if (!form.firstName.trim()) errors.firstName = 'First name is required';
+    if (!form.lastName.trim()) errors.lastName = 'Last name is required';
+    if (!form.workEmail.trim()) {
+      errors.workEmail = 'Work email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.workEmail.trim())) {
+      errors.workEmail = 'Please enter a valid work email address';
+    }
+
+    if (form.personalEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.personalEmail.trim())) {
+      errors.personalEmail = 'Please enter a valid personal email address';
+    }
+
+    if (!form.jobPosition.trim()) errors.jobPosition = 'Job position is required';
+    if (!form.joiningDate) errors.joiningDate = 'Joining date is required';
+    if (!form.departmentId) errors.departmentId = 'Please select a department';
+    if (!form.workingScheduleId) errors.workingScheduleId = 'Please select a working schedule';
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const msg = 'Please resolve the highlighted validation errors before submitting.';
+      showToast({ type: 'error', title: 'Form Validation Failed', message: msg });
+      setTimeout(() => {
+        document.querySelector('.text-danger')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
+
     saveMutation.mutate();
   }
 
@@ -338,7 +377,7 @@ export default function EmployeeFormPage() {
             <CardBody className="space-y-4">
               <h3 className="text-h3 font-semibold">Basic Information</h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label="First name *">
+                <Field label="First name *" error={fieldErrors.firstName}>
                   <Input
                     value={form.firstName}
                     onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
@@ -347,7 +386,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Last name *">
+                <Field label="Last name *" error={fieldErrors.lastName}>
                   <Input
                     value={form.lastName}
                     onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
@@ -356,7 +395,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Work email *">
+                <Field label="Work email *" error={fieldErrors.workEmail}>
                   <Input
                     type="email"
                     value={form.workEmail}
@@ -366,7 +405,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Personal email">
+                <Field label="Personal email" error={fieldErrors.personalEmail}>
                   <Input
                     type="email"
                     value={form.personalEmail}
@@ -375,7 +414,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Phone">
+                <Field label="Phone" error={fieldErrors.phone}>
                   <Input
                     value={form.phone}
                     onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -383,7 +422,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Joining date *">
+                <Field label="Joining date *" error={fieldErrors.joiningDate}>
                   <Input
                     type="date"
                     value={form.joiningDate}
@@ -400,7 +439,7 @@ export default function EmployeeFormPage() {
             <CardBody className="space-y-4">
               <h3 className="text-h3 font-semibold">Position & Work Schedule</h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label="Department *">
+                <Field label="Department *" error={fieldErrors.departmentId}>
                   <Select
                     key={`dept-${form.departmentId}-${deptOptions.length}`}
                     options={deptOptions}
@@ -411,7 +450,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Job position *">
+                <Field label="Job position *" error={fieldErrors.jobPosition}>
                   <Input
                     value={form.jobPosition}
                     onChange={(e) => setForm((f) => ({ ...f, jobPosition: e.target.value }))}
@@ -420,7 +459,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Manager">
+                <Field label="Manager" error={fieldErrors.managerId}>
                   <Select
                     key={`mgr-${form.managerId}-${managerOptions.length}`}
                     options={managerOptions}
@@ -431,7 +470,7 @@ export default function EmployeeFormPage() {
                   />
                 </Field>
 
-                <Field label="Working schedule *">
+                <Field label="Working schedule *" error={fieldErrors.workingScheduleId}>
                   <Select
                     key={`sched-${form.workingScheduleId}-${scheduleOptions.length}`}
                     options={scheduleOptions}
@@ -517,12 +556,6 @@ export default function EmployeeFormPage() {
               </div>
             </CardBody>
           </Card>
-
-          {formError && (
-            <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-              {formError}
-            </div>
-          )}
         </form>
       </div>
     </>

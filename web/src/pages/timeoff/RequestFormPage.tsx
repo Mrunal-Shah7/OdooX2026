@@ -12,6 +12,7 @@ import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 
 type RequestDetail = {
   id: string;
@@ -121,7 +122,6 @@ export default function RequestFormPage() {
   const [requestedHours, setRequestedHours] = useState('');
   const [reason, setReason] = useState('');
   const [refusalReason, setRefusalReason] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (request) {
@@ -146,9 +146,16 @@ export default function RequestFormPage() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      setErrorMsg('');
       const employeeId = user?.employee?.id;
       if (!employeeId) throw new Error('User is not linked to an employee');
+      if (!timeOffTypeId) throw new Error('Please select a time off type');
+      if (!startDate) throw new Error('Start date is required');
+      if (!endDate) throw new Error('End date is required');
+      if (endDate < startDate) throw new Error('End date must be on or after start date');
+      if (durationType === 'hours') {
+        const hrs = parseFloat(requestedHours);
+        if (isNaN(hrs) || hrs <= 0) throw new Error('Requested hours must be a positive number');
+      }
 
       return apiRequest('/api/time-off/requests', {
         method: 'POST',
@@ -165,10 +172,11 @@ export default function RequestFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff'] });
+      showToast({ type: 'success', title: 'Request Submitted', message: 'Time off request submitted successfully.' });
       navigate({ to: '/time-off/requests' });
     },
     onError: (err: Error) => {
-      setErrorMsg(err.message);
+      showToast({ type: 'error', title: 'Request Failed', message: err.message });
     },
   });
 
@@ -179,10 +187,11 @@ export default function RequestFormPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff'] });
+      showToast({ type: 'success', title: 'Request Approved', message: 'Time off request approved.' });
       navigate({ to: '/time-off/requests' });
     },
     onError: (err: Error) => {
-      setErrorMsg(err.message);
+      showToast({ type: 'error', title: 'Approval Failed', message: err.message });
     },
   });
 
@@ -194,10 +203,11 @@ export default function RequestFormPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff'] });
+      showToast({ type: 'success', title: 'Request Refused', message: 'Time off request refused.' });
       navigate({ to: '/time-off/requests' });
     },
     onError: (err: Error) => {
-      setErrorMsg(err.message);
+      showToast({ type: 'error', title: 'Refusal Failed', message: err.message });
     },
   });
 
@@ -209,10 +219,11 @@ export default function RequestFormPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff'] });
+      showToast({ type: 'success', title: 'Request Cancelled', message: 'Time off request cancelled.' });
       navigate({ to: '/time-off/requests' });
     },
     onError: (err: Error) => {
-      setErrorMsg(err.message);
+      showToast({ type: 'error', title: 'Cancellation Failed', message: err.message });
     },
   });
 
@@ -305,12 +316,6 @@ export default function RequestFormPage() {
       />
 
       <div className="max-w-3xl px-5 pb-6">
-        {errorMsg && (
-          <div className="mb-4 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-            {errorMsg}
-          </div>
-        )}
-
         <Card>
           <CardBody className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

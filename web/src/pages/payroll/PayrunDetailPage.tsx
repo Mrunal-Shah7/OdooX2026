@@ -13,6 +13,7 @@ import {
   type PayrunDetailResponse,
   type PayslipSummary,
 } from './payrollApi';
+import { showToast } from '../../lib/toast';
 
 export default function PayrunDetailPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
@@ -20,7 +21,6 @@ export default function PayrunDetailPage() {
   const [data, setData] = useState<PayrunDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fetchDetail = () => {
@@ -30,9 +30,10 @@ export default function PayrunDetailPage() {
       .getPayrun(id)
       .then((res) => {
         setData(res);
-        setError(null);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        showToast({ type: 'error', title: 'Error', message: err.message });
+      })
       .finally(() => setLoading(false));
   };
 
@@ -49,13 +50,15 @@ export default function PayrunDetailPage() {
 
   const handleCompute = async () => {
     setActionLoading(true);
-    setError(null);
     try {
       const res = await payrollApi.computePayrun(id);
       setData(res);
-      setSuccessMessage('Pay run computed successfully.');
+      const msg = 'Pay run computed successfully.';
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Pay Run Computed', message: msg });
     } catch (err: any) {
-      setError(err.message || 'Compute failed');
+      const errMsg = err.message || 'Compute failed';
+      showToast({ type: 'error', title: 'Compute Failed', message: errMsg });
     } finally {
       setActionLoading(false);
     }
@@ -63,13 +66,15 @@ export default function PayrunDetailPage() {
 
   const handleValidate = async () => {
     setActionLoading(true);
-    setError(null);
     try {
       const res = await payrollApi.validatePayrun(id);
       setData(res);
-      setSuccessMessage('Pay run validated and locked.');
+      const msg = 'Pay run validated and locked.';
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Pay Run Validated', message: msg });
     } catch (err: any) {
-      setError(err.message || 'Validation failed');
+      const errMsg = err.message || 'Validation failed';
+      showToast({ type: 'error', title: 'Validation Failed', message: errMsg });
     } finally {
       setActionLoading(false);
     }
@@ -77,13 +82,15 @@ export default function PayrunDetailPage() {
 
   const handleMarkPaid = async () => {
     setActionLoading(true);
-    setError(null);
     try {
       const res = await payrollApi.markPayrunPaid(id);
       setData(res);
-      setSuccessMessage('Pay run marked as paid.');
+      const msg = 'Pay run marked as paid.';
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Pay Run Paid', message: msg });
     } catch (err: any) {
-      setError(err.message || 'Mark paid failed');
+      const errMsg = err.message || 'Mark paid failed';
+      showToast({ type: 'error', title: 'Action Failed', message: errMsg });
     } finally {
       setActionLoading(false);
     }
@@ -91,14 +98,16 @@ export default function PayrunDetailPage() {
 
   const handleSendPayslips = async () => {
     setActionLoading(true);
-    setError(null);
     try {
       const results = await payrollApi.sendPayslips(id);
       const sentCount = results.filter((r) => r.sent).length;
-      setSuccessMessage(`Payslip PDFs emailed to ${sentCount} employee(s).`);
+      const msg = `Payslip PDFs emailed to ${sentCount} employee(s).`;
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Payslips Sent', message: msg });
       fetchDetail();
     } catch (err: any) {
-      setError(err.message || 'Send payslips failed');
+      const errMsg = err.message || 'Send payslips failed';
+      showToast({ type: 'error', title: 'Send Failed', message: errMsg });
     } finally {
       setActionLoading(false);
     }
@@ -284,12 +293,6 @@ export default function PayrunDetailPage() {
       <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
-        {error && (
-          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
         {successMessage && (
           <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success flex justify-between items-center">
             <span>{successMessage}</span>

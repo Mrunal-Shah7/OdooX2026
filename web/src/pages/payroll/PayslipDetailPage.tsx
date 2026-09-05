@@ -9,13 +9,13 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { payrollApi, type PayslipDetail, type PayslipLine } from './payrollApi';
+import { showToast } from '../../lib/toast';
 
 export default function PayslipDetailPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
   const navigate = useNavigate();
   const [data, setData] = useState<PayslipDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<'contract' | 'payout'>('contract');
@@ -26,11 +26,9 @@ export default function PayslipDetailPage() {
     payrollApi
       .getPayslip(id)
       .then((res: any) => {
-        const detail: PayslipDetail = res?.data ? res.data : res;
-        setData(detail);
-        setError(null);
+        setData(res?.data ? res.data : res);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => showToast({ type: 'error', title: 'Error', message: err.message }))
       .finally(() => setLoading(false));
   };
 
@@ -50,12 +48,13 @@ export default function PayslipDetailPage() {
   const handleArchive = async () => {
     if (!confirm('Are you sure you want to archive this payslip?')) return;
     setArchiving(true);
-    setError(null);
     try {
       await payrollApi.archivePayslip(id);
+      showToast({ type: 'success', title: 'Payslip Archived', message: 'Payslip archived successfully.' });
       fetchDetail();
     } catch (err: any) {
-      setError(err.message || 'Archive failed');
+      const msg = err.message || 'Archive failed';
+      showToast({ type: 'error', title: 'Archive Failed', message: msg });
     } finally {
       setArchiving(false);
     }
@@ -64,7 +63,6 @@ export default function PayslipDetailPage() {
   const handleDownloadPdf = async () => {
     if (!id) return;
     setDownloading(true);
-    setError(null);
     try {
       const blob = await payrollApi.downloadPayslipPdf(id);
       const url = URL.createObjectURL(blob);
@@ -75,8 +73,10 @@ export default function PayslipDetailPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      showToast({ type: 'success', title: 'PDF Downloaded', message: 'Payslip PDF generated.' });
     } catch (err: any) {
-      setError(err.message || 'Failed to download PDF');
+      const msg = err.message || 'Failed to download PDF';
+      showToast({ type: 'error', title: 'Download Failed', message: msg });
     } finally {
       setDownloading(false);
     }
@@ -219,12 +219,6 @@ export default function PayslipDetailPage() {
       <PayrollNavTabs />
 
       <div className="px-5 pb-6 space-y-4">
-        {error && (
-          <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
         {loading ? (
           <div className="p-8 text-center text-body-sm text-text-muted">Loading payslip details...</div>
         ) : !ps ? (

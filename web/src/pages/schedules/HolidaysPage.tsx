@@ -12,6 +12,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
+import { showToast } from '../../lib/toast';
 
 type PublicHoliday = {
   id: string;
@@ -25,7 +26,6 @@ export default function HolidaysPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newHolidayName, setNewHolidayName] = useState('');
   const [newHolidayDate, setNewHolidayDate] = useState(new Date().toISOString().slice(0, 10));
-  const [addError, setAddError] = useState<string | null>(null);
 
   const { data: response, isLoading } = useQuery({
     queryKey: queryKeys.holidays(selectedYear),
@@ -35,22 +35,27 @@ export default function HolidaysPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      setAddError(null);
+      if (!newHolidayName.trim()) throw new Error('Holiday name is required');
+      if (!newHolidayDate) throw new Error('Holiday date is required');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(newHolidayDate)) throw new Error('Holiday date must be in YYYY-MM-DD format');
+
       return apiFetch<{ data: PublicHoliday }>('/public-holidays', {
         method: 'POST',
         body: JSON.stringify({
-          name: newHolidayName,
+          name: newHolidayName.trim(),
           date: newHolidayDate,
         }),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holidays'] });
+      showToast({ type: 'success', title: 'Holiday Added', message: `Public holiday "${newHolidayName}" added.` });
       setIsAddOpen(false);
       setNewHolidayName('');
     },
     onError: (err: any) => {
-      setAddError(err.message || 'Failed to add public holiday');
+      const msg = err.message || 'Failed to add public holiday';
+      showToast({ type: 'error', title: 'Add Holiday Failed', message: msg });
     },
   });
 
@@ -60,6 +65,10 @@ export default function HolidaysPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holidays'] });
+      showToast({ type: 'success', title: 'Holiday Deleted', message: 'Public holiday removed successfully.' });
+    },
+    onError: (err: any) => {
+      showToast({ type: 'error', title: 'Delete Failed', message: err.message || 'Failed to delete holiday' });
     },
   });
 
@@ -156,12 +165,6 @@ export default function HolidaysPage() {
         }
       >
         <div className="space-y-4 py-2">
-          {addError && (
-            <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-              {addError}
-            </div>
-          )}
-
           <Field label="Holiday Name">
             <Input
               value={newHolidayName}

@@ -12,6 +12,7 @@ import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 
 type AttendanceRecord = {
   id: string;
@@ -98,7 +99,6 @@ export default function AttendanceFormPage() {
   const [overtimeHours, setOvertimeHours] = useState('0.00');
   const [status, setStatus] = useState<'present' | 'late' | 'absent' | 'half_day' | 'on_leave'>('present');
   const [notes, setNotes] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
 
   // Prepopulate form when record loads
   useEffect(() => {
@@ -126,7 +126,6 @@ export default function AttendanceFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      setErrorMsg('');
       const payload: Record<string, unknown> = {
         checkIn: checkIn ? new Date(checkIn).toISOString() : null,
         checkOut: checkOut ? new Date(checkOut).toISOString() : null,
@@ -152,10 +151,11 @@ export default function AttendanceFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      showToast({ type: 'success', title: 'Attendance Saved', message: 'Attendance record saved successfully.' });
       navigate({ to: '/attendance' });
     },
     onError: (err: Error) => {
-      setErrorMsg(err.message);
+      showToast({ type: 'error', title: 'Save Failed', message: err.message });
     },
   });
 
@@ -209,12 +209,6 @@ export default function AttendanceFormPage() {
       />
 
       <div className="max-w-3xl px-5 pb-6">
-        {errorMsg && (
-          <div className="mb-4 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-            {errorMsg}
-          </div>
-        )}
-
         <Card>
           <CardBody className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

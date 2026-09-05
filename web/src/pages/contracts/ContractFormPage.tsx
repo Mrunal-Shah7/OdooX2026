@@ -11,6 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
+import { showToast } from '../../lib/toast';
 
 type ContractDetail = {
   id: string;
@@ -51,7 +52,6 @@ export default function ContractFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [formError, setFormError] = useState<string | null>(null);
 
   // Form states
   const [employeeId, setEmployeeId] = useState('');
@@ -87,6 +87,8 @@ export default function ContractFormPage() {
     queryKey: queryKeys.payroll.structures,
     queryFn: () => apiFetch<{ data: Array<{ id: string; name: string }> }>('/payroll/structures'),
   });
+
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Fetch contract detail if editing
   const { data: contractData, isLoading: isContractLoading } = useQuery({
@@ -124,9 +126,40 @@ export default function ContractFormPage() {
     }
   };
 
+  const handleSave = () => {
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    if (!employeeId) errors.employeeId = 'Please select an employee';
+    if (!departmentId) errors.departmentId = 'Please select a department';
+    if (!jobPosition.trim()) errors.jobPosition = 'Job position is required';
+    if (!workingScheduleId) errors.workingScheduleId = 'Please select a working schedule';
+    if (!salaryStructureId) errors.salaryStructureId = 'Please select a salary structure';
+    if (!startDate) errors.startDate = 'Start date is required';
+    if (endDate.trim() && startDate && endDate < startDate) {
+      errors.endDate = 'End date must be on or after start date';
+    }
+
+    const wageNum = parseFloat(wage);
+    if (isNaN(wageNum) || wageNum <= 0) {
+      errors.wage = 'Wage must be a positive number greater than 0';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const msg = 'Please resolve the highlighted validation errors before submitting.';
+      showToast({ type: 'error', title: 'Contract Validation Failed', message: msg });
+      setTimeout(() => {
+        document.querySelector('.text-danger')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
+
+    saveMutation.mutate();
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      setFormError(null);
       const payload = {
         employeeId,
         departmentId,
@@ -155,10 +188,19 @@ export default function ContractFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      showToast({ type: 'success', title: 'Contract Saved', message: 'Employment contract saved successfully.' });
       navigate({ to: '/contracts' });
     },
     onError: (err: any) => {
-      setFormError(err.message || 'Failed to save contract');
+      const errMsg = err.message || 'Failed to save contract';
+      if (err?.details?.length) {
+        const sErrors: Record<string, string> = {};
+        err.details.forEach((d: { field?: string; message?: string }) => {
+          if (d.field) sErrors[d.field] = d.message || 'Invalid field';
+        });
+        setFieldErrors(sErrors);
+      }
+      showToast({ type: 'error', title: 'Save Failed', message: errMsg });
     },
   });
 
@@ -225,7 +267,7 @@ export default function ContractFormPage() {
             </Button>
             <Button
               variant="accent"
-              onClick={() => saveMutation.mutate()}
+              onClick={handleSave}
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending ? 'Saving...' : 'Save contract'}
@@ -236,14 +278,8 @@ export default function ContractFormPage() {
       <div className="px-5 pb-6">
         <Card>
           <CardBody className="space-y-6">
-            {formError && (
-              <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-                {formError}
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Employee">
+              <Field label="Employee *" error={fieldErrors.employeeId}>
                 <Select
                   options={employeeOptions}
                   value={employeeId}
@@ -253,7 +289,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Department">
+              <Field label="Department *" error={fieldErrors.departmentId}>
                 <Select
                   options={departmentOptions}
                   value={departmentId}
@@ -262,7 +298,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Job Position">
+              <Field label="Job Position *" error={fieldErrors.jobPosition}>
                 <Input
                   value={jobPosition}
                   onChange={(e) => setJobPosition(e.target.value)}
@@ -270,7 +306,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Working Schedule">
+              <Field label="Working Schedule *" error={fieldErrors.workingScheduleId}>
                 <Select
                   options={scheduleOptions}
                   value={workingScheduleId}
@@ -279,7 +315,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Salary Structure">
+              <Field label="Salary Structure *" error={fieldErrors.salaryStructureId}>
                 <Select
                   options={structureOptions}
                   value={salaryStructureId}
@@ -288,7 +324,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Status">
+              <Field label="Status" error={fieldErrors.status}>
                 <Select
                   options={[
                     { value: 'draft', label: 'Draft' },
@@ -301,7 +337,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Start Date">
+              <Field label="Start Date *" error={fieldErrors.startDate}>
                 <Input
                   type="date"
                   value={startDate}
@@ -309,7 +345,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="End Date (Optional)">
+              <Field label="End Date (Optional)" error={fieldErrors.endDate}>
                 <Input
                   type="date"
                   value={endDate}
@@ -317,7 +353,7 @@ export default function ContractFormPage() {
                 />
               </Field>
 
-              <Field label="Monthly Wage">
+              <Field label="Monthly Wage *" error={fieldErrors.wage}>
                 <Input
                   type="number"
                   step="0.01"

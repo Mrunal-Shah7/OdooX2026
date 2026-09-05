@@ -10,6 +10,7 @@ import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
+import { showToast } from '../../lib/toast';
 
 type TimeOffTypeDetail = {
   id: string;
@@ -54,7 +55,6 @@ export default function TypeFormPage() {
   const [approvalRole, setApprovalRole] = useState('hr_manager');
   const [color, setColor] = useState('#2563a8');
   const [active, setActive] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     data: existingType,
@@ -82,7 +82,17 @@ export default function TypeFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      setErrorMessage(null);
+      if (!name.trim()) throw new Error('Time off type name is required');
+      if (isNew) {
+        if (!code.trim()) throw new Error('Type code is required');
+        if (!/^[A-Za-z0-9_]{1,8}$/.test(code.trim())) {
+          throw new Error('Code must contain only uppercase letters, numbers, and underscores (max 8 chars)');
+        }
+      }
+      if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+        throw new Error('Color must be a valid hex color code (e.g. #3b82f6)');
+      }
+
       const headers = new Headers({ 'Content-Type': 'application/json' });
       const userId = sessionStorage.getItem('pp360_user_id');
       if (userId) {
@@ -134,10 +144,11 @@ export default function TypeFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeOff', 'types'] });
+      showToast({ type: 'success', title: 'Type Saved', message: `Time off type "${name}" saved successfully.` });
       navigate({ to: '/time-off/types' });
     },
     onError: (err: Error) => {
-      setErrorMessage(err.message);
+      showToast({ type: 'error', title: 'Save Failed', message: err.message });
     },
   });
 
@@ -188,12 +199,6 @@ export default function TypeFormPage() {
       />
 
       <div className="space-y-4 px-5 pb-6">
-        {errorMessage && (
-          <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-            {errorMessage}
-          </div>
-        )}
-
         <Card>
           <CardBody>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

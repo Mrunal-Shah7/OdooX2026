@@ -15,6 +15,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { apiFetch } from '../../lib/apiFetch';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 import type { UserRole, UserStatus } from '../../../../shared/constants';
 
 type UserItem = {
@@ -66,7 +67,6 @@ export default function UsersPage() {
   const [editEmployeeId, setEditEmployeeId] = useState<string>('');
 
   // Error & Feedback states
-  const [formError, setFormError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   // Queries
@@ -96,11 +96,17 @@ export default function UsersPage() {
   // Mutations
   const inviteMutation = useMutation({
     mutationFn: async () => {
-      setFormError(null);
+      if (!inviteEmail.trim()) {
+        throw new Error('Email address is required');
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) {
+        throw new Error('Please enter a valid email address');
+      }
+
       return apiFetch<{ data: UserItem }>('/users', {
         method: 'POST',
         body: JSON.stringify({
-          email: inviteEmail,
+          email: inviteEmail.trim(),
           role: inviteRole,
           employeeId: inviteEmployeeId || null,
         }),
@@ -115,14 +121,14 @@ export default function UsersPage() {
       setTimeout(() => setActionSuccess(null), 4000);
     },
     onError: (err: any) => {
-      setFormError(err.message || 'Failed to invite user');
+      const msg = err.message || 'Failed to invite user';
+      showToast({ type: 'error', title: 'Invite Failed', message: msg });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingUser) return;
-      setFormError(null);
       return apiFetch<{ data: UserItem }>(`/users/${editingUser.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -135,11 +141,11 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setEditingUser(null);
-      setActionSuccess('User updated successfully');
-      setTimeout(() => setActionSuccess(null), 4000);
+      showToast({ type: 'success', title: 'User Updated', message: 'User updated successfully.' });
     },
     onError: (err: any) => {
-      setFormError(err.message || 'Failed to update user');
+      const msg = err.message || 'Failed to update user';
+      showToast({ type: 'error', title: 'Update Failed', message: msg });
     },
   });
 
@@ -162,7 +168,6 @@ export default function UsersPage() {
     setEditRole(item.role);
     setEditStatus(item.status);
     setEditEmployeeId(item.employee?.id ?? '');
-    setFormError(null);
   };
 
   const columns = useMemo<ColumnDef<UserItem, any>[]>(
@@ -267,7 +272,6 @@ export default function UsersPage() {
           <Button
             variant="accent"
             onClick={() => {
-              setFormError(null);
               setIsInviteOpen(true);
             }}
             className="flex items-center gap-1.5"
@@ -315,11 +319,6 @@ export default function UsersPage() {
           }}
           className="space-y-4"
         >
-          {formError ? (
-            <div className="rounded-md border border-danger/30 bg-danger-subtle p-3 text-body-sm text-danger font-medium">
-              {formError}
-            </div>
-          ) : null}
 
           <Field label="Email Address">
             <Input
@@ -373,11 +372,6 @@ export default function UsersPage() {
           }}
           className="space-y-4"
         >
-          {formError ? (
-            <div className="rounded-md border border-danger/30 bg-danger-subtle p-3 text-body-sm text-danger font-medium">
-              {formError}
-            </div>
-          ) : null}
 
           <Field label="System Role">
             <Select

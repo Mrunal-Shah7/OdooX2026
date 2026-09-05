@@ -11,6 +11,7 @@ import {
   type EligibleEmployee,
   type SalaryStructure,
 } from './payrollApi';
+import { showToast } from '../../lib/toast';
 
 interface PayrunWizardProps {
   onSuccess?: () => void;
@@ -21,7 +22,6 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Form Step 1 state
   const [structures, setStructures] = useState<SalaryStructure[]>([]);
@@ -39,7 +39,6 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
   // Load structures when wizard opens
   useEffect(() => {
     if (open) {
-      setError(null);
       payrollApi
         .getSalaryStructures()
         .then((res: any) => {
@@ -53,16 +52,21 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
             setSelectedStructureId(list[0].id);
           }
         })
-        .catch((err) => setError(err.message));
+        .catch((err) => showToast({ type: 'error', title: 'Error', message: err.message }));
     }
   }, [open]);
 
   const handleNextStep = async () => {
     if (!selectedStructureId) {
-      setError('Please select a salary structure.');
+      const msg = 'Please select a salary structure.';
+      showToast({ type: 'error', title: 'Validation Failed', message: msg });
       return;
     }
-    setError(null);
+    if (periodEnd && periodStart && periodEnd < periodStart) {
+      const msg = 'Period end date must be on or after period start date.';
+      showToast({ type: 'error', title: 'Validation Failed', message: msg });
+      return;
+    }
     setLoading(true);
     try {
       const res: any = await payrollApi.getEligibleEmployees({
@@ -80,7 +84,8 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
       setSelectedEmployeeIds(new Set(list.map((e) => e.employee.id)));
       setStep(2);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch eligible employees');
+      const errMsg = err.message || 'Failed to fetch eligible employees';
+      showToast({ type: 'error', title: 'Error', message: errMsg });
     } finally {
       setLoading(false);
     }
@@ -108,7 +113,8 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
 
   const handleCreatePayrun = async () => {
     if (selectedEmployeeIds.size === 0) {
-      setError('Please select at least one employee for the pay run.');
+      const msg = 'Please select at least one employee for the pay run.';
+      showToast({ type: 'error', title: 'Validation Failed', message: msg });
       return;
     }
 
@@ -116,7 +122,6 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
     const monthName = new Date(periodStart).toLocaleString('default', { month: 'long', year: 'numeric' });
     const payrunName = `${monthName} (${selectedStructure?.name || 'Regular'})`;
 
-    setError(null);
     setLoading(true);
 
     try {
@@ -140,13 +145,15 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
 
       setOpen(false);
       setStep(1);
+      showToast({ type: 'success', title: 'Pay Run Created', message: `Pay run "${payrunName}" created and computed.` });
       if (onSuccess) onSuccess();
 
       if (created?.payrun?.id) {
         navigate({ to: '/payroll/payruns/$id', params: { id: created.payrun.id } });
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to create pay run');
+      const errMsg = err.message || 'Failed to create pay run';
+      showToast({ type: 'error', title: 'Pay Run Creation Failed', message: errMsg });
     } finally {
       setLoading(false);
     }
@@ -163,7 +170,7 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
 
   return (
     <>
-      <Button variant="accent" onClick={() => { setOpen(true); setStep(1); setError(null); }}>
+      <Button variant="accent" onClick={() => { setOpen(true); setStep(1); }}>
         New pay run
       </Button>
 
@@ -193,12 +200,6 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
           </div>
         }
       >
-        {error && (
-          <div className="mb-4 rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
-            {error}
-          </div>
-        )}
-
         {step === 1 ? (
           <div className="space-y-4">
             <Field label="Salary structure">
@@ -228,10 +229,10 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Period start">
-                <Input value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} placeholder="YYYY-MM-DD" />
+                <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
               </Field>
               <Field label="Period end">
-                <Input value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} placeholder="YYYY-MM-DD" />
+                <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
               </Field>
             </div>
 

@@ -5,10 +5,11 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+import { FormSkeleton } from '../../components/ui/Skeleton';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
 import { showToast } from '../../lib/toast';
@@ -225,11 +226,7 @@ export default function ContractFormPage() {
   }));
 
   if (!isNew && isContractLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   const contract = contractData?.data;
@@ -338,18 +335,22 @@ export default function ContractFormPage() {
               </Field>
 
               <Field label="Start Date *" error={fieldErrors.startDate}>
-                <Input
-                  type="date"
+                <DatePicker
+                  mode="single"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
+                  required
+                  ariaLabel="Contract start date"
                 />
               </Field>
 
               <Field label="End Date (Optional)" error={fieldErrors.endDate}>
-                <Input
-                  type="date"
+                <DatePicker
+                  mode="single"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
+                  min={startDate}
+                  ariaLabel="Contract end date"
                 />
               </Field>
 

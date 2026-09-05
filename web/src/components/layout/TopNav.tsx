@@ -1,10 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { CircleUserRound } from "lucide-react";
+import { BrandLogo } from "../BrandLogo";
 import { NavMenu } from "./NavMenu";
-import { AttendanceWidget } from "./AttendanceWidget";
 import { NotificationBell } from "./NotificationBell";
 import { apiClient } from "../../lib/apiClient";
 import { useSession } from "../../lib/session";
-import { Dropdown } from "../ui/Dropdown";
 
 export function TopNav() {
   const navigate = useNavigate();
@@ -21,34 +21,35 @@ export function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-nav flex h-[var(--nav-height)] items-center gap-5 bg-primary px-5 text-on-primary">
+    <header className="top-nav">
       <Link
         to="/"
-        className="text-h3 font-semibold tracking-tight text-on-primary no-underline hover:opacity-95"
+        className="top-nav__brand"
+        aria-label="PeoplePay360 home"
       >
-        PeoplePay360
+        <BrandLogo variant="compact" />
       </Link>
       <NavMenu />
-      <div className="ml-auto flex items-center gap-4 text-label">
-        <AttendanceWidget />
+      <div className="top-nav__actions">
         <NotificationBell />
         {user ? (
-          <Dropdown
-            trigger={
-              <button className="flex items-center gap-2 rounded px-2 py-1 text-label font-medium text-on-primary opacity-90 transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring">
-                <span className="size-2 rounded-full bg-success" />
-                <span>
-                  {user.employee
-                    ? `${user.employee.firstName} ${user.employee.lastName}`
-                    : user.email}
-                </span>
-              </button>
-            }
-            items={[
-              { label: "My profile", onSelect: () => void navigate({ to: "/profile" }) },
-              { label: "Sign out", onSelect: () => void signOut() },
-            ]}
-          />
+          <div className="top-nav__account-actions">
+            <Link
+              to="/profile"
+              className="top-nav__profile-link"
+              aria-label="Open my profile"
+              title="My profile"
+            >
+              <CircleUserRound className="size-5" aria-hidden="true" />
+            </Link>
+            <button
+              type="button"
+              className="top-nav__sign-out"
+              onClick={() => void signOut()}
+            >
+              Sign out
+            </button>
+          </div>
         ) : null}
       </div>
     </header>

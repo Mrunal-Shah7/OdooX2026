@@ -16,7 +16,7 @@ export function NavTabs({ tabs, className }: NavTabsProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <div className={cn('mb-5 flex space-x-6 border-b border-border px-5 text-label', className)}>
+    <nav aria-label="Section navigation" className={cn('nav-tabs', className)}>
       {tabs.map((tab) => {
         const isExact = tab.isExact ?? false;
         const active = isExact
@@ -27,17 +27,14 @@ export function NavTabs({ tabs, className }: NavTabsProps) {
           <Link
             key={tab.to}
             to={tab.to}
-            className={cn(
-              'relative border-b-2 py-2.5 transition-all duration-150 no-underline',
-              active
-                ? 'border-accent font-semibold text-text'
-                : 'border-transparent text-text-muted hover:border-border-strong hover:text-text',
-            )}
+            aria-current={active ? 'page' : undefined}
+            className="nav-tabs__link"
+            data-active={active || undefined}
           >
             {tab.label}
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

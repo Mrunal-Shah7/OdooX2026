@@ -246,8 +246,8 @@ export async function listEmployees(query: {
   status?: string;
   sort?: string;
   order?: 'asc' | 'desc';
-}) {
-  const where: Prisma.EmployeeWhereInput = {};
+}, scopedEmployeeId?: string) {
+  const where: Prisma.EmployeeWhereInput = scopedEmployeeId ? { id: scopedEmployeeId } : {};
 
   if (query.q) {
     where.OR = [
@@ -304,7 +304,11 @@ export async function listEmployees(query: {
   };
 }
 
-export async function getEmployee(id: string) {
+export async function getEmployee(id: string, scopedEmployeeId?: string) {
+  if (scopedEmployeeId && id !== scopedEmployeeId) {
+    throw ApiError.notFound('Employee not found');
+  }
+
   const emp = await prisma.employee.findUnique({
     where: { id },
     include: {
@@ -429,7 +433,21 @@ export async function getOrCreateUserProfile(userId: string, employeeId: string 
   };
 }
 
-export async function updateUserProfile(userId: string, employeeId: string | null, body: any) {
+export async function updateUserProfile(
+  userId: string,
+  employeeId: string | null,
+  body: Partial<{
+    firstName: string;
+    lastName: string;
+    personalEmail: string | null;
+    phone: string | null;
+    workLocation: string | null;
+    bankName: string | null;
+    bankAccountHolder: string | null;
+    bankAccountNumber: string | null;
+    bankIfsc: string | null;
+  }>,
+) {
   let empId = employeeId;
   if (!empId) {
     const profile = await getOrCreateUserProfile(userId, null);
@@ -622,4 +640,3 @@ export async function deleteEmployee(id: string) {
 
   await prisma.employee.delete({ where: { id } });
 }
-

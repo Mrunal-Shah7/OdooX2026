@@ -23,10 +23,14 @@ router.get(
   ['/employees', '/admin/employees'],
   requireAuth,
   requireRole(USER_ROLE.employee),
+  scopeToEmployee,
   validate({ query: listEmployeesQuerySchema }),
   async (req, res, next) => {
     try {
-      const result = await employeesService.listEmployees(queryOf(listEmployeesQuerySchema, req));
+      const result = await employeesService.listEmployees(
+        queryOf(listEmployeesQuerySchema, req),
+        req.scopedEmployeeId,
+      );
       res.json(result);
     } catch (err) {
       next(err);
@@ -90,10 +94,11 @@ router.get(
   ['/employees/:id', '/admin/employees/:id'],
   requireAuth,
   requireRole(USER_ROLE.employee),
+  scopeToEmployee,
   validate({ params: idParamSchema }),
   async (req, res, next) => {
     try {
-      const data = await employeesService.getEmployee(pathId(req));
+      const data = await employeesService.getEmployee(pathId(req), req.scopedEmployeeId);
       res.json({ data });
     } catch (err) {
       next(err);

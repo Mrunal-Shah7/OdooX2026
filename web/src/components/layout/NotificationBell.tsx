@@ -4,7 +4,7 @@ import { Bell } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Popover } from '../ui/Popover';
-import { Spinner } from '../ui/Spinner';
+import { Skeleton } from '../ui/Skeleton';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
 import { useSession } from '../../lib/session';
@@ -42,7 +42,7 @@ export function NotificationBell() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: queryKeys.notifications.all({ page: 1, pageSize: 8 }),
     queryFn: () =>
       apiFetch<NotificationListResponse>('/notifications?page=1&pageSize=8'),
@@ -90,85 +90,119 @@ export function NotificationBell() {
       open={open}
       onOpenChange={setOpen}
       align="end"
-      className="w-80 max-w-[calc(100vw-2rem)] p-0"
+      className="notification-popover p-0"
       trigger={
-        <Button
+        <button
           type="button"
-          variant="secondary"
-          size="sm"
-          className="border-primary-subtle bg-primary-hover px-2 text-on-primary"
+          className="notification-trigger"
           aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
         >
-          <Bell className="size-4" />
+          <Bell className="size-5" aria-hidden="true" />
           {unread > 0 ? (
-            <span className="ml-1 rounded-full bg-accent px-2 font-mono text-caption text-on-accent">
+            <span className="notification-trigger__count" aria-hidden="true">
               {unread}
             </span>
           ) : null}
-        </Button>
+        </button>
       }
     >
-      <div className="flex max-h-96 flex-col">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <p className="m-0 text-body font-semibold text-text">Notifications</p>
+      <div className="notification-panel">
+        <div className="notification-panel__header">
+          <div>
+            <p className="notification-panel__title">Notifications</p>
+            <p className="notification-panel__summary">
+              {unread > 0 ? (
+                <>
+                  <span className="font-mono">{unread}</span> unread
+                </>
+              ) : (
+                'You are all caught up'
+              )}
+            </p>
+          </div>
           <button
             type="button"
-            className="m-0 cursor-pointer border-0 bg-transparent p-0 text-body-sm text-text-muted hover:text-accent disabled:opacity-50"
+            className="notification-panel__mark-all"
             disabled={unread === 0 || markAll.isPending}
             onClick={() => markAll.mutate()}
           >
-            Clear all
+            {markAll.isPending ? 'Marking…' : 'Mark all read'}
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="notification-panel__list-wrap">
           {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
+            <div className="notification-skeleton" aria-label="Loading notifications">
+              <Skeleton className="skeleton--text" />
+              <Skeleton className="skeleton--text" />
+              <Skeleton className="skeleton--text" />
+            </div>
+          ) : isError ? (
+            <div className="notification-panel__state">
+              <Bell className="size-5 text-text-muted" aria-hidden="true" />
+              <p>Couldn’t load notifications.</p>
+              <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+                Try again
+              </Button>
             </div>
           ) : items.length === 0 ? (
-            <p className="m-0 px-4 py-8 text-center text-body-sm text-text-muted">
-              No notifications yet.
-            </p>
+            <div className="notification-panel__state">
+              <Bell className="size-5 text-text-muted" aria-hidden="true" />
+              <div>
+                <p className="notification-panel__empty-title">No notifications yet</p>
+                <p>New updates will appear here.</p>
+              </div>
+            </div>
           ) : (
-            <ul className="m-0 list-none divide-y divide-border p-0">
+            <ul className="notification-panel__list">
               {items.map((n) => (
                 <li
                   key={n.id}
-                  className={n.readAt ? 'bg-surface-raised' : 'bg-accent-subtle/40'}
+                  className={
+                    n.readAt
+                      ? 'notification-panel__item'
+                      : 'notification-panel__item notification-panel__item--unread'
+                  }
                 >
-                  <div className="px-4 py-3">
-                    <p className="m-0 text-body-sm font-semibold text-text">{n.title}</p>
+                  <button
+                    type="button"
+                    className="notification-panel__item-button"
+                    disabled={Boolean(n.readAt) && !n.linkPath}
+                    onClick={() => openItem(n)}
+                  >
+                    <div className="notification-panel__item-heading">
+                      <span
+                        className={
+                          n.readAt
+                            ? 'notification-panel__read-marker'
+                            : 'notification-panel__unread-marker'
+                        }
+                        aria-hidden="true"
+                      />
+                      <p className="notification-panel__item-title">{n.title}</p>
+                    </div>
                     {n.body ? (
-                      <p className="m-0 mt-1 text-body-sm text-text-muted">{n.body}</p>
+                      <p className="notification-panel__item-body">{n.body}</p>
                     ) : null}
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      {n.linkPath ? (
-                        <button
-                          type="button"
-                          className="m-0 cursor-pointer border-0 bg-transparent p-0 text-body-sm text-accent"
-                          onClick={() => openItem(n)}
-                        >
-                          View
-                        </button>
-                      ) : (
-                        <span />
-                      )}
-                      <span className="font-mono text-caption text-text-muted">
+                    <div className="notification-panel__item-meta">
+                      <span className="notification-panel__item-action">
+                        {n.linkPath ? 'View details' : n.readAt ? 'Read' : 'Mark as read'}
+                      </span>
+                      <span className="notification-panel__time">
                         {formatRelative(n.createdAt)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div className="border-t border-border px-4 py-3 text-center">
+        <div className="notification-panel__footer">
           <Link
             to="/notifications"
-            className="text-body-sm text-accent no-underline hover:underline"
+            className="notification-panel__all-link"
             onClick={() => setOpen(false)}
           >
             See all notifications →

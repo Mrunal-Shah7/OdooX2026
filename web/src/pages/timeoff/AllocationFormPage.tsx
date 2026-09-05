@@ -5,10 +5,12 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { FormSkeleton } from '../../components/ui/Skeleton';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { showToast } from '../../lib/toast';
 
@@ -306,12 +308,7 @@ export default function AllocationFormPage() {
   });
 
   if (!isNew && isLoading) {
-    return (
-      <div className="animate-pulse space-y-6 px-5 pb-6 pt-6">
-        <div className="h-16 w-full rounded-md bg-surface-sunken"></div>
-        <div className="h-96 w-full max-w-3xl rounded-md bg-surface-sunken"></div>
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   if (!isNew && isError) {
@@ -471,20 +468,22 @@ export default function AllocationFormPage() {
               </Field>
 
               <Field label="Valid from">
-                <Input
-                  type="date"
+                <DatePicker
+                  mode="single"
                   value={validFrom}
-                  onChange={(e) => setValidFrom(e.target.value)}
-                  className="font-mono"
+                  onChange={setValidFrom}
+                  required
+                  ariaLabel="Allocation valid from date"
                 />
               </Field>
 
               <Field label="Valid to">
-                <Input
-                  type="date"
+                <DatePicker
+                  mode="single"
                   value={validTo}
-                  onChange={(e) => setValidTo(e.target.value)}
-                  className="font-mono"
+                  onChange={setValidTo}
+                  required
+                  ariaLabel="Allocation valid to date"
                 />
               </Field>
 

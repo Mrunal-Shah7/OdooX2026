@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
 import { useNavigate } from '@tanstack/react-router';
@@ -9,10 +8,33 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { Select } from '../../components/ui/Select';
+import { PageSkeleton } from '../../components/ui/Skeleton';
 
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 import { YearCalendar, type TimeOffCalendarDay } from './YearCalendar';
+
+const monthOptions = [
+  { value: '', label: 'All months' },
+  { value: '1', label: 'January' },
+  { value: '2', label: 'February' },
+  { value: '3', label: 'March' },
+  { value: '4', label: 'April' },
+  { value: '5', label: 'May' },
+  { value: '6', label: 'June' },
+  { value: '7', label: 'July' },
+  { value: '8', label: 'August' },
+  { value: '9', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+
+const yearOptions = Array.from({ length: new Date().getFullYear() - 2010 + 1 }, (_, index) => {
+  const year = String(new Date().getFullYear() - index);
+  return { value: year, label: year };
+});
 
 type TimeOffDashboardData = {
   employee: {
@@ -48,6 +70,18 @@ type TimeOffDashboardData = {
   }[];
 };
 
+type PendingTimeOffRequest = {
+  id: string;
+  timeOffType: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  startDate: string;
+  endDate: string;
+  durationType: 'full_day' | 'half_day' | 'hours';
+};
+
 async function apiRequest<T>(path: string): Promise<T> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
   const userId = sessionStorage.getItem('pp360_user_id');
@@ -69,6 +103,7 @@ export default function TimeOffDashboardPage() {
 
   const [year, setYear] = useState(2026);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(user?.employee?.id ?? 'my_records');
+  const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStartDate, setSelectedStartDate] = useState<string | null>(null);
   const [selectedEndDate, setSelectedEndDate] = useState<string | null>(null);
 
@@ -113,17 +148,49 @@ export default function TimeOffDashboardPage() {
     queryFn: () => apiRequest<TimeOffDashboardData>(queryUrl),
   });
 
+  const calendarEmployeeId = selectedEmployeeId || data?.employee.id;
+
+  const { data: pendingRequests } = useQuery<PendingTimeOffRequest[]>({
+    queryKey: ['timeOff', 'requests', 'pending', year, calendarEmployeeId],
+    queryFn: () => {
+      const query = new URLSearchParams({
+        status: 'to_approve',
+        dateFrom: `${year}-01-01`,
+        dateTo: `${year}-12-31`,
+        pageSize: '100',
+        ...(calendarEmployeeId ? { employeeId: calendarEmployeeId } : {}),
+      });
+      return apiRequest<PendingTimeOffRequest[]>(`/api/time-off/requests?${query.toString()}`);
+    },
+    enabled: Boolean(calendarEmployeeId),
+  });
+
+  const calendarDays = useMemo(() => {
+    const requests = pendingRequests ?? [];
+    return (data?.days ?? []).map((day) => {
+      const pendingRequest = requests.find(
+        (request) =>
+          day.kind === 'working' &&
+          day.date >= request.startDate &&
+          day.date <= request.endDate,
+      );
+
+      if (!pendingRequest) return day;
+
+      return {
+        ...day,
+        kind: 'leave' as const,
+        timeOffTypeId: pendingRequest.timeOffType.id,
+        color: pendingRequest.timeOffType.color,
+        fraction: pendingRequest.durationType === 'half_day' ? '0.50' : '1.00',
+        label: pendingRequest.timeOffType.name,
+        isPending: true,
+      };
+    });
+  }, [data?.days, pendingRequests]);
+
   if (isLoading) {
-    return (
-      <div className="animate-pulse space-y-6 px-5 pb-6 pt-6">
-        <div className="h-16 w-full rounded-md bg-surface-sunken"></div>
-        <div className="h-[400px] w-full rounded-md bg-surface-sunken"></div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="h-48 rounded-md bg-surface-sunken"></div>
-          <div className="h-48 rounded-md bg-surface-sunken"></div>
-        </div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (isError || !data) {
@@ -199,20 +266,16 @@ export default function TimeOffDashboardPage() {
                 />
               </div>
             )}
-            <Button
-              variant={year === 2025 ? 'primary' : 'secondary'}
-              className={`${year === 2025 ? 'bg-primary text-white hover:bg-primary/90' : 'bg-secondary text-text hover:bg-secondary/90'}`}
-              onClick={() => setYear(2025)}
-            >
-              2025
-            </Button>
-            <Button
-              variant={year === 2026 ? 'primary' : 'secondary'}
-              className={`${year === 2026 ? 'bg-primary text-white hover:bg-primary/90' : 'bg-secondary text-text hover:bg-secondary/90'}`}
-              onClick={() => setYear(2026)}
-            >
-              2026
-            </Button>
+            <div className="w-32">
+              <Select options={monthOptions} value={selectedMonth} onValueChange={setSelectedMonth} />
+            </div>
+            <div className="w-24">
+              <Select
+                options={yearOptions}
+                value={String(year)}
+                onValueChange={(value) => setYear(Number(value))}
+              />
+            </div>
             <Button variant="accent" onClick={requestLeave} disabled={!selectedStartDate}>
               Request leave
             </Button>
@@ -226,12 +289,13 @@ export default function TimeOffDashboardPage() {
         <Card>
           <CardHeader
             title="Year calendar"
-            subtitle={`${year}-01-01 — ${year}-12-31`}
+            subtitle={selectedMonth ? `${year}-${selectedMonth.padStart(2, '0')}` : `${year}-01-01 — ${year}-12-31`}
           />
           <CardBody>
             <YearCalendar
               year={year}
-              days={data.days ?? []}
+              selectedMonth={selectedMonth ? Number(selectedMonth) : undefined}
+              days={calendarDays}
               types={typesForCalendar}
               selectedStartDate={selectedStartDate}
               selectedEndDate={selectedEndDate}
@@ -242,7 +306,7 @@ export default function TimeOffDashboardPage() {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <Card>
-            <CardHeader title="Entitlements" />
+            <CardHeader title="Entitlements" subtitle="Taken, pending and remaining leave balance" />
             <CardBody className="space-y-6">
               {entitlements.map((e) => (
                 <DonutRing
@@ -250,6 +314,7 @@ export default function TimeOffDashboardPage() {
                   label={e.timeOffType.name}
                   value={parseFloat(e.taken)}
                   total={parseFloat(e.allocated)}
+                  pending={parseFloat(e.pending)}
                   unit={e.timeOffType.unit === 'hours' ? 'h' : ''}
                   color={e.timeOffType.color}
                   isUnlimited={e.timeOffType.code === 'UL'}

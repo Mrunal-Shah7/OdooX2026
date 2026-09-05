@@ -9,7 +9,7 @@ import { LineChartCard } from "../../components/charts/LineChartCard";
 import { Amount } from "../../components/ui/Amount";
 import { Card, CardBody, CardHeader } from "../../components/ui/Card";
 import { ErrorState } from "../../components/ui/ErrorState";
-import { Spinner } from "../../components/ui/Spinner";
+import { PageSkeleton } from "../../components/ui/Skeleton";
 import { formatMoney } from "../../lib/format";
 import { cn } from "../../lib/cn";
 
@@ -149,18 +149,7 @@ export default function PayrollDashboardPage() {
   }
 
   if (isLoading) {
-    return (
-      <>
-        <PageHeader
-          title="Payroll dashboard"
-          subtitle="Payments, staffing impact, leave patterns and attendance quality"
-        />
-        <PayrollNavTabs />
-        <div className="flex justify-center py-24">
-          <Spinner />
-        </div>
-      </>
-    );
+    return <PageSkeleton />;
   }
 
   if (isError || !data) {

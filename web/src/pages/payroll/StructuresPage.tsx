@@ -5,6 +5,7 @@ import { PayrollNavTabs } from '../../components/layout/PayrollNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { payrollApi, type SalaryStructure } from './payrollApi';
 import { showToast } from '../../lib/toast';
 
@@ -49,7 +50,7 @@ export default function StructuresPage() {
       <div className="px-5 pb-6 space-y-4">
         <Card>
           {loading ? (
-            <div className="p-8 text-center text-body-sm text-text-muted">Loading salary structures...</div>
+            <Skeleton className="skeleton--panel" />
           ) : (
             <table className="w-full border-collapse text-body-sm">
               <thead>

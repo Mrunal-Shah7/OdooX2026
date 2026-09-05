@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
-import { Spinner } from '../../components/ui/Spinner';
+import { FormSkeleton } from '../../components/ui/Skeleton';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
 import { showToast } from '../../lib/toast';
@@ -180,11 +180,7 @@ export default function ScheduleFormPage() {
   });
 
   if (!isNew && isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   return (

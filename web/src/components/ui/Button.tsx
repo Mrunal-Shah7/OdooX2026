@@ -3,14 +3,14 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '../../lib/cn';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap border border-transparent font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-sunken disabled:text-text-subtle',
+  'app-button inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus-ring disabled:cursor-not-allowed',
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-on-primary hover:bg-primary-hover',
-        accent: 'bg-accent text-on-accent hover:bg-accent-hover',
-        secondary: 'border-border-strong bg-surface text-text hover:bg-primary-subtle',
-        danger: 'border-border-strong bg-surface text-danger hover:bg-danger-subtle',
+        primary: 'app-button--primary',
+        accent: 'app-button--accent',
+        secondary: 'app-button--secondary',
+        danger: 'app-button--danger',
       },
       size: {
         sm: 'h-[var(--control-height-sm)] px-3 text-caption',

@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { payrollApi, type PayslipDetail, type PayslipLine } from './payrollApi';
 import { showToast } from '../../lib/toast';
 
@@ -220,7 +221,7 @@ export default function PayslipDetailPage() {
 
       <div className="px-5 pb-6 space-y-4">
         {loading ? (
-          <div className="p-8 text-center text-body-sm text-text-muted">Loading payslip details...</div>
+          <Skeleton className="skeleton--panel" />
         ) : !ps ? (
           <div className="p-8 text-center text-body-sm text-danger">Payslip not found.</div>
         ) : (

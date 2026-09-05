@@ -12,7 +12,7 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Spinner } from '../../components/ui/Spinner';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { showToast } from '../../lib/toast';
 
 type DeptForm = { name: string; code: string };
@@ -139,7 +139,7 @@ export default function DepartmentsPage() {
       <div className="px-5 pb-6">
         <Card>
           {departmentsQuery.isLoading ? (
-            <Spinner />
+            <Skeleton className="skeleton--panel" />
           ) : departmentsQuery.isError ? (
             <ErrorState onRetry={() => departmentsQuery.refetch()} />
           ) : data.length === 0 ? (

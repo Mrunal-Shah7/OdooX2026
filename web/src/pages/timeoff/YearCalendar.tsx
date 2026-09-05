@@ -12,6 +12,7 @@ export type TimeOffCalendarDay = {
 
 type YearCalendarProps = {
   year: number;
+  selectedMonth?: number;
   days: TimeOffCalendarDay[];
   types?: { id: string; name: string; color: string }[];
   selectedStartDate?: string | null;
@@ -38,6 +39,7 @@ const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export function YearCalendar({
   year,
+  selectedMonth,
   days = [],
   types = [],
   selectedStartDate = null,
@@ -66,7 +68,7 @@ export function YearCalendar({
           (types ?? []).map((t) => (
             <span key={t.id} className="flex items-center gap-1.5">
               <span className="inline-block size-3 rounded-sm" style={{ background: t.color }} />
-              <span>{t.name}</span>
+              <span>{t.name} (approved)</span>
             </span>
           ))
         ) : (
@@ -134,6 +136,7 @@ export function YearCalendar({
           </thead>
           <tbody>
             {MONTH_NAMES.map((monthName, mIdx) => {
+              if (selectedMonth && mIdx + 1 !== selectedMonth) return null;
               const daysInMonth = new Date(year, mIdx + 1, 0).getDate();
               return (
                 <tr key={monthName} className="border-b border-border">

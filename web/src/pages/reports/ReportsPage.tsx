@@ -6,6 +6,7 @@ import { Amount } from '../../components/ui/Amount';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Tabs, type TabItem } from '../../components/ui/Tabs';
@@ -191,11 +192,23 @@ export default function ReportsPage() {
           <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
             <div className="flex items-center gap-2">
               <span className="text-caption font-medium text-text-muted">Start:</span>
-              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="w-36" />
+              <DatePicker
+                mode="single"
+                value={periodStart}
+                onChange={setPeriodStart}
+                required
+                ariaLabel="Salary period start date"
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-caption font-medium text-text-muted">End:</span>
-              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="w-36" />
+              <DatePicker
+                mode="single"
+                value={periodEnd}
+                onChange={setPeriodEnd}
+                required
+                ariaLabel="Salary period end date"
+              />
             </div>
             <div className="w-48">
               <Select options={departmentOptions} value={departmentId} onValueChange={setDepartmentId} />
@@ -304,11 +317,23 @@ export default function ReportsPage() {
           <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
             <div className="flex items-center gap-2">
               <span className="text-caption font-medium text-text-muted">Start:</span>
-              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="w-36" />
+              <DatePicker
+                mode="single"
+                value={periodStart}
+                onChange={setPeriodStart}
+                required
+                ariaLabel="Department cost period start date"
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-caption font-medium text-text-muted">End:</span>
-              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="w-36" />
+              <DatePicker
+                mode="single"
+                value={periodEnd}
+                onChange={setPeriodEnd}
+                required
+                ariaLabel="Department cost period end date"
+              />
             </div>
           </div>
           <Card className="p-0 overflow-hidden">

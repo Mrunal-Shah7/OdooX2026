@@ -4,12 +4,13 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody } from '../../components/ui/Card';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+import { FormSkeleton } from '../../components/ui/Skeleton';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 import { showToast } from '../../lib/toast';
@@ -93,14 +94,9 @@ export default function RequestFormPage() {
   const canApprove = user ? isHrManagerOrAbove(user.role) : false;
 
   // Types list
-  const { data: typesData } = useQuery<TimeOffType[]>({
+  const { data: typesData = [] } = useQuery<TimeOffType[]>({
     queryKey: ['timeOff', 'types'],
-    queryFn: async () => {
-      const res = await apiRequest<any>('/api/time-off/types');
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data)) return res.data;
-      return [];
-    },
+    queryFn: () => apiRequest<TimeOffType[]>('/api/time-off/types'),
   });
 
   // Request detail if existing
@@ -133,13 +129,8 @@ export default function RequestFormPage() {
       setReason(request.reason ?? '');
       setRefusalReason(request.refusalReason ?? '');
     } else {
-      const typeList: TimeOffType[] = Array.isArray(typesData)
-        ? typesData
-        : Array.isArray((typesData as any)?.data)
-        ? (typesData as any).data
-        : [];
-      if (typeList.length > 0 && !timeOffTypeId) {
-        setTimeOffTypeId(typeList[0]?.id ?? '');
+      if (typesData.length > 0 && !timeOffTypeId) {
+        setTimeOffTypeId(typesData[0]?.id ?? '');
       }
     }
   }, [request, typesData, timeOffTypeId]);
@@ -228,11 +219,7 @@ export default function RequestFormPage() {
   });
 
   if (!isNew && isLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   if (!isNew && isError) {
@@ -246,9 +233,18 @@ export default function RequestFormPage() {
   const title = isNew
     ? 'New time off request'
     : `${request?.employee.firstName} ${request?.employee.lastName} · ${request?.timeOffType.name}`;
+  const selectedTimeOffType = typesData.find((type) => type.id === timeOffTypeId);
+  const employeeName = isNew
+    ? user?.employee
+      ? `${user.employee.firstName} ${user.employee.lastName}`
+      : 'Current user'
+    : `${request?.employee.firstName} ${request?.employee.lastName}`;
+  const timeOffTypeName = isNew
+    ? selectedTimeOffType?.name ?? 'Not selected'
+    : request?.timeOffType.name ?? 'Not selected';
 
   return (
-    <>
+    <div className="timeoff-request-page">
       <PageHeader
         title={title}
         subtitle={
@@ -315,10 +311,15 @@ export default function RequestFormPage() {
         }
       />
 
-      <div className="max-w-3xl px-5 pb-6">
-        <Card>
-          <CardBody className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="timeoff-request-page__content">
+        <div className="timeoff-request-layout">
+          <Card className="timeoff-request-form-card">
+            <CardHeader
+              title="Request details"
+              subtitle={isNew ? 'Choose the dates and leave policy' : 'Review the submitted request'}
+            />
+            <CardBody className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="Employee">
                 <Input
                   value={
@@ -336,17 +337,10 @@ export default function RequestFormPage() {
               <Field label="Time off type">
                 {isNew ? (
                   <Select
-                    options={
-                      (Array.isArray(typesData)
-                        ? typesData
-                        : Array.isArray((typesData as any)?.data)
-                        ? (typesData as any).data
-                        : []
-                      ).map((t: any) => ({
-                        value: t.id,
-                        label: `${t.name} (${t.unit})`,
-                      }))
-                    }
+                    options={typesData.map((type) => ({
+                      value: type.id,
+                      label: `${type.name} (${type.unit})`,
+                    }))}
                     value={timeOffTypeId}
                     onValueChange={setTimeOffTypeId}
                   />
@@ -359,32 +353,40 @@ export default function RequestFormPage() {
                 )}
               </Field>
 
-              <Field label="Start date">
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    if (durationType === 'half_day') {
-                      setEndDate(e.target.value);
-                    }
-                  }}
-                  readOnly={!isNew}
-                  className={`font-mono ${!isNew ? 'bg-surface-sunken' : ''}`}
-                />
-              </Field>
-
-              <Field label="End date">
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  readOnly={!isNew || durationType === 'half_day'}
-                  className={`font-mono ${
-                    !isNew || durationType === 'half_day' ? 'bg-surface-sunken' : ''
-                  }`}
-                />
-              </Field>
+              <div className="md:col-span-2">
+                <Field
+                  label={durationType === 'half_day' ? 'Request date' : 'Date range'}
+                  help={
+                    durationType === 'half_day'
+                      ? 'Half-day requests use one date'
+                      : 'Select the start and end dates'
+                  }
+                >
+                  {durationType === 'half_day' ? (
+                    <DatePicker
+                      mode="single"
+                      value={startDate}
+                      onChange={(value) => {
+                        setStartDate(value);
+                        setEndDate(value);
+                      }}
+                      readOnly={!isNew}
+                      ariaLabel="Time off request date"
+                    />
+                  ) : (
+                    <DatePicker
+                      mode="range"
+                      value={{ startDate, endDate }}
+                      onChange={(value) => {
+                        setStartDate(value.startDate);
+                        setEndDate(value.endDate);
+                      }}
+                      readOnly={!isNew}
+                      ariaLabel="Time off date range"
+                    />
+                  )}
+                </Field>
+              </div>
 
               <Field label="Duration type">
                 {isNew ? (
@@ -473,18 +475,121 @@ export default function RequestFormPage() {
                   />
                 </Field>
               )}
-            </div>
-
-            {!isNew && request?.allocation && request.status === 'to_approve' && (
-              <div className="mt-4 rounded-md border border-warning bg-warning-subtle p-3 text-body-sm text-warning">
-                Approving this consumes {request.durationDays} days from{' '}
-                {request.allocation.description ?? 'allocation'}, leaving{' '}
-                {request.allocation.remaining} days.
               </div>
-            )}
-          </CardBody>
-        </Card>
+
+              {!isNew && request?.allocation && request.status === 'to_approve' && (
+                <div className="mt-4 rounded-md border border-warning bg-warning-subtle p-3 text-body-sm text-warning">
+                  Approving this consumes {request.durationDays} days from{' '}
+                  {request.allocation.description ?? 'allocation'}, leaving{' '}
+                  {request.allocation.remaining} days.
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <aside className="timeoff-request-sidebar" aria-label="Time off request summary">
+            <Card>
+              <CardHeader title="Request summary" subtitle="Updates as details change" />
+              <CardBody>
+                <dl className="timeoff-request-summary">
+                  <div className="timeoff-request-summary__row">
+                    <dt>Employee</dt>
+                    <dd>{employeeName}</dd>
+                  </div>
+                  <div className="timeoff-request-summary__row">
+                    <dt>Time off type</dt>
+                    <dd>{timeOffTypeName}</dd>
+                  </div>
+                  <div className="timeoff-request-summary__row">
+                    <dt>Start date</dt>
+                    <dd className="timeoff-request-summary__numeric">{startDate || 'Not set'}</dd>
+                  </div>
+                  <div className="timeoff-request-summary__row">
+                    <dt>End date</dt>
+                    <dd className="timeoff-request-summary__numeric">{endDate || 'Not set'}</dd>
+                  </div>
+                  <div className="timeoff-request-summary__row">
+                    <dt>Duration type</dt>
+                    <dd>{durationType.replace('_', ' ')}</dd>
+                  </div>
+                  <div className="timeoff-request-summary__row">
+                    <dt>{isNew ? 'Requested hours' : 'Duration'}</dt>
+                    <dd className="timeoff-request-summary__numeric">
+                      {isNew
+                        ? durationType === 'hours' && requestedHours
+                          ? `${requestedHours} h`
+                          : 'Calculated on submission'
+                        : `${request?.durationDays ?? '0.00'} days · ${request?.durationHours ?? '0.00'} h`}
+                    </dd>
+                  </div>
+                  {!isNew && request ? (
+                    <div className="timeoff-request-summary__row">
+                      <dt>Status</dt>
+                      <dd>
+                        <Badge
+                          variant={
+                            request.status === 'approved'
+                              ? 'success'
+                              : request.status === 'to_approve'
+                                ? 'warning'
+                                : 'danger'
+                          }
+                        >
+                          {request.status.replace('_', ' ')}
+                        </Badge>
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader title={isNew ? 'Before submitting' : 'Approval context'} />
+              <CardBody>
+                {isNew ? (
+                  <ul className="timeoff-request-guidance">
+                    <li>Confirm the requested date range.</li>
+                    <li>Hours are required only for an hourly request.</li>
+                    <li>The final duration follows the working schedule.</li>
+                  </ul>
+                ) : (
+                  <dl className="timeoff-request-summary">
+                    <div className="timeoff-request-summary__row">
+                      <dt>Approver</dt>
+                      <dd>
+                        {request?.approver
+                          ? `${request.approver.firstName} ${request.approver.lastName}`
+                          : 'Not assigned'}
+                      </dd>
+                    </div>
+                    <div className="timeoff-request-summary__row">
+                      <dt>Allocation</dt>
+                      <dd>{request?.allocation?.description ?? 'No allocation used'}</dd>
+                    </div>
+                    {request?.allocation ? (
+                      <>
+                        <div className="timeoff-request-summary__row">
+                          <dt>Allocated</dt>
+                          <dd className="timeoff-request-summary__numeric">
+                            {request.allocation.allocated} {request.timeOffType.unit}
+                          </dd>
+                        </div>
+                        <div className="timeoff-request-summary__row">
+                          <dt>Remaining</dt>
+                          <dd className="timeoff-request-summary__numeric">
+                            {request.allocation.remaining} {request.timeOffType.unit}
+                          </dd>
+                        </div>
+                      </>
+                    ) : null}
+                  </dl>
+                )}
+              </CardBody>
+            </Card>
+          </aside>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

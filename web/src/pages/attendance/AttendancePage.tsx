@@ -82,6 +82,7 @@ function getStatusBadgeVariant(status: string) {
       return 'danger';
     case 'half_day':
     case 'on_leave':
+      return 'info';
     default:
       return 'neutral';
   }
@@ -104,6 +105,18 @@ export default function AttendancePage() {
     queryKey: ['attendance', 'list', queryParams],
     queryFn: () => fetchAttendance(queryParams),
   });
+
+  const summary = useMemo(() => {
+    const records = data?.data ?? [];
+    return {
+      total: data?.meta.total ?? 0,
+      present: records.filter((record) => record.status === 'present').length,
+      late: records.filter((record) => record.status === 'late').length,
+      workedHours: records
+        .reduce((total, record) => total + Number(record.workedHours), 0)
+        .toFixed(2),
+    };
+  }, [data]);
 
   const baseColumns = useMemo<ColumnDef<AttendanceItem>[]>(
     () => [
@@ -190,9 +203,10 @@ export default function AttendancePage() {
   );
 
   return (
-    <>
+    <div className="attendance-page">
       <PageHeader
         title="Attendance records"
+        subtitle="Review daily work hours, overtime, and attendance status."
         actions={
           canCreate ? (
             <Button
@@ -207,13 +221,46 @@ export default function AttendancePage() {
         }
       />
 
-      <div className="space-y-4 px-5 pb-6">
+      <div className="attendance-page__content">
+        {!isError ? (
+          <section className="attendance-summary" aria-label="Attendance summary">
+            <div className="attendance-summary__item">
+              <span className="attendance-summary__label">Total records</span>
+              <strong className="attendance-summary__value">
+                {isLoading ? '—' : summary.total}
+              </strong>
+              <span className="attendance-summary__note">All matching records</span>
+            </div>
+            <div className="attendance-summary__item">
+              <span className="attendance-summary__label">Present</span>
+              <strong className="attendance-summary__value">
+                {isLoading ? '—' : summary.present}
+              </strong>
+              <span className="attendance-summary__note">On this page</span>
+            </div>
+            <div className="attendance-summary__item">
+              <span className="attendance-summary__label">Late arrivals</span>
+              <strong className="attendance-summary__value">
+                {isLoading ? '—' : summary.late}
+              </strong>
+              <span className="attendance-summary__note">On this page</span>
+            </div>
+            <div className="attendance-summary__item">
+              <span className="attendance-summary__label">Worked hours</span>
+              <strong className="attendance-summary__value">
+                {isLoading ? '—' : summary.workedHours}
+              </strong>
+              <span className="attendance-summary__note">Visible records</span>
+            </div>
+          </section>
+        ) : null}
+
         {isError ? (
           <Card>
             <ErrorState message="Could not load attendance records" onRetry={() => refetch()} />
           </Card>
         ) : (
-          <Card className="overflow-hidden">
+          <Card key={page} className="attendance-table-card overflow-hidden">
             <DataTable
               columns={columns}
               data={data?.data ?? []}
@@ -237,6 +284,6 @@ export default function AttendancePage() {
           </Card>
         )}
       </div>
-    </>
+    </div>
   );
 }

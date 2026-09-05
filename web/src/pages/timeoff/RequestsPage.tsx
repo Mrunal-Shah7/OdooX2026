@@ -132,15 +132,28 @@ export default function RequestsPage() {
         header: 'Type',
         accessorFn: (row) => row.timeOffType.name,
         meta: { filterVariant: 'text' } as ColumnMeta,
-        cell: ({ row }) => (
-          <span className="flex items-center gap-1.5">
+        cell: ({ row }) => {
+          const isPending = row.original.status === 'to_approve';
+          return (
+          <span
+            className={
+              isPending
+                ? 'flex w-fit items-center gap-1.5 rounded-sm bg-warning-subtle px-2 py-1 text-warning'
+                : 'flex items-center gap-1.5'
+            }
+          >
             <span
-              className="inline-block size-2.5 rounded-full"
-              style={{ background: row.original.timeOffType.color }}
+              className={
+                isPending
+                  ? 'inline-block size-2.5 rounded-full bg-warning'
+                  : 'inline-block size-2.5 rounded-full'
+              }
+              style={isPending ? undefined : { background: row.original.timeOffType.color }}
             />
             <span>{row.original.timeOffType.name}</span>
           </span>
-        ),
+          );
+        },
       },
       {
         accessorKey: 'startDate',

@@ -8,6 +8,7 @@ import { Checkbox } from '../../components/ui/Checkbox';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { payrollApi, type SalaryRule, type SalaryStructure } from './payrollApi';
 import { showToast } from '../../lib/toast';
 
@@ -240,7 +241,7 @@ export default function RuleFormPage() {
         )}
 
         {loading ? (
-          <div className="p-8 text-center text-body-sm text-text-muted">Loading rule details...</div>
+          <Skeleton className="skeleton--panel" />
         ) : (
           <Card>
             <CardHeader title="Salary Rule Configuration" />

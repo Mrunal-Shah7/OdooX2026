@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { payrollApi, type SalaryRule, type SalaryStructure } from './payrollApi';
 
 export default function RulesPage() {
@@ -114,7 +115,7 @@ export default function RulesPage() {
 
         <Card>
           {loading ? (
-            <div className="p-8 text-center text-body-sm text-text-muted">Loading salary rules...</div>
+            <Skeleton className="skeleton--panel" />
           ) : (
             <table className="w-full border-collapse text-body-sm">
               <thead>

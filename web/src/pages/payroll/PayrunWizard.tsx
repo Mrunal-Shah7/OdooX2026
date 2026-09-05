@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
@@ -229,10 +230,23 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Period start">
-                <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+                <DatePicker
+                  mode="single"
+                  value={periodStart}
+                  onChange={setPeriodStart}
+                  required
+                  ariaLabel="Payrun period start date"
+                />
               </Field>
               <Field label="Period end">
-                <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+                <DatePicker
+                  mode="single"
+                  value={periodEnd}
+                  onChange={setPeriodEnd}
+                  min={periodStart}
+                  required
+                  ariaLabel="Payrun period end date"
+                />
               </Field>
             </div>
 

@@ -4,11 +4,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+import { FormSkeleton } from '../../components/ui/Skeleton';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
 import { queryKeys } from '../../lib/queryKeys';
 import { useSession } from '../../lib/session';
@@ -295,11 +296,7 @@ export default function EmployeeFormPage() {
   const isAdmin = user?.role === 'admin';
 
   if (isDataLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   if (!isNew && employeeQuery.isError) {
@@ -423,12 +420,13 @@ export default function EmployeeFormPage() {
                 </Field>
 
                 <Field label="Joining date *" error={fieldErrors.joiningDate}>
-                  <Input
-                    type="date"
+                  <DatePicker
+                    mode="single"
                     value={form.joiningDate}
-                    onChange={(e) => setForm((f) => ({ ...f, joiningDate: e.target.value }))}
+                    onChange={(joiningDate) => setForm((f) => ({ ...f, joiningDate }))}
                     required
                     disabled={!isAdmin}
+                    ariaLabel="Employee joining date"
                   />
                 </Field>
               </div>

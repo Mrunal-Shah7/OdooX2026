@@ -38,6 +38,8 @@ installed, by anyone, for any reason.
 | `jsonwebtoken`, `@types/jsonwebtoken` | Hand-rolling JWT sign/verify is a correctness risk not worth 20 hours |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | Required by shadcn component source |
 | `lucide-react` | Icon set required by shadcn component source |
+| `react-day-picker` | Calendar engine required by the shadcn Calendar and Date Picker components |
+| `date-fns` | Date formatting required by the shadcn Date Picker composition |
 | `@radix-ui/react-{dialog,dropdown-menu,select,popover,tabs,checkbox,label}` | Only these seven primitives; anything else is hand-built |
 | `@fontsource-variable/inter`, `@fontsource/ibm-plex-mono` | Self-hosted fonts; no CDN at runtime |
 | `tsx` | TypeScript execution for the server in development |

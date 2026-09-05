@@ -43,6 +43,7 @@ import ReportsPage from './pages/reports/ReportsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
+import { AuthSkeleton, PageSkeleton } from './components/ui/Skeleton';
 
 /** Validate session cookies via /me. Clears local hint on failure. */
 async function requireAuthUser() {
@@ -70,6 +71,8 @@ const loginRoute = createRoute({
       clearStoredUserId();
     }
   },
+  pendingMs: 0,
+  pendingComponent: AuthSkeleton,
   component: LoginPage,
 });
 
@@ -103,6 +106,8 @@ const appRoute = createRoute({
   beforeLoad: async () => {
     await requireAuthUser();
   },
+  pendingMs: 0,
+  pendingComponent: PageSkeleton,
   component: AppShell,
 });
 

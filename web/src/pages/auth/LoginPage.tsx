@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
 import { homePathForRole, useSession } from '../../lib/session';
+import { BrandLogo } from '../../components/BrandLogo';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
@@ -34,6 +35,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-canvas p-5">
       <Card className="w-full max-w-[var(--container-narrow)]">
         <CardBody>
+          <div className="auth-brand">
+            <BrandLogo variant="full" />
+          </div>
           <h1 className="m-0 text-h1 font-semibold">Sign in</h1>
           <p className="mt-1 text-body-sm text-text-muted">PeoplePay360 demo environment</p>
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">

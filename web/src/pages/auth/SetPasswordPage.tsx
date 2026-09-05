@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useSearch } from '@tanstack/react-router';
 import { apiClient, ApiClientError } from '../../lib/apiClient';
+import { BrandLogo } from '../../components/BrandLogo';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
@@ -40,8 +41,10 @@ export default function SetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-canvas p-5">
       <Card className="w-full max-w-[var(--container-narrow)]">
         <CardBody>
-          <p className="m-0 text-h2 font-semibold">PeoplePay360</p>
-          <h1 className="m-0 mt-4 text-h1 font-semibold">Set password</h1>
+          <div className="auth-brand">
+            <BrandLogo variant="full" />
+          </div>
+          <h1 className="m-0 text-h1 font-semibold">Set password</h1>
           {done ? (
             <p className="mt-4 text-body-sm text-text-muted">
               Your password has been updated.{' '}

@@ -1,495 +1,327 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import {
-  Building2,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Edit3,
-  FileText,
-  Mail,
-  MapPin,
-  Phone,
-  Shield,
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import type { components } from '../../../../shared/api-types';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { Amount } from '../../components/ui/Amount';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { PageSkeleton, Skeleton } from '../../components/ui/Skeleton';
 import { Tabs } from '../../components/ui/Tabs';
 import { apiFetch } from '../../lib/apiFetch';
+import { formatDate } from '../../lib/format';
+import { queryKeys } from '../../lib/queryKeys';
 import { useSession } from '../../lib/session';
-import { showToast } from '../../lib/toast';
 
-type ProfileResponse = {
-  employee: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    workEmail: string;
-    personalEmail: string | null;
-    phone: string | null;
-    jobPosition: string;
-    employeeType: string;
-    status: string;
-    joiningDate: string;
-    workLocation: string | null;
-    bankName: string | null;
-    bankAccountHolder: string | null;
-    bankAccountNumber: string | null;
-    bankIfsc: string | null;
-    department: { id: string; name: string; code: string } | null;
-    manager: { id: string; firstName: string; lastName: string } | null;
-    workingSchedule: { id: string; name: string; timezone: string } | null;
-  } | null;
-  counts?: {
-    contracts: number;
-    attendance: number;
-    timeOff: number;
-    allocations: number;
-  };
-};
+type EmployeeDetailResponse = components['schemas']['EmployeeDetailResponse'];
+type ContractListResponse = components['schemas']['ContractListResponse'];
+type ActiveAttendanceResponse = components['schemas']['ActiveAttendanceResponse'];
+type AttendanceResponse = components['schemas']['AttendanceResponse'];
+
+function labelFor(value: string): string {
+  return value
+    .split('_')
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function ProfileFact({
+  label,
+  children,
+  numeric = false,
+}: {
+  label: string;
+  children: ReactNode;
+  numeric?: boolean;
+}) {
+  return (
+    <div className="border-b border-border pb-3 last:border-b-0 last:pb-0">
+      <span className="block text-caption text-text-muted">{label}</span>
+      <span className={numeric ? 'font-mono text-body-sm text-text' : 'text-body-sm text-text'}>
+        {children}
+      </span>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { user } = useSession();
   const queryClient = useQueryClient();
-
-  // Mode state for inline editing
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Profile form state
-  const [personalEmail, setPersonalEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [workLocation, setWorkLocation] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [bankAccountHolder, setBankAccountHolder] = useState('');
-  const [bankAccountNumber, setBankAccountNumber] = useState('');
-  const [bankIfsc, setBankIfsc] = useState('');
-
-  // Password form state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
-  // Feedback states
-  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // Fetch full employee profile
-  const { data: profileData } = useQuery({
-    queryKey: ['profile'],
-    queryFn: () => apiFetch<{ data: ProfileResponse | null }>('/profile'),
-    enabled: !!user,
+  const employeeId = user?.employee?.id;
+  const profileQuery = useQuery({
+    queryKey: employeeId ? queryKeys.employees.detail(employeeId) : ['profile', 'account-only'],
+    queryFn: () => apiFetch<EmployeeDetailResponse>(`/employees/${employeeId}`),
+    enabled: Boolean(employeeId),
   });
 
-  const resData = profileData?.data;
-  const emp = resData?.employee ?? null;
-  const counts = resData?.counts ?? { contracts: 0, attendance: 0, timeOff: 0, allocations: 0 };
+  const employee = profileQuery.data?.data.employee ?? null;
 
-  // Init form values from profile data
-  useEffect(() => {
-    if (emp) {
-      setPersonalEmail(emp.personalEmail ?? '');
-      setPhone(emp.phone ?? '');
-      setWorkLocation(emp.workLocation ?? '');
-      setBankName(emp.bankName ?? '');
-      setBankAccountHolder(emp.bankAccountHolder ?? '');
-      setBankAccountNumber(emp.bankAccountNumber ?? '');
-      setBankIfsc(emp.bankIfsc ?? '');
-    }
-  }, [emp]);
+  const contractsQuery = useQuery({
+    queryKey: queryKeys.contracts.all(
+      employeeId ? { employeeId, page: '1', pageSize: '100' } : undefined,
+    ),
+    queryFn: () =>
+      apiFetch<ContractListResponse>(
+        `/contracts?employeeId=${employeeId}&page=1&pageSize=100`,
+      ),
+    enabled: Boolean(employeeId),
+  });
 
-  // Update profile mutation
-  const updateProfileMutation = useMutation({
-    mutationFn: async () => {
-      setProfileSuccess(null);
-      return apiFetch<{ data: ProfileResponse }>('/profile', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          personalEmail: personalEmail.trim() || null,
-          phone: phone.trim() || null,
-          workLocation: workLocation.trim() || null,
-          bankName: bankName.trim() || null,
-          bankAccountHolder: bankAccountHolder.trim() || null,
-          bankAccountNumber: bankAccountNumber.trim() || null,
-          bankIfsc: bankIfsc.trim() || null,
-        }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      setIsEditing(false);
-      showToast({ type: 'success', title: 'Profile Updated', message: 'Profile updated successfully.' });
-    },
-    onError: (err: any) => {
-      const msg = err.message || 'Failed to update profile.';
-      showToast({ type: 'error', title: 'Update Failed', message: msg });
+  const activeContract =
+    contractsQuery.data?.data.find((contract) => contract.status === 'running') ?? null;
+
+  const attendanceQuery = useQuery({
+    queryKey: queryKeys.attendance.active,
+    queryFn: () => apiFetch<ActiveAttendanceResponse>('/attendance/active'),
+    enabled: Boolean(employeeId),
+  });
+
+  const attendance = attendanceQuery.data?.data;
+  const attendanceMutation = useMutation({
+    mutationFn: (action: 'check-in' | 'check-out') =>
+      apiFetch<AttendanceResponse>(`/attendance/${action}`, { method: 'POST' }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.active });
+      await queryClient.invalidateQueries({ queryKey: ['attendance'] });
     },
   });
 
-  // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
+      setPasswordError(null);
       setPasswordSuccess(null);
 
       if (!currentPassword) {
-        throw new Error('Please enter your current password.');
+        throw new Error('Enter your current password.');
       }
       if (newPassword.length < 8) {
-        throw new Error('New password must be at least 8 characters long.');
+        throw new Error('The new password must be at least 8 characters.');
       }
       if (newPassword !== confirmPassword) {
-        throw new Error('New password and confirm password do not match.');
+        throw new Error('The new password and confirmation do not match.');
       }
 
       return apiFetch<void>('/auth/change-password', {
         method: 'POST',
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
     },
     onSuccess: () => {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      showToast({ type: 'success', title: 'Password Changed', message: 'Password changed successfully.' });
+      setPasswordSuccess('Password updated successfully.');
     },
-    onError: (err: any) => {
-      const msg = err.message || 'Failed to change password.';
-      showToast({ type: 'error', title: 'Password Change Failed', message: msg });
+    onError: (error: unknown) => {
+      setPasswordError(errorMessage(error, 'The password could not be updated.'));
     },
   });
 
-  // Avatar initials generator
-  const initials = emp
-    ? `${emp.firstName.charAt(0)}${emp.lastName.charAt(0)}`.toUpperCase()
-    : user?.email.substring(0, 2).toUpperCase() ?? 'U';
+  const fullName = employee
+    ? `${employee.firstName} ${employee.lastName}`
+    : user?.employee
+      ? `${user.employee.firstName} ${user.employee.lastName}`
+      : user?.email ?? 'User';
+  const initials = employee
+    ? `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`.toUpperCase()
+    : fullName.slice(0, 2).toUpperCase();
+  const role = user?.role ?? 'employee';
+  const isCheckedIn = attendance?.checkedIn ?? false;
+  const completedToday = Boolean(attendance?.record?.checkOut);
+  const hasCompleteBankDetails = Boolean(
+    employee?.bankName &&
+      employee.bankAccountHolder &&
+      employee.bankAccountLast4 &&
+      employee.bankIfsc,
+  );
+  const attendanceError = attendanceMutation.error
+    ? errorMessage(attendanceMutation.error, 'Attendance could not be updated.')
+    : null;
+  const checkedInAt = attendance?.record?.checkIn
+    ? new Date(attendance.record.checkIn).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : null;
 
-  const fullName = emp ? `${emp.firstName} ${emp.lastName}` : user?.email ?? 'User';
+  if (employeeId && profileQuery.isLoading) {
+    return <PageSkeleton />;
+  }
+
+  if (profileQuery.isError) {
+    return (
+      <>
+        <PageHeader title="My profile" subtitle="Your employee and account information" />
+        <Card className="mx-5">
+          <ErrorState
+            message="Your profile could not be loaded."
+            onRetry={() => void profileQuery.refetch()}
+          />
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>
       <PageHeader
-        title="User Profile"
-        subtitle="Manage your personal information, contact preferences, and account security"
+        title="My profile"
+        subtitle="Your employee, contract, bank, and account information"
       />
 
-      <div className="px-5 pb-8 space-y-6">
-        {/* Profile Hero Header Card */}
-        <Card className="overflow-hidden border-border shadow-sm">
-          <div className="bg-surface-subtle border-b border-border px-6 py-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="size-20 rounded-full bg-accent text-on-accent font-bold text-h1 flex items-center justify-center shadow-md shrink-0">
-                {initials}
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-h2 font-bold text-text m-0">{fullName}</h2>
-                  <Badge variant={user?.status === 'active' ? 'success' : 'neutral'}>
-                    {user?.status ?? 'active'}
-                  </Badge>
-                  <Badge variant="info" className="uppercase tracking-wider">
-                    {user?.role ?? 'employee'}
-                  </Badge>
-                </div>
-                <p className="text-body-sm text-text-muted m-0 flex items-center gap-2">
-                  <span>{emp?.jobPosition ?? 'Team Member'}</span>
-                  <span>•</span>
-                  <span>{emp?.department?.name ?? 'General'}</span>
-                  {emp?.workLocation && (
-                    <>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="size-3.5" />
-                        {emp.workLocation}
-                      </span>
-                    </>
-                  )}
-                </p>
-                <p className="text-caption font-mono text-text-muted m-0 pt-1">
-                  Email: {user?.email}
-                </p>
-              </div>
-            </div>
-
-            {/* Header Action Controls */}
-            <div className="flex items-center gap-3">
-              {emp && (
-                <Button
-                  variant={isEditing ? 'secondary' : 'accent'}
-                  onClick={() => {
-                    setIsEditing(!isEditing);
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Edit3 className="size-4" />
-                  <span>{isEditing ? 'Cancel Edit' : 'Edit Profile'}</span>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          {emp && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border bg-surface text-body-sm">
-              <Link
-                to="/payroll/payslips"
-                className="p-4 hover:bg-surface-subtle transition-colors no-underline text-text flex items-center gap-3"
-              >
-                <FileText className="size-5 text-accent shrink-0" />
-                <div>
-                  <span className="text-caption text-text-muted block">Contracts</span>
-                  <span className="font-mono font-bold text-text">{counts.contracts} active</span>
-                </div>
-              </Link>
-
-              <Link
-                to="/time-off/requests"
-                className="p-4 hover:bg-surface-subtle transition-colors no-underline text-text flex items-center gap-3"
-              >
-                <Calendar className="size-5 text-info shrink-0" />
-                <div>
-                  <span className="text-caption text-text-muted block">Time Off Requests</span>
-                  <span className="font-mono font-bold text-text">{counts.timeOff} requests</span>
-                </div>
-              </Link>
-
-              <Link
-                to="/attendance"
-                className="p-4 hover:bg-surface-subtle transition-colors no-underline text-text flex items-center gap-3"
-              >
-                <Clock className="size-5 text-success shrink-0" />
-                <div>
-                  <span className="text-caption text-text-muted block">Attendance Logs</span>
-                  <span className="font-mono font-bold text-text">{counts.attendance} records</span>
-                </div>
-              </Link>
-
-              <div className="p-4 flex items-center gap-3">
-                <Building2 className="size-5 text-warning shrink-0" />
-                <div>
-                  <span className="text-caption text-text-muted block">Work Schedule</span>
-                  <span className="font-medium text-text">
-                    {emp.workingSchedule?.name ?? 'Standard'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Global Feedback Banner */}
-        {profileSuccess && (
-          <div className="rounded-md bg-success-subtle p-4 text-body-sm text-success border border-success flex items-center gap-2">
-            <CheckCircle2 className="size-5 shrink-0" />
-            <span>{profileSuccess}</span>
-          </div>
-        )}
-
-        {/* Main Tabbed Profile Layout */}
+      <div className="px-5 pb-8">
         <Tabs
-          defaultValue="details"
+          defaultValue="overview"
+          className="profile-tabs"
           items={[
             {
-              value: 'details',
-              label: 'Personal & Contact Info',
+              value: 'overview',
+              label: 'Overview',
               content: (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-                  {/* Primary Info Box */}
-                  <Card className="lg:col-span-2">
-                    <CardHeader
-                      title="Contact & Personal Details"
-                      subtitle="Your personal contact information and work location"
-                      actions={
-                        emp && !isEditing ? (
-                          <Button
-                            variant="secondary"
-                            onClick={() => setIsEditing(true)}
-                            className="flex items-center gap-1.5 text-caption"
-                          >
-                            <Edit3 className="size-3.5" />
-                            <span>Edit</span>
-                          </Button>
-                        ) : null
-                      }
-                    />
-                    <CardBody>
-                      {isEditing ? (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            updateProfileMutation.mutate();
-                          }}
-                          className="space-y-4"
-                        >
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <Field label="Personal Email">
-                              <Input
-                                type="email"
-                                value={personalEmail}
-                                onChange={(e) => setPersonalEmail(e.target.value)}
-                                placeholder="personal@example.com"
-                              />
-                            </Field>
-
-                            <Field label="Phone Number">
-                              <Input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="+91 9876543210"
-                              />
-                            </Field>
-                          </div>
-
-                          <Field label="Work Location / Office Address">
-                            <Input
-                              value={workLocation}
-                              onChange={(e) => setWorkLocation(e.target.value)}
-                              placeholder="e.g. Building 4, Tech Park, Mumbai"
-                            />
-                          </Field>
-
-                          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                            <Button variant="secondary" type="button" onClick={() => setIsEditing(false)}>
-                              Cancel
-                            </Button>
-                            <Button
-                              type="submit"
-                              variant="accent"
-                              disabled={updateProfileMutation.isPending}
-                            >
-                              {updateProfileMutation.isPending ? 'Saving...' : 'Save Details'}
-                            </Button>
-                          </div>
-                        </form>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-body-sm">
-                          <div className="flex items-start gap-3 p-3 rounded-md bg-surface-subtle border border-border/60">
-                            <Mail className="size-5 text-accent mt-0.5 shrink-0" />
-                            <div>
-                              <span className="text-caption text-text-muted block">Work Email</span>
-                              <span className="font-mono text-text font-medium">{user?.email}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3 p-3 rounded-md bg-surface-subtle border border-border/60">
-                            <Mail className="size-5 text-info mt-0.5 shrink-0" />
-                            <div>
-                              <span className="text-caption text-text-muted block">Personal Email</span>
-                              <span className="font-mono text-text">
-                                {personalEmail || 'Not set'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3 p-3 rounded-md bg-surface-subtle border border-border/60">
-                            <Phone className="size-5 text-success mt-0.5 shrink-0" />
-                            <div>
-                              <span className="text-caption text-text-muted block">Phone Number</span>
-                              <span className="font-mono text-text">{phone || 'Not set'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3 p-3 rounded-md bg-surface-subtle border border-border/60">
-                            <MapPin className="size-5 text-warning mt-0.5 shrink-0" />
-                            <div>
-                              <span className="text-caption text-text-muted block">Work Location</span>
-                              <span className="text-text">{workLocation || 'Not set'}</span>
-                            </div>
-                          </div>
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                  <Card className="overflow-hidden">
+                    <div className="flex items-center gap-4 border-b border-border bg-surface-subtle p-5">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-h2 font-bold text-on-accent shadow-md">
+                        {initials}
+                      </span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="m-0 text-h2 font-semibold text-text">{fullName}</h2>
+                          <Badge variant={user?.status === 'active' ? 'success' : 'neutral'}>
+                            {user?.status ?? 'active'}
+                          </Badge>
                         </div>
-                      )}
+                        <p className="m-0 mt-1 font-mono text-caption text-text-muted">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+                    <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <ProfileFact label="Name">{fullName}</ProfileFact>
+                      <ProfileFact label="Role">
+                        <Badge variant="info">{labelFor(role)}</Badge>
+                      </ProfileFact>
+                      <ProfileFact label="Work email" numeric>
+                        {employee?.workEmail ?? user?.email ?? 'Not available'}
+                      </ProfileFact>
+                      <ProfileFact label="Status">
+                        {labelFor(employee?.status ?? user?.status ?? 'active')}
+                      </ProfileFact>
                     </CardBody>
                   </Card>
 
-                  {/* Bank Account Payout Box */}
-                  <Card>
+                  <Card className="lg:col-span-2">
                     <CardHeader
-                      title="Bank Account Payout"
-                      subtitle="Salary payout account details"
+                      title="Today’s attendance"
+                      subtitle="Clock in at the start of work and clock out when you finish"
+                    />
+                    <CardBody className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <ProfileFact label="Attendance status">
+                          <Badge variant={isCheckedIn ? 'success' : 'neutral'}>
+                            {isCheckedIn ? 'Clocked in' : completedToday ? 'Clocked out' : 'Not clocked in'}
+                          </Badge>
+                        </ProfileFact>
+                        <ProfileFact label="Worked today" numeric>
+                          {attendance?.todayWorkedHours ?? '0.00'} h
+                        </ProfileFact>
+                        <ProfileFact label="Clock-in time" numeric>
+                          {checkedInAt ?? '—'}
+                        </ProfileFact>
+                        <ProfileFact label="Clock-out time" numeric>
+                          {attendance?.record?.checkOut
+                            ? new Date(attendance.record.checkOut).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false,
+                              })
+                            : '—'}
+                        </ProfileFact>
+                      </div>
+
+                      {attendanceError ? (
+                        <p className="m-0 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
+                          {attendanceError}
+                        </p>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-3 border-t border-border pt-4">
+                        <Button
+                          variant="accent"
+                          disabled={
+                            !employeeId ||
+                            isCheckedIn ||
+                            completedToday ||
+                            attendanceQuery.isLoading ||
+                            attendanceMutation.isPending
+                          }
+                          onClick={() => attendanceMutation.mutate('check-in')}
+                        >
+                          {attendanceMutation.isPending ? 'Updating...' : 'Clock in'}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          disabled={!isCheckedIn || attendanceMutation.isPending}
+                          onClick={() => attendanceMutation.mutate('check-out')}
+                        >
+                          Clock out
+                        </Button>
+                      </div>
+                    </CardBody>
+                  </Card>
+
+                  <Card className="lg:col-span-3">
+                    <CardHeader
+                      title="Employee snapshot"
+                      subtitle="Your current organisation and contact details"
                     />
                     <CardBody>
-                      {isEditing ? (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            updateProfileMutation.mutate();
-                          }}
-                          className="space-y-4"
-                        >
-                          <Field label="Bank Name">
-                            <Input
-                              value={bankName}
-                              onChange={(e) => setBankName(e.target.value)}
-                              placeholder="e.g. HDFC Bank"
-                            />
-                          </Field>
-
-                          <Field label="Account Holder Name">
-                            <Input
-                              value={bankAccountHolder}
-                              onChange={(e) => setBankAccountHolder(e.target.value)}
-                              placeholder="Name on bank account"
-                            />
-                          </Field>
-
-                          <Field label="Account Number">
-                            <Input
-                              value={bankAccountNumber}
-                              onChange={(e) => setBankAccountNumber(e.target.value)}
-                              placeholder="Account number"
-                            />
-                          </Field>
-
-                          <Field label="IFSC / Branch Code">
-                            <Input
-                              value={bankIfsc}
-                              onChange={(e) => setBankIfsc(e.target.value)}
-                              placeholder="IFSC code"
-                            />
-                          </Field>
-
-                          <div className="pt-2">
-                            <Button
-                              type="submit"
-                              variant="accent"
-                              className="w-full"
-                              disabled={updateProfileMutation.isPending}
-                            >
-                              {updateProfileMutation.isPending ? 'Saving...' : 'Update Bank Payout Info'}
-                            </Button>
-                          </div>
-                        </form>
-                      ) : (
-                        <div className="space-y-4 text-body-sm">
-                          <div className="flex justify-between border-b border-border/50 pb-2">
-                            <span className="text-text-muted">Bank Name</span>
-                            <span className="font-medium text-text">{bankName || 'Not configured'}</span>
-                          </div>
-                          <div className="flex justify-between border-b border-border/50 pb-2">
-                            <span className="text-text-muted">Account Holder</span>
-                            <span className="text-text">{bankAccountHolder || 'Not configured'}</span>
-                          </div>
-                          <div className="flex justify-between border-b border-border/50 pb-2">
-                            <span className="text-text-muted">Account Number</span>
-                            <span className="font-mono text-caption text-text">
-                              {bankAccountNumber ? `•••• ${bankAccountNumber.slice(-4)}` : 'Not configured'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-text-muted">IFSC Code</span>
-                            <span className="font-mono text-caption text-text">
-                              {bankIfsc || 'Not configured'}
-                            </span>
-                          </div>
+                      {employee ? (
+                        <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                          <ProfileFact label="Job position">{employee.jobPosition}</ProfileFact>
+                          <ProfileFact label="Department">{employee.department.name}</ProfileFact>
+                          <ProfileFact label="Employee type">
+                            {labelFor(employee.employeeType)}
+                          </ProfileFact>
+                          <ProfileFact label="Joining date" numeric>
+                            {formatDate(employee.joiningDate)}
+                          </ProfileFact>
+                          <ProfileFact label="Manager">
+                            {employee.manager
+                              ? `${employee.manager.firstName} ${employee.manager.lastName}`
+                              : 'Not assigned'}
+                          </ProfileFact>
+                          <ProfileFact label="Working schedule">
+                            {employee.workingSchedule.name}
+                          </ProfileFact>
+                          <ProfileFact label="Personal email" numeric>
+                            {employee.personalEmail ?? 'Not configured'}
+                          </ProfileFact>
+                          <ProfileFact label="Phone" numeric>
+                            {employee.phone ?? 'Not configured'}
+                          </ProfileFact>
+                          <ProfileFact label="Work location">
+                            {employee.workLocation ?? 'Not configured'}
+                          </ProfileFact>
                         </div>
+                      ) : (
+                        <p className="m-0 text-body-sm text-text-muted">
+                          This account is not linked to an employee record.
+                        </p>
                       )}
                     </CardBody>
                   </Card>
@@ -497,63 +329,144 @@ export default function ProfilePage() {
               ),
             },
             {
-              value: 'employment',
-              label: 'Employment & Structure',
-              content: (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-                  <Card>
-                    <CardHeader title="Organization & Position" />
-                    <CardBody className="space-y-3 text-body-sm">
-                      <div className="flex justify-between border-b border-border/50 pb-2.5">
-                        <span className="text-text-muted">Job Position</span>
-                        <span className="font-medium text-text">{emp?.jobPosition ?? 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-border/50 pb-2.5">
-                        <span className="text-text-muted">Department</span>
-                        <span className="text-text font-medium">
-                          {emp?.department?.name ?? 'Unassigned'} ({emp?.department?.code ?? '—'})
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-b border-border/50 pb-2.5">
-                        <span className="text-text-muted">Direct Manager</span>
-                        <span className="text-text">
-                          {emp?.manager
-                            ? `${emp.manager.firstName} ${emp.manager.lastName}`
-                            : 'No direct manager assigned'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-b border-border/50 pb-2.5">
-                        <span className="text-text-muted">Employee Type</span>
-                        <span className="text-text capitalize">
-                          {emp?.employeeType ? emp.employeeType.replace('_', ' ') : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Joining Date</span>
-                        <span className="font-mono text-text">{emp?.joiningDate ?? 'N/A'}</span>
-                      </div>
+              value: 'contract',
+              label: 'Contract info',
+              content: contractsQuery.isLoading ? (
+                <Skeleton className="skeleton--panel" />
+              ) : contractsQuery.isError ? (
+                <Card>
+                  <ErrorState
+                    message="Your contract information could not be loaded."
+                    onRetry={() => void contractsQuery.refetch()}
+                  />
+                </Card>
+              ) : activeContract ? (
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                  <Card className="lg:col-span-2">
+                    <CardHeader
+                      title="Employment terms"
+                      subtitle="Your current active contract"
+                      actions={
+                        <Badge variant={activeContract.status === 'running' ? 'success' : 'neutral'}>
+                          {activeContract.status}
+                        </Badge>
+                      }
+                    />
+                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <ProfileFact label="Reference" numeric>
+                        {activeContract.reference}
+                      </ProfileFact>
+                      <ProfileFact label="Job position">{activeContract.jobPosition}</ProfileFact>
+                      <ProfileFact label="Department">{activeContract.department.name}</ProfileFact>
+                      <ProfileFact label="Start date" numeric>
+                        {formatDate(activeContract.startDate)}
+                      </ProfileFact>
+                      <ProfileFact label="End date" numeric>
+                        {activeContract.endDate ? formatDate(activeContract.endDate) : 'Open-ended'}
+                      </ProfileFact>
+                      <ProfileFact label="Contract status">
+                        {labelFor(activeContract.status)}
+                      </ProfileFact>
                     </CardBody>
                   </Card>
 
                   <Card>
-                    <CardHeader title="Working Schedule & Shift" />
-                    <CardBody className="space-y-3 text-body-sm">
-                      <div className="flex justify-between border-b border-border/50 pb-2.5">
-                        <span className="text-text-muted">Schedule Name</span>
-                        <span className="font-medium text-text">
-                          {emp?.workingSchedule?.name ?? 'Standard 40h/week'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-b border-border/50 pb-2.5">
-                        <span className="text-text-muted">Timezone</span>
-                        <span className="font-mono text-caption text-text">
-                          {emp?.workingSchedule?.timezone ?? 'UTC'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Status</span>
-                        <Badge variant="success">Active Assignment</Badge>
-                      </div>
+                    <CardHeader title="Compensation" subtitle="Current payroll assignment" />
+                    <CardBody className="space-y-4">
+                      <ProfileFact label="Monthly wage">
+                        <Amount value={activeContract.wage} currency={activeContract.currency} />
+                      </ProfileFact>
+                      <ProfileFact label="Salary structure">
+                        {activeContract.salaryStructure.name}
+                      </ProfileFact>
+                      <ProfileFact label="Structure code" numeric>
+                        {activeContract.salaryStructure.code}
+                      </ProfileFact>
+                    </CardBody>
+                  </Card>
+
+                  <Card className="lg:col-span-3">
+                    <CardHeader title="Working schedule" />
+                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <ProfileFact label="Schedule name">
+                        {activeContract.workingSchedule.name}
+                      </ProfileFact>
+                      <ProfileFact label="Weekly hours" numeric>
+                        {activeContract.workingSchedule.hoursPerWeek} h
+                      </ProfileFact>
+                      <ProfileFact label="Employee type">
+                        {employee ? labelFor(employee.employeeType) : 'Not available'}
+                      </ProfileFact>
+                      <ProfileFact label="Manager">
+                        {employee?.manager
+                          ? `${employee.manager.firstName} ${employee.manager.lastName}`
+                          : 'Not assigned'}
+                      </ProfileFact>
+                    </CardBody>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardHeader title="Current contract" />
+                  <CardBody>
+                      <p className="m-0 text-body-sm text-text-muted">
+                        No running contract is assigned to this employee.
+                      </p>
+                  </CardBody>
+                </Card>
+              ),
+            },
+            {
+              value: 'bank',
+              label: 'Bank info',
+              content: (
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                  <Card className="lg:col-span-2">
+                    <CardHeader
+                      title="Bank information"
+                      subtitle="The account currently used for salary payouts"
+                    />
+                    <CardBody>
+                      {employee ? (
+                        <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+                          <ProfileFact label="Bank name">
+                            {employee.bankName ?? 'Not configured'}
+                          </ProfileFact>
+                          <ProfileFact label="Account holder">
+                            {employee.bankAccountHolder ?? 'Not configured'}
+                          </ProfileFact>
+                          <ProfileFact label="Account number" numeric>
+                            {employee.bankAccountLast4
+                              ? `•••• ${employee.bankAccountLast4}`
+                              : 'Not configured'}
+                          </ProfileFact>
+                          <ProfileFact label="IFSC / branch code" numeric>
+                            {employee.bankIfsc ?? 'Not configured'}
+                          </ProfileFact>
+                        </div>
+                      ) : (
+                        <p className="m-0 text-body-sm text-text-muted">
+                          This account is not linked to an employee bank record.
+                        </p>
+                      )}
+                    </CardBody>
+                  </Card>
+
+                  <Card>
+                    <CardHeader title="Payout summary" subtitle="Payroll payment readiness" />
+                    <CardBody className="space-y-4">
+                      <ProfileFact label="Bank status">
+                        <Badge variant={hasCompleteBankDetails ? 'success' : 'warning'}>
+                          {hasCompleteBankDetails ? 'Ready for payroll' : 'Details incomplete'}
+                        </Badge>
+                      </ProfileFact>
+                      <ProfileFact label="Employee">{fullName}</ProfileFact>
+                      <ProfileFact label="Contract" numeric>
+                        {activeContract?.reference ?? 'Not assigned'}
+                      </ProfileFact>
+                      <ProfileFact label="Salary currency" numeric>
+                        {activeContract?.currency ?? 'Not available'}
+                      </ProfileFact>
                     </CardBody>
                   </Card>
                 </div>
@@ -561,87 +474,92 @@ export default function ProfilePage() {
             },
             {
               value: 'security',
-              label: 'Security & Password',
+              label: 'Security',
               content: (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                   <Card className="lg:col-span-2">
                     <CardHeader
-                      title="Change Password"
-                      subtitle="Update your login password to secure your account"
+                      title="Change password"
+                      subtitle="Use at least eight characters for the new password"
                     />
                     <CardBody>
                       <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
+                        className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
                           changePasswordMutation.mutate();
                         }}
-                        className="space-y-4 max-w-md"
                       >
-                        {passwordSuccess && (
-                          <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
+                        {passwordError ? (
+                          <p className="m-0 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger sm:col-span-2">
+                            {passwordError}
+                          </p>
+                        ) : null}
+                        {passwordSuccess ? (
+                          <p className="m-0 rounded-md border border-success bg-success-subtle p-3 text-body-sm text-success sm:col-span-2">
                             {passwordSuccess}
-                          </div>
-                        )}
+                          </p>
+                        ) : null}
 
-                        <Field label="Current Password">
-                          <Input
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                          />
-                        </Field>
-
-                        <Field label="New Password">
+                        <div className="sm:col-span-2">
+                          <Field label="Current password">
+                            <Input
+                              type="password"
+                              value={currentPassword}
+                              onChange={(event) => setCurrentPassword(event.target.value)}
+                              required
+                            />
+                          </Field>
+                        </div>
+                        <Field label="New password">
                           <Input
                             type="password"
                             value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Min. 8 characters"
+                            onChange={(event) => setNewPassword(event.target.value)}
+                            minLength={8}
                             required
                           />
                         </Field>
-
-                        <Field label="Confirm New Password">
+                        <Field label="Confirm new password">
                           <Input
                             type="password"
                             value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Re-enter new password"
+                            onChange={(event) => setConfirmPassword(event.target.value)}
+                            minLength={8}
                             required
                           />
                         </Field>
-
-                        <Button
-                          type="submit"
-                          variant="accent"
-                          disabled={changePasswordMutation.isPending}
-                        >
-                          {changePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
-                        </Button>
+                        <div className="flex justify-end sm:col-span-2">
+                          <Button
+                            type="submit"
+                            variant="accent"
+                            disabled={changePasswordMutation.isPending}
+                          >
+                            {changePasswordMutation.isPending ? 'Updating...' : 'Update password'}
+                          </Button>
+                        </div>
                       </form>
                     </CardBody>
                   </Card>
 
                   <Card>
-                    <CardHeader title="Role & Access Control" />
-                    <CardBody className="space-y-4 text-body-sm">
-                      <div className="flex items-center gap-3 p-3 rounded-md bg-surface-subtle border border-border">
-                        <Shield className="size-6 text-accent shrink-0" />
-                        <div>
-                          <span className="text-caption text-text-muted block">System Role</span>
-                          <span className="font-semibold text-text uppercase tracking-wider">
-                            {user?.role}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 text-text-muted text-body-xs">
-                        <p className="m-0">
-                          Your role permits access to assigned system modules per role capabilities matrix.
-                        </p>
-                      </div>
+                    <CardHeader title="Account access" />
+                    <CardBody className="space-y-4">
+                      <ProfileFact label="Sign-in email" numeric>
+                        {user?.email ?? 'Not available'}
+                      </ProfileFact>
+                      <ProfileFact label="Role">
+                        <Badge variant="info">{labelFor(role)}</Badge>
+                      </ProfileFact>
+                      <ProfileFact label="Account status">
+                        <Badge variant={user?.status === 'active' ? 'success' : 'neutral'}>
+                          {user?.status ?? 'active'}
+                        </Badge>
+                      </ProfileFact>
+                      <ProfileFact label="Employee record">
+                        {employeeId ? 'Linked' : 'Not linked'}
+                      </ProfileFact>
+                      <ProfileFact label="Employee name">{fullName}</ProfileFact>
                     </CardBody>
                   </Card>
                 </div>

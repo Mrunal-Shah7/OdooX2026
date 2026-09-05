@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { payrollApi, type SalaryRule, type SalaryStructureDetail } from './payrollApi';
 import { showToast } from '../../lib/toast';
 
@@ -145,7 +146,7 @@ export default function StructureFormPage() {
         )}
 
         {loading ? (
-          <div className="p-8 text-center text-body-sm text-text-muted">Loading structure details...</div>
+          <Skeleton className="skeleton--panel" />
         ) : (
           <>
             {/* Form Inputs Card */}

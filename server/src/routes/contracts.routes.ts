@@ -22,7 +22,10 @@ router.get(
   validate({ query: listContractsQuerySchema }),
   async (req, res, next) => { // TODO: STUB
     try {
-      const result = await contractsService.listContracts(queryOf(listContractsQuerySchema, req));
+      const result = await contractsService.listContracts(
+        queryOf(listContractsQuerySchema, req),
+        req.scopedEmployeeId,
+      );
       res.json(result);
     } catch (err) {
       next(err);
@@ -48,10 +51,11 @@ router.post(
 router.get(
   '/:id',
   requireAuth,
+  scopeToEmployee,
   validate({ params: idParamSchema }),
   async (req, res, next) => { // TODO: STUB
     try {
-      const data = await contractsService.getContract(pathId(req));
+      const data = await contractsService.getContract(pathId(req), req.scopedEmployeeId);
       res.json({ data });
     } catch (err) {
       next(err);

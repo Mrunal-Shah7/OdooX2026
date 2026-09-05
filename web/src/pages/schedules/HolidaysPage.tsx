@@ -6,6 +6,7 @@ import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
@@ -176,10 +177,12 @@ export default function HolidaysPage() {
           </Field>
 
           <Field label="Date">
-            <Input
-              type="date"
+            <DatePicker
+              mode="single"
               value={newHolidayDate}
-              onChange={(e) => setNewHolidayDate(e.target.value)}
+              onChange={setNewHolidayDate}
+              required
+              ariaLabel="Holiday date"
             />
           </Field>
         </div>

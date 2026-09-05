@@ -1,5 +1,4 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { cn } from '../../lib/cn';
 import { useSession } from '../../lib/session';
 import { can, CAPABILITY } from '../../lib/permissions';
 
@@ -7,9 +6,12 @@ export function NavMenu() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useSession();
   const role = user?.role;
+  const showManagement = role ? can(role, CAPABILITY.crudEmployeesHr) : false;
 
   const items = [
-    { label: 'Employees', to: '/employees', prefixes: ['/employees', '/departments', '/contracts', '/schedules', '/holidays', '/users'] },
+    ...(showManagement
+      ? [{ label: 'Management', to: '/employees', prefixes: ['/employees', '/departments', '/contracts', '/schedules', '/holidays', '/users'] }]
+      : []),
     { label: 'Attendance', to: '/attendance', prefixes: ['/attendance'] },
     { label: 'Time off', to: '/time-off', prefixes: ['/time-off'] },
     ...(role && can(role, CAPABILITY.readPayrollDashboardReports)
@@ -21,7 +23,7 @@ export function NavMenu() {
   ];
 
   return (
-    <nav className="flex flex-1 items-center gap-1.5">
+    <nav aria-label="Primary navigation" className="top-nav__menu">
       {items.map((item) => {
         const active = item.prefixes.some(
           (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -30,12 +32,9 @@ export function NavMenu() {
           <Link
             key={item.to}
             to={item.to}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-label font-medium transition-all duration-150 no-underline',
-              active
-                ? 'bg-primary-hover font-semibold text-on-primary shadow-sm'
-                : 'text-on-primary/80 hover:bg-primary-hover/60 hover:text-on-primary',
-            )}
+            aria-current={active ? 'page' : undefined}
+            className="top-nav__link"
+            data-active={active || undefined}
           >
             {item.label}
           </Link>

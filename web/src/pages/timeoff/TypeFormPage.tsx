@@ -9,7 +9,7 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+import { FormSkeleton } from '../../components/ui/Skeleton';
 import { showToast } from '../../lib/toast';
 
 type TimeOffTypeDetail = {
@@ -153,11 +153,7 @@ export default function TypeFormPage() {
   });
 
   if (!isNew && isLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   if (!isNew && isError) {

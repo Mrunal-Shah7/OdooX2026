@@ -128,14 +128,18 @@ export async function listContracts(query: {
   status?: string;
   page?: number;
   pageSize?: number;
-}) {
+}, scopedEmployeeId?: string) {
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.ContractWhereInput = {};
 
-  if (query.employeeId) {
+  if (scopedEmployeeId) {
+    where.employeeId = scopedEmployeeId;
+  }
+
+  if (!scopedEmployeeId && query.employeeId) {
     where.employeeId = query.employeeId;
   }
 
@@ -212,13 +216,13 @@ export async function createContract(body: {
   return mapContract(created);
 }
 
-export async function getContract(id: string) {
+export async function getContract(id: string, scopedEmployeeId?: string) {
   const c = await prisma.contract.findUnique({
     where: { id },
     include: contractIncludes,
   });
 
-  if (!c) {
+  if (!c || (scopedEmployeeId && c.employeeId !== scopedEmployeeId)) {
     throw ApiError.notFound('Contract not found');
   }
 

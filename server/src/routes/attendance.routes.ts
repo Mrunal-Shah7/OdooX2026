@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { USER_ROLE } from '../../../shared/constants.js';
+import { ApiError } from '../lib/apiError.js';
+import { pathId, queryOf } from '../lib/request.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { scopeToEmployee } from '../middleware/scopeToEmployee.js';
-import { pathId, queryOf } from '../lib/request.js';
 import { validate } from '../middleware/validate.js';
 import {
   createAttendanceSchema,
@@ -20,9 +21,12 @@ router.get(
   requireAuth,
   scopeToEmployee,
   validate({ query: listAttendanceQuerySchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
-      const result = await attendanceService.listAttendance(queryOf(listAttendanceQuerySchema, req));
+      const result = await attendanceService.listAttendance(
+        queryOf(listAttendanceQuerySchema, req),
+        req.scopedEmployeeId,
+      );
       res.json(result);
     } catch (err) {
       next(err);
@@ -35,7 +39,7 @@ router.post(
   requireAuth,
   requireRole(USER_ROLE.hr_manager),
   validate({ body: createAttendanceSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const data = await attendanceService.createAttendance(req.body);
       res.status(201).json({ data });
@@ -45,30 +49,36 @@ router.post(
   },
 );
 
-router.get('/active', requireAuth, async (req, res, next) => { // TODO: STUB
+router.get('/active', requireAuth, async (req, res, next) => {
   try {
-    const employeeId = req.auth!.employeeId ?? '11111111-1111-4111-8111-111111111111';
-    const data = await attendanceService.getActiveAttendance(employeeId);
+    if (!req.auth?.employeeId) {
+      throw ApiError.forbidden('User account is not linked to an employee');
+    }
+    const data = await attendanceService.getActiveAttendance(req.auth.employeeId);
     res.json({ data });
   } catch (err) {
     next(err);
   }
 });
 
-router.post('/check-in', requireAuth, async (req, res, next) => { // TODO: STUB
+router.post('/check-in', requireAuth, async (req, res, next) => {
   try {
-    const employeeId = req.auth!.employeeId ?? '11111111-1111-4111-8111-111111111111';
-    const data = await attendanceService.checkIn(employeeId);
+    if (!req.auth?.employeeId) {
+      throw ApiError.forbidden('User account is not linked to an employee');
+    }
+    const data = await attendanceService.checkIn(req.auth.employeeId);
     res.status(201).json({ data });
   } catch (err) {
     next(err);
   }
 });
 
-router.post('/check-out', requireAuth, async (req, res, next) => { // TODO: STUB
+router.post('/check-out', requireAuth, async (req, res, next) => {
   try {
-    const employeeId = req.auth!.employeeId ?? '11111111-1111-4111-8111-111111111111';
-    const data = await attendanceService.checkOut(employeeId);
+    if (!req.auth?.employeeId) {
+      throw ApiError.forbidden('User account is not linked to an employee');
+    }
+    const data = await attendanceService.checkOut(req.auth.employeeId);
     res.json({ data });
   } catch (err) {
     next(err);
@@ -78,10 +88,11 @@ router.post('/check-out', requireAuth, async (req, res, next) => { // TODO: STUB
 router.get(
   '/:id',
   requireAuth,
+  scopeToEmployee,
   validate({ params: idParamSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
-      const data = await attendanceService.getAttendance(pathId(req));
+      const data = await attendanceService.getAttendance(pathId(req), req.scopedEmployeeId);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -94,7 +105,7 @@ router.patch(
   requireAuth,
   requireRole(USER_ROLE.hr_manager),
   validate({ params: idParamSchema, body: updateAttendanceSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const data = await attendanceService.updateAttendance(pathId(req), req.body);
       res.json({ data });

@@ -12,7 +12,10 @@ const quantitySchema = z.string().regex(/^-?\d+\.\d{2}$/);
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const listTimeOffTypesQuerySchema = paginationQuerySchema.extend({
-  q: z.string().max(100).optional(),
+  activeOnly: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .transform((v) => (typeof v === 'boolean' ? v : v === 'true'))
+    .optional(),
 });
 
 export const createTimeOffTypeSchema = z.object({
@@ -21,13 +24,15 @@ export const createTimeOffTypeSchema = z.object({
   unit: z.enum([TIME_OFF_UNIT.days, TIME_OFF_UNIT.hours]),
   requiresAllocation: z.boolean().default(true),
   isPaid: z.boolean().default(true),
-  approvalRole: z.enum([
-    USER_ROLE.employee,
-    USER_ROLE.hr_manager,
-    USER_ROLE.hr_payroll_user,
-    USER_ROLE.hr_payroll_manager,
-    USER_ROLE.admin,
-  ]).optional(),
+  approvalRole: z
+    .enum([
+      USER_ROLE.employee,
+      USER_ROLE.hr_manager,
+      USER_ROLE.hr_payroll_user,
+      USER_ROLE.hr_payroll_manager,
+      USER_ROLE.admin,
+    ])
+    .default(USER_ROLE.hr_manager),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   active: z.boolean().default(true),
 });
@@ -37,13 +42,15 @@ export const updateTimeOffTypeSchema = z.object({
   unit: z.enum([TIME_OFF_UNIT.days, TIME_OFF_UNIT.hours]).optional(),
   requiresAllocation: z.boolean().optional(),
   isPaid: z.boolean().optional(),
-  approvalRole: z.enum([
-    USER_ROLE.employee,
-    USER_ROLE.hr_manager,
-    USER_ROLE.hr_payroll_user,
-    USER_ROLE.hr_payroll_manager,
-    USER_ROLE.admin,
-  ]).optional(),
+  approvalRole: z
+    .enum([
+      USER_ROLE.employee,
+      USER_ROLE.hr_manager,
+      USER_ROLE.hr_payroll_user,
+      USER_ROLE.hr_payroll_manager,
+      USER_ROLE.admin,
+    ])
+    .optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   active: z.boolean().optional(),
 });
@@ -51,11 +58,13 @@ export const updateTimeOffTypeSchema = z.object({
 export const listAllocationsQuerySchema = paginationQuerySchema.extend({
   employeeId: z.string().uuid().optional(),
   timeOffTypeId: z.string().uuid().optional(),
-  status: z.enum([
-    ALLOCATION_STATUS.draft,
-    ALLOCATION_STATUS.approved,
-    ALLOCATION_STATUS.refused,
-  ]).optional(),
+  status: z
+    .enum([
+      ALLOCATION_STATUS.draft,
+      ALLOCATION_STATUS.approved,
+      ALLOCATION_STATUS.refused,
+    ])
+    .optional(),
 });
 
 export const createAllocationSchema = z.object({
@@ -77,12 +86,14 @@ export const updateAllocationSchema = z.object({
 export const listTimeOffRequestsQuerySchema = paginationQuerySchema.extend({
   employeeId: z.string().uuid().optional(),
   timeOffTypeId: z.string().uuid().optional(),
-  status: z.enum([
-    REQUEST_STATUS.to_approve,
-    REQUEST_STATUS.approved,
-    REQUEST_STATUS.refused,
-    REQUEST_STATUS.cancelled,
-  ]).optional(),
+  status: z
+    .enum([
+      REQUEST_STATUS.to_approve,
+      REQUEST_STATUS.approved,
+      REQUEST_STATUS.refused,
+      REQUEST_STATUS.cancelled,
+    ])
+    .optional(),
   dateFrom: dateSchema.optional(),
   dateTo: dateSchema.optional(),
 });
@@ -104,11 +115,13 @@ export const createTimeOffRequestSchema = z.object({
 export const updateTimeOffRequestSchema = z.object({
   startDate: dateSchema.optional(),
   endDate: dateSchema.optional(),
-  durationType: z.enum([
-    TIME_OFF_DURATION_TYPE.full_day,
-    TIME_OFF_DURATION_TYPE.half_day,
-    TIME_OFF_DURATION_TYPE.hours,
-  ]).optional(),
+  durationType: z
+    .enum([
+      TIME_OFF_DURATION_TYPE.full_day,
+      TIME_OFF_DURATION_TYPE.half_day,
+      TIME_OFF_DURATION_TYPE.hours,
+    ])
+    .optional(),
   requestedHours: quantitySchema.optional(),
   reason: z.string().max(500).nullable().optional(),
   status: z.literal(REQUEST_STATUS.cancelled).optional(),

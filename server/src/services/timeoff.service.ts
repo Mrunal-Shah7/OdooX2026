@@ -1,71 +1,211 @@
-import { paginationMeta } from '../lib/pagination.js';
-import type { UserRole } from '../../../shared/constants.js';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../db/client.js';
+import { ApiError } from '../lib/apiError.js';
+import { getDatesInRange, getIsoWeekday, toDateOnly } from '../lib/dates.js';
+import { quantityString, roundHalfUp } from '../lib/money.js';
+import { paginationMeta, skipTake } from '../lib/pagination.js';
+import type {
+  AllocationStatus,
+  RequestStatus,
+  TimeOffDurationType,
+  TimeOffUnit,
+  UserRole,
+} from '../../../shared/constants.js';
 
-const stubEmployeeRef = {
-  id: '11111111-1111-4111-8111-111111111111',
-  firstName: 'Priya',
-  lastName: 'Sharma',
-  workEmail: 'priya.sharma@peoplepay360.com',
-  jobPosition: 'Software Engineer',
-  departmentName: 'Engineering',
-};
-
-const stubTimeOffTypeRef = {
-  id: '22222222-2222-4222-8222-222222222222',
-  name: 'Annual Leave',
-  code: 'AL',
-  unit: 'days' as const,
-  color: '#4CAF50',
-};
-
-const stubTimeOffType = {
-  id: '22222222-2222-4222-8222-222222222222',
-  name: 'Annual Leave',
-  code: 'AL',
-  unit: 'days' as const,
-  requiresAllocation: true,
-  isPaid: true,
-  approvalRole: 'hr_manager' as UserRole,
-  color: '#4CAF50',
-  active: true,
-};
-
-const stubAllocation = {
-  id: '33333333-3333-4333-8333-333333333333',
-  employee: stubEmployeeRef,
-  timeOffType: stubTimeOffTypeRef,
-  allocated: '18.00',
-  taken: '3.00',
-  remaining: '15.00',
-  validFrom: '2026-01-01',
-  validTo: '2026-12-31',
-  status: 'approved' as const,
-  description: 'Annual entitlement 2026',
-  approver: null,
-};
-
-const stubRequest = {
-  id: '44444444-4444-4444-8444-444444444444',
-  employee: stubEmployeeRef,
-  timeOffType: stubTimeOffTypeRef,
-  startDate: '2026-02-10',
-  endDate: '2026-02-12',
-  durationType: 'full_day' as const,
-  requestedHours: null,
-  durationDays: '3.00',
-  durationHours: '24.00',
-  status: 'to_approve' as const,
-  reason: 'Family vacation',
-  refusalReason: null,
-  allocation: stubAllocation,
-  approver: null,
-};
-
-export async function listTimeOffTypes(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+function mapEmployeeRef(employee: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  workEmail: string;
+  jobPosition: string;
+  department?: { name: string } | null;
+}) {
   return {
-    data: [stubTimeOffType],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    id: employee.id,
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    workEmail: employee.workEmail,
+    jobPosition: employee.jobPosition,
+    departmentName: employee.department?.name ?? '',
+  };
+}
+
+function mapTimeOffTypeRef(type: {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+  color: string;
+}) {
+  return {
+    id: type.id,
+    name: type.name,
+    code: type.code,
+    unit: type.unit as TimeOffUnit,
+    color: type.color,
+  };
+}
+
+function mapTimeOffType(type: {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+  requiresAllocation: boolean;
+  isPaid: boolean;
+  approvalRole: string;
+  color: string;
+  active: boolean;
+}) {
+  return {
+    id: type.id,
+    name: type.name,
+    code: type.code,
+    unit: type.unit as TimeOffUnit,
+    requiresAllocation: type.requiresAllocation,
+    isPaid: type.isPaid,
+    approvalRole: type.approvalRole as UserRole,
+    color: type.color,
+    active: type.active,
+  };
+}
+
+type AllocationWithRelations = Prisma.TimeOffAllocationGetPayload<{
+  include: {
+    employee: { include: { department: true } };
+    timeOffType: true;
+    approver: { include: { department: true } };
+    requests: true;
+  };
+}>;
+
+function mapAllocation(
+  allocation: AllocationWithRelations,
+  calculatedTaken?: Prisma.Decimal,
+) {
+  const isDays = allocation.timeOffType.unit === 'days';
+  let takenDecimal = calculatedTaken;
+
+  if (takenDecimal === undefined) {
+    const approvedRequests = allocation.requests.filter((r) => r.status === 'approved');
+    let sum = 0;
+    for (const req of approvedRequests) {
+      sum += Number(isDays ? req.durationDays : req.durationHours);
+    }
+    takenDecimal = new Prisma.Decimal(roundHalfUp(sum, 2));
+  }
+
+  const allocatedDecimal = allocation.allocated;
+  const remainingDecimal = Prisma.Decimal.max(
+    new Prisma.Decimal(0),
+    allocatedDecimal.sub(takenDecimal),
+  );
+
+  return {
+    id: allocation.id,
+    employee: mapEmployeeRef(allocation.employee),
+    timeOffType: mapTimeOffTypeRef(allocation.timeOffType),
+    allocated: quantityString(allocation.allocated),
+    taken: quantityString(takenDecimal),
+    remaining: quantityString(remainingDecimal),
+    validFrom: toDateOnly(allocation.validFrom),
+    validTo: toDateOnly(allocation.validTo),
+    status: allocation.status as AllocationStatus,
+    description: allocation.description,
+    approver: allocation.approver ? mapEmployeeRef(allocation.approver) : null,
+  };
+}
+
+type RequestWithRelations = Prisma.TimeOffRequestGetPayload<{
+  include: {
+    employee: { include: { department: true } };
+    timeOffType: true;
+    approver: { include: { department: true } };
+    allocation: {
+      include: {
+        employee: { include: { department: true } };
+        timeOffType: true;
+        approver: { include: { department: true } };
+        requests: true;
+      };
+    };
+  };
+}>;
+
+function mapRequest(req: RequestWithRelations) {
+  return {
+    id: req.id,
+    employee: mapEmployeeRef(req.employee),
+    timeOffType: mapTimeOffTypeRef(req.timeOffType),
+    startDate: toDateOnly(req.startDate),
+    endDate: toDateOnly(req.endDate),
+    durationType: req.durationType as TimeOffDurationType,
+    requestedHours: req.requestedHours ? quantityString(req.requestedHours) : null,
+    durationDays: quantityString(req.durationDays),
+    durationHours: quantityString(req.durationHours),
+    status: req.status as RequestStatus,
+    reason: req.reason,
+    refusalReason: req.refusalReason,
+    allocation: req.allocation ? mapAllocation(req.allocation) : null,
+    approver: req.approver ? mapEmployeeRef(req.approver) : null,
+  };
+}
+
+async function sendNotification(
+  userId: string,
+  type:
+    | 'time_off_requested'
+    | 'time_off_approved'
+    | 'time_off_refused'
+    | 'payslip_sent'
+    | 'payrun_validated',
+  title: string,
+  body: string,
+  linkPath: string,
+) {
+  try {
+    await prisma.notification.create({
+      data: {
+        userId,
+        type,
+        title,
+        body,
+        linkPath,
+      },
+    });
+  } catch {
+    // Fire-and-forget; notification failure never fails the parent operation
+  }
+}
+
+// ============================================================================
+// Time Off Types
+// ============================================================================
+
+export async function listTimeOffTypes(query: {
+  page: number;
+  pageSize: number;
+  activeOnly?: boolean;
+}) {
+  const where: Prisma.TimeOffTypeWhereInput = {};
+  if (query.activeOnly) {
+    where.active = true;
+  }
+
+  const { skip, take } = skipTake(query.page, query.pageSize);
+  const [total, types] = await Promise.all([
+    prisma.timeOffType.count({ where }),
+    prisma.timeOffType.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { name: 'asc' },
+    }),
+  ]);
+
+  return {
+    data: types.map(mapTimeOffType),
+    meta: paginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -79,20 +219,46 @@ export async function createTimeOffType(body: {
   color: string;
   active?: boolean;
 }) {
-  // TODO: STUB
-  return {
-    ...stubTimeOffType,
-    id: '55555555-5555-4555-8555-555555555555',
-    name: body.name,
-    code: body.code,
-    unit: body.unit,
-    color: body.color,
-  };
+  const company = await prisma.company.findFirst();
+  if (!company) {
+    throw ApiError.internal('No company found');
+  }
+
+  const existing = await prisma.timeOffType.findFirst({
+    where: {
+      OR: [{ name: body.name }, { code: body.code }],
+    },
+  });
+
+  if (existing) {
+    throw ApiError.conflict('A time off type with this name or code already exists');
+  }
+
+  const type = await prisma.timeOffType.create({
+    data: {
+      companyId: company.id,
+      name: body.name,
+      code: body.code.toUpperCase(),
+      unit: body.unit,
+      requiresAllocation: body.requiresAllocation ?? true,
+      isPaid: body.isPaid ?? true,
+      approvalRole: body.approvalRole ?? 'hr_manager',
+      color: body.color,
+      active: body.active ?? true,
+    },
+  });
+
+  return mapTimeOffType(type);
 }
 
 export async function getTimeOffType(id: string) {
-  // TODO: STUB
-  return { ...stubTimeOffType, id };
+  const type = await prisma.timeOffType.findUnique({
+    where: { id },
+  });
+  if (!type) {
+    throw ApiError.notFound('Time off type not found');
+  }
+  return mapTimeOffType(type);
 }
 
 export async function updateTimeOffType(
@@ -107,15 +273,87 @@ export async function updateTimeOffType(
     active: boolean;
   }>,
 ) {
-  // TODO: STUB
-  return { ...stubTimeOffType, id, ...body };
+  const type = await prisma.timeOffType.findUnique({
+    where: { id },
+  });
+  if (!type) {
+    throw ApiError.notFound('Time off type not found');
+  }
+
+  if (body.name && body.name !== type.name) {
+    const existing = await prisma.timeOffType.findUnique({
+      where: { name: body.name },
+    });
+    if (existing) {
+      throw ApiError.conflict('A time off type with this name already exists');
+    }
+  }
+
+  const updated = await prisma.timeOffType.update({
+    where: { id },
+    data: {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.unit !== undefined ? { unit: body.unit } : {}),
+      ...(body.requiresAllocation !== undefined
+        ? { requiresAllocation: body.requiresAllocation }
+        : {}),
+      ...(body.isPaid !== undefined ? { isPaid: body.isPaid } : {}),
+      ...(body.approvalRole !== undefined ? { approvalRole: body.approvalRole } : {}),
+      ...(body.color !== undefined ? { color: body.color } : {}),
+      ...(body.active !== undefined ? { active: body.active } : {}),
+    },
+  });
+
+  return mapTimeOffType(updated);
 }
 
-export async function listAllocations(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+// ============================================================================
+// Time Off Allocations
+// ============================================================================
+
+export async function listAllocations(
+  query: {
+    page: number;
+    pageSize: number;
+    employeeId?: string;
+    timeOffTypeId?: string;
+    status?: AllocationStatus;
+  },
+  scopedEmployeeId?: string,
+) {
+  const employeeId = scopedEmployeeId ?? query.employeeId;
+  const where: Prisma.TimeOffAllocationWhereInput = {};
+
+  if (employeeId) {
+    where.employeeId = employeeId;
+  }
+  if (query.timeOffTypeId) {
+    where.timeOffTypeId = query.timeOffTypeId;
+  }
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  const { skip, take } = skipTake(query.page, query.pageSize);
+  const [total, allocations] = await Promise.all([
+    prisma.timeOffAllocation.count({ where }),
+    prisma.timeOffAllocation.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        employee: { include: { department: true } },
+        timeOffType: true,
+        approver: { include: { department: true } },
+        requests: true,
+      },
+    }),
+  ]);
+
   return {
-    data: [stubAllocation],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    data: allocations.map((a) => mapAllocation(a)),
+    meta: paginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -127,23 +365,61 @@ export async function createAllocation(body: {
   validTo: string;
   description?: string | null;
 }) {
-  // TODO: STUB
-  return {
-    ...stubAllocation,
-    id: '66666666-6666-4666-8666-666666666666',
-    allocated: body.allocated,
-    taken: '0.00',
-    remaining: body.allocated,
-    validFrom: body.validFrom,
-    validTo: body.validTo,
-    status: 'draft' as const,
-    description: body.description ?? null,
-  };
+  if (body.validTo < body.validFrom) {
+    throw ApiError.validation('validTo must be on or after validFrom', [
+      { field: 'validTo', message: 'must be on or after validFrom' },
+    ]);
+  }
+
+  const [employee, type] = await Promise.all([
+    prisma.employee.findUnique({ where: { id: body.employeeId } }),
+    prisma.timeOffType.findUnique({ where: { id: body.timeOffTypeId } }),
+  ]);
+
+  if (!employee) throw ApiError.notFound('Employee not found');
+  if (!type) throw ApiError.notFound('Time off type not found');
+
+  const allocation = await prisma.timeOffAllocation.create({
+    data: {
+      employeeId: body.employeeId,
+      timeOffTypeId: body.timeOffTypeId,
+      allocated: new Prisma.Decimal(body.allocated),
+      validFrom: new Date(`${body.validFrom}T00:00:00.000Z`),
+      validTo: new Date(`${body.validTo}T00:00:00.000Z`),
+      status: 'draft',
+      description: body.description ?? null,
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  return mapAllocation(allocation);
 }
 
-export async function getAllocation(id: string) {
-  // TODO: STUB
-  return { ...stubAllocation, id };
+export async function getAllocation(id: string, scopedEmployeeId?: string) {
+  const allocation = await prisma.timeOffAllocation.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  if (!allocation) {
+    throw ApiError.notFound('Allocation not found');
+  }
+
+  if (scopedEmployeeId && allocation.employeeId !== scopedEmployeeId) {
+    throw ApiError.notFound('Allocation not found');
+  }
+
+  return mapAllocation(allocation);
 }
 
 export async function updateAllocation(
@@ -155,25 +431,295 @@ export async function updateAllocation(
     description: string | null;
   }>,
 ) {
-  // TODO: STUB
-  return { ...stubAllocation, id, ...body };
+  const allocation = await prisma.timeOffAllocation.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  if (!allocation) {
+    throw ApiError.notFound('Allocation not found');
+  }
+
+  if (allocation.status !== 'draft') {
+    throw ApiError.conflict('Only draft allocations can be updated');
+  }
+
+  const validFrom = body.validFrom ?? toDateOnly(allocation.validFrom);
+  const validTo = body.validTo ?? toDateOnly(allocation.validTo);
+  if (validTo < validFrom) {
+    throw ApiError.validation('validTo must be on or after validFrom', [
+      { field: 'validTo', message: 'must be on or after validFrom' },
+    ]);
+  }
+
+  const updated = await prisma.timeOffAllocation.update({
+    where: { id },
+    data: {
+      ...(body.allocated !== undefined
+        ? { allocated: new Prisma.Decimal(body.allocated) }
+        : {}),
+      ...(body.validFrom !== undefined
+        ? { validFrom: new Date(`${body.validFrom}T00:00:00.000Z`) }
+        : {}),
+      ...(body.validTo !== undefined
+        ? { validTo: new Date(`${body.validTo}T00:00:00.000Z`) }
+        : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  return mapAllocation(updated);
 }
 
-export async function approveAllocation(id: string) {
-  // TODO: STUB
-  return { ...stubAllocation, id, status: 'approved' as const };
+export async function approveAllocation(id: string, approverEmployeeId?: string | null) {
+  const allocation = await prisma.timeOffAllocation.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  if (!allocation) {
+    throw ApiError.notFound('Allocation not found');
+  }
+
+  if (allocation.status !== 'draft') {
+    throw ApiError.conflict('Only draft allocations can be approved');
+  }
+
+  const updated = await prisma.timeOffAllocation.update({
+    where: { id },
+    data: {
+      status: 'approved',
+      approverId: approverEmployeeId ?? null,
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  return mapAllocation(updated);
 }
 
-export async function refuseAllocation(id: string) {
-  // TODO: STUB
-  return { ...stubAllocation, id, status: 'refused' as const };
+export async function refuseAllocation(id: string, approverEmployeeId?: string | null) {
+  const allocation = await prisma.timeOffAllocation.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  if (!allocation) {
+    throw ApiError.notFound('Allocation not found');
+  }
+
+  if (allocation.status === 'refused') {
+    throw ApiError.conflict('Allocation is already refused');
+  }
+
+  const updated = await prisma.timeOffAllocation.update({
+    where: { id },
+    data: {
+      status: 'refused',
+      approverId: approverEmployeeId ?? null,
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      requests: true,
+    },
+  });
+
+  return mapAllocation(updated);
 }
 
-export async function listTimeOffRequests(query: { page: number; pageSize: number }) {
-  // TODO: STUB
+// ============================================================================
+// Time Off Requests
+// ============================================================================
+
+async function calculateRequestDuration(
+  employeeId: string,
+  type: { unit: string },
+  startDate: string,
+  endDate: string,
+  durationType: TimeOffDurationType,
+  requestedHours?: string | null,
+) {
+  if (endDate < startDate) {
+    throw ApiError.validation('endDate must be on or after startDate', [
+      { field: 'endDate', message: 'must be on or after startDate' },
+    ]);
+  }
+
+  if (durationType === 'half_day' && startDate !== endDate) {
+    throw ApiError.validation('Half-day requests must be for a single date', [
+      { field: 'endDate', message: 'must match startDate for half_day requests' },
+    ]);
+  }
+
+  if (durationType === 'hours') {
+    if (type.unit !== 'hours') {
+      throw ApiError.validation('Hours duration is only allowed for hour-unit time off types');
+    }
+    if (!requestedHours || Number(requestedHours) <= 0) {
+      throw ApiError.validation('requestedHours must be greater than zero for hours duration', [
+        { field: 'requestedHours', message: 'must be greater than 0' },
+      ]);
+    }
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: {
+      workingSchedule: {
+        include: { days: true },
+      },
+    },
+  });
+
+  if (!employee) throw ApiError.notFound('Employee not found');
+
+  const scheduleDays = employee.workingSchedule?.days ?? [];
+  const scheduledWeekdays = new Set(scheduleDays.map((d) => d.dayOfWeek));
+
+  const holidays = await prisma.publicHoliday.findMany({
+    where: {
+      date: {
+        gte: new Date(`${startDate}T00:00:00.000Z`),
+        lte: new Date(`${endDate}T00:00:00.000Z`),
+      },
+    },
+  });
+  const holidaySet = new Set(holidays.map((h) => toDateOnly(h.date)));
+
+  const datesInRange = getDatesInRange(startDate, endDate);
+  let workingDaysCount = 0;
+  for (const d of datesInRange) {
+    const weekday = getIsoWeekday(d);
+    if (!holidaySet.has(d) && scheduledWeekdays.has(weekday)) {
+      workingDaysCount++;
+    }
+  }
+
+  let dailyHours = 8.0;
+  if (
+    employee.workingSchedule &&
+    employee.workingSchedule.daysPerWeek > 0 &&
+    Number(employee.workingSchedule.hoursPerWeek) > 0
+  ) {
+    dailyHours =
+      Number(employee.workingSchedule.hoursPerWeek) / employee.workingSchedule.daysPerWeek;
+  }
+
+  let durationDays: string;
+  let durationHours: string;
+
+  if (durationType === 'half_day') {
+    if (workingDaysCount === 0) {
+      throw ApiError.validation('The selected date is not a scheduled working day');
+    }
+    durationDays = '0.50';
+    const hours = requestedHours
+      ? Number(requestedHours)
+      : roundHalfUp(dailyHours / 2, 2).toNumber();
+    durationHours = roundHalfUp(hours, 2).toFixed(2);
+  } else if (durationType === 'hours') {
+    durationHours = roundHalfUp(requestedHours!, 2).toFixed(2);
+    durationDays = roundHalfUp(Number(requestedHours) / dailyHours, 2).toFixed(2);
+  } else {
+    // full_day
+    if (workingDaysCount === 0) {
+      throw ApiError.validation('No scheduled working days in the selected date range');
+    }
+    durationDays = roundHalfUp(workingDaysCount, 2).toFixed(2);
+    durationHours = roundHalfUp(workingDaysCount * dailyHours, 2).toFixed(2);
+  }
+
+  return { durationDays, durationHours, dailyHours };
+}
+
+export async function listTimeOffRequests(
+  query: {
+    page: number;
+    pageSize: number;
+    employeeId?: string;
+    timeOffTypeId?: string;
+    status?: RequestStatus;
+    dateFrom?: string;
+    dateTo?: string;
+  },
+  scopedEmployeeId?: string,
+) {
+  const employeeId = scopedEmployeeId ?? query.employeeId;
+  const where: Prisma.TimeOffRequestWhereInput = {};
+
+  if (employeeId) {
+    where.employeeId = employeeId;
+  }
+  if (query.timeOffTypeId) {
+    where.timeOffTypeId = query.timeOffTypeId;
+  }
+  if (query.status) {
+    where.status = query.status;
+  }
+  if (query.dateFrom || query.dateTo) {
+    where.startDate = {};
+    if (query.dateFrom) {
+      where.startDate.gte = new Date(`${query.dateFrom}T00:00:00.000Z`);
+    }
+    if (query.dateTo) {
+      where.startDate.lte = new Date(`${query.dateTo}T00:00:00.000Z`);
+    }
+  }
+
+  const { skip, take } = skipTake(query.page, query.pageSize);
+  const [total, requests] = await Promise.all([
+    prisma.timeOffRequest.count({ where }),
+    prisma.timeOffRequest.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { startDate: 'desc' },
+      include: {
+        employee: { include: { department: true } },
+        timeOffType: true,
+        approver: { include: { department: true } },
+        allocation: {
+          include: {
+            employee: { include: { department: true } },
+            timeOffType: true,
+            approver: { include: { department: true } },
+            requests: true,
+          },
+        },
+      },
+    }),
+  ]);
+
   return {
-    data: [stubRequest],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    data: requests.map(mapRequest),
+    meta: paginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -182,24 +728,136 @@ export async function createTimeOffRequest(body: {
   timeOffTypeId: string;
   startDate: string;
   endDate: string;
-  durationType: 'full_day' | 'half_day' | 'hours';
-  requestedHours?: string;
+  durationType: TimeOffDurationType;
+  requestedHours?: string | null;
   reason?: string | null;
 }) {
-  // TODO: STUB
-  return {
-    ...stubRequest,
-    id: '77777777-7777-4777-8777-777777777777',
-    startDate: body.startDate,
-    endDate: body.endDate,
-    durationType: body.durationType,
-    reason: body.reason ?? null,
-  };
+  const type = await prisma.timeOffType.findUnique({
+    where: { id: body.timeOffTypeId },
+  });
+  if (!type) throw ApiError.notFound('Time off type not found');
+
+  const { durationDays, durationHours } = await calculateRequestDuration(
+    body.employeeId,
+    type,
+    body.startDate,
+    body.endDate,
+    body.durationType,
+    body.requestedHours,
+  );
+
+  let allocationId: string | null = null;
+  if (type.requiresAllocation) {
+    const allocation = await prisma.timeOffAllocation.findFirst({
+      where: {
+        employeeId: body.employeeId,
+        timeOffTypeId: body.timeOffTypeId,
+        status: 'approved',
+        validFrom: { lte: new Date(`${body.startDate}T00:00:00.000Z`) },
+        validTo: { gte: new Date(`${body.endDate}T00:00:00.000Z`) },
+      },
+      include: {
+        requests: {
+          where: { status: 'approved' },
+        },
+      },
+    });
+
+    if (!allocation) {
+      throw ApiError.validation('No approved allocation covers this request period');
+    }
+
+    const isDays = type.unit === 'days';
+    let currentTaken = 0;
+    for (const r of allocation.requests) {
+      currentTaken += Number(isDays ? r.durationDays : r.durationHours);
+    }
+    const allocated = Number(allocation.allocated);
+    const needed = Number(isDays ? durationDays : durationHours);
+    if (allocated - currentTaken < needed) {
+      throw ApiError.validation('Request exceeds remaining allocation balance');
+    }
+
+    allocationId = allocation.id;
+  }
+
+  const created = await prisma.timeOffRequest.create({
+    data: {
+      employeeId: body.employeeId,
+      timeOffTypeId: body.timeOffTypeId,
+      allocationId,
+      startDate: new Date(`${body.startDate}T00:00:00.000Z`),
+      endDate: new Date(`${body.endDate}T00:00:00.000Z`),
+      durationType: body.durationType,
+      requestedHours: body.requestedHours ? new Prisma.Decimal(body.requestedHours) : null,
+      durationDays: new Prisma.Decimal(durationDays),
+      durationHours: new Prisma.Decimal(durationHours),
+      status: 'to_approve',
+      reason: body.reason ?? null,
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
+      },
+    },
+  });
+
+  // Notify approvers (HR managers)
+  const hrUsers = await prisma.user.findMany({
+    where: {
+      role: { in: ['hr_manager', 'hr_payroll_manager', 'admin'] },
+      status: 'active',
+    },
+  });
+
+  for (const u of hrUsers) {
+    sendNotification(
+      u.id,
+      'time_off_requested',
+      'Time off request pending',
+      `${created.employee.firstName} ${created.employee.lastName} requested ${durationDays} days of ${type.name}`,
+      `/time-off/requests/${created.id}`,
+    );
+  }
+
+  return mapRequest(created);
 }
 
-export async function getTimeOffRequest(id: string) {
-  // TODO: STUB
-  return { ...stubRequest, id };
+export async function getTimeOffRequest(id: string, scopedEmployeeId?: string) {
+  const request = await prisma.timeOffRequest.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
+      },
+    },
+  });
+
+  if (!request) {
+    throw ApiError.notFound('Time off request not found');
+  }
+
+  if (scopedEmployeeId && request.employeeId !== scopedEmployeeId) {
+    throw ApiError.notFound('Time off request not found');
+  }
+
+  return mapRequest(request);
 }
 
 export async function updateTimeOffRequest(
@@ -207,59 +865,504 @@ export async function updateTimeOffRequest(
   body: Partial<{
     startDate: string;
     endDate: string;
-    durationType: 'full_day' | 'half_day' | 'hours';
-    requestedHours: string;
+    durationType: TimeOffDurationType;
+    requestedHours: string | null;
     reason: string | null;
     status: 'cancelled';
   }>,
+  scopedEmployeeId?: string,
 ) {
-  // TODO: STUB
-  return { ...stubRequest, id, ...body };
-}
-
-export async function approveTimeOffRequest(id: string) {
-  // TODO: STUB
-  return { ...stubRequest, id, status: 'approved' as const };
-}
-
-export async function refuseTimeOffRequest(id: string, body?: { refusalReason?: string | null }) {
-  // TODO: STUB
-  return {
-    ...stubRequest,
-    id,
-    status: 'refused' as const,
-    refusalReason: body?.refusalReason ?? null,
-  };
-}
-
-export async function getTimeOffDashboard(_query: { employeeId?: string; year?: number }) {
-  // TODO: STUB
-  return {
-    employee: stubEmployeeRef,
-    year: 2026,
-    workingSchedule: {
-      id: '66666666-6666-4666-8666-666666666666',
-      name: 'Standard 40h',
-      hoursPerWeek: '40.00',
-    },
-    days: [
-      { date: '2026-01-01', kind: 'holiday' as const, timeOffTypeId: null, color: null, fraction: null, label: 'New Year' },
-      { date: '2026-01-02', kind: 'working' as const, timeOffTypeId: null, color: null, fraction: null, label: null },
-    ],
-    entitlements: [
-      {
-        timeOffType: stubTimeOffTypeRef,
-        allocated: '18.00',
-        taken: '3.00',
-        remaining: '15.00',
-        pending: '3.00',
+  const request = await prisma.timeOffRequest.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
       },
-    ],
+    },
+  });
+
+  if (!request) {
+    throw ApiError.notFound('Time off request not found');
+  }
+
+  if (scopedEmployeeId && request.employeeId !== scopedEmployeeId) {
+    throw ApiError.notFound('Time off request not found');
+  }
+
+  if (body.status === 'cancelled') {
+    if (request.status !== 'to_approve') {
+      throw ApiError.conflict('Only requests awaiting approval can be cancelled');
+    }
+    const updated = await prisma.timeOffRequest.update({
+      where: { id },
+      data: { status: 'cancelled' },
+      include: {
+        employee: { include: { department: true } },
+        timeOffType: true,
+        approver: { include: { department: true } },
+        allocation: {
+          include: {
+            employee: { include: { department: true } },
+            timeOffType: true,
+            approver: { include: { department: true } },
+            requests: true,
+          },
+        },
+      },
+    });
+    return mapRequest(updated);
+  }
+
+  if (request.status !== 'to_approve') {
+    throw ApiError.conflict('Only requests in to_approve status can be updated');
+  }
+
+  const startDate = body.startDate ?? toDateOnly(request.startDate);
+  const endDate = body.endDate ?? toDateOnly(request.endDate);
+  const durationType = body.durationType ?? (request.durationType as TimeOffDurationType);
+  const requestedHours =
+    body.requestedHours !== undefined
+      ? body.requestedHours
+      : request.requestedHours
+        ? quantityString(request.requestedHours)
+        : null;
+
+  const { durationDays, durationHours } = await calculateRequestDuration(
+    request.employeeId,
+    request.timeOffType,
+    startDate,
+    endDate,
+    durationType,
+    requestedHours,
+  );
+
+  let allocationId = request.allocationId;
+  if (request.timeOffType.requiresAllocation) {
+    const allocation = await prisma.timeOffAllocation.findFirst({
+      where: {
+        employeeId: request.employeeId,
+        timeOffTypeId: request.timeOffTypeId,
+        status: 'approved',
+        validFrom: { lte: new Date(`${startDate}T00:00:00.000Z`) },
+        validTo: { gte: new Date(`${endDate}T00:00:00.000Z`) },
+      },
+      include: {
+        requests: {
+          where: { status: 'approved' },
+        },
+      },
+    });
+
+    if (!allocation) {
+      throw ApiError.validation('No approved allocation covers this request period');
+    }
+
+    const isDays = request.timeOffType.unit === 'days';
+    let currentTaken = 0;
+    for (const r of allocation.requests) {
+      currentTaken += Number(isDays ? r.durationDays : r.durationHours);
+    }
+    const allocated = Number(allocation.allocated);
+    const needed = Number(isDays ? durationDays : durationHours);
+    if (allocated - currentTaken < needed) {
+      throw ApiError.validation('Request exceeds remaining allocation balance');
+    }
+
+    allocationId = allocation.id;
+  }
+
+  const updated = await prisma.timeOffRequest.update({
+    where: { id },
+    data: {
+      startDate: new Date(`${startDate}T00:00:00.000Z`),
+      endDate: new Date(`${endDate}T00:00:00.000Z`),
+      durationType,
+      requestedHours: requestedHours ? new Prisma.Decimal(requestedHours) : null,
+      durationDays: new Prisma.Decimal(durationDays),
+      durationHours: new Prisma.Decimal(durationHours),
+      allocationId,
+      ...(body.reason !== undefined ? { reason: body.reason } : {}),
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
+      },
+    },
+  });
+
+  return mapRequest(updated);
+}
+
+export async function approveTimeOffRequest(
+  id: string,
+  approverEmployeeId?: string | null,
+) {
+  const request = await prisma.timeOffRequest.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true, user: true } },
+      timeOffType: true,
+      allocation: {
+        include: {
+          requests: {
+            where: { status: 'approved' },
+          },
+        },
+      },
+    },
+  });
+
+  if (!request) {
+    throw ApiError.notFound('Time off request not found');
+  }
+
+  if (request.status !== 'to_approve') {
+    throw ApiError.conflict('Only requests in to_approve status can be approved');
+  }
+
+  if (request.timeOffType.requiresAllocation && request.allocation) {
+    const isDays = request.timeOffType.unit === 'days';
+    let currentTaken = 0;
+    for (const r of request.allocation.requests) {
+      currentTaken += Number(isDays ? r.durationDays : r.durationHours);
+    }
+    const needed = Number(isDays ? request.durationDays : request.durationHours);
+    const allocated = Number(request.allocation.allocated);
+    if (allocated - currentTaken < needed) {
+      throw ApiError.validation('Request exceeds remaining allocation balance');
+    }
+  }
+
+  const updated = await prisma.timeOffRequest.update({
+    where: { id },
+    data: {
+      status: 'approved',
+      approverId: approverEmployeeId ?? null,
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
+      },
+    },
+  });
+
+  // Notify employee
+  if (request.employee.user?.id) {
+    sendNotification(
+      request.employee.user.id,
+      'time_off_approved',
+      'Time off request approved',
+      `Your request for ${quantityString(request.durationDays)} days of ${request.timeOffType.name} was approved`,
+      `/time-off/requests/${request.id}`,
+    );
+  }
+
+  return mapRequest(updated);
+}
+
+export async function refuseTimeOffRequest(
+  id: string,
+  refusalReason?: string | null,
+  approverEmployeeId?: string | null,
+) {
+  const request = await prisma.timeOffRequest.findUnique({
+    where: { id },
+    include: {
+      employee: { include: { department: true, user: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
+      },
+    },
+  });
+
+  if (!request) {
+    throw ApiError.notFound('Time off request not found');
+  }
+
+  if (request.status !== 'to_approve' && request.status !== 'approved') {
+    throw ApiError.conflict('Only to_approve or approved requests can be refused');
+  }
+
+  const updated = await prisma.timeOffRequest.update({
+    where: { id },
+    data: {
+      status: 'refused',
+      refusalReason: refusalReason ?? null,
+      approverId: approverEmployeeId ?? null,
+    },
+    include: {
+      employee: { include: { department: true } },
+      timeOffType: true,
+      approver: { include: { department: true } },
+      allocation: {
+        include: {
+          employee: { include: { department: true } },
+          timeOffType: true,
+          approver: { include: { department: true } },
+          requests: true,
+        },
+      },
+    },
+  });
+
+  // Notify employee
+  if (request.employee.user?.id) {
+    sendNotification(
+      request.employee.user.id,
+      'time_off_refused',
+      'Time off request refused',
+      `Your request for ${quantityString(request.durationDays)} days of ${request.timeOffType.name} was refused`,
+      `/time-off/requests/${request.id}`,
+    );
+  }
+
+  return mapRequest(updated);
+}
+
+// ============================================================================
+// Time Off Dashboard
+// ============================================================================
+
+export async function getTimeOffDashboard(
+  queryEmployeeId?: string,
+  queryYear?: number,
+  scopedEmployeeId?: string,
+) {
+  let employeeId = scopedEmployeeId ?? queryEmployeeId;
+  if (!employeeId) {
+    const firstEmp = await prisma.employee.findFirst({
+      where: { status: 'active' },
+      orderBy: { firstName: 'asc' },
+    });
+    if (!firstEmp) throw ApiError.notFound('No employee found');
+    employeeId = firstEmp.id;
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: {
+      department: true,
+      workingSchedule: {
+        include: { days: true },
+      },
+    },
+  });
+
+  if (!employee) throw ApiError.notFound('Employee not found');
+
+  const year = queryYear ?? new Date().getFullYear();
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+
+  const [types, holidays, approvedRequests, pendingRequests, allocations] = await Promise.all([
+    prisma.timeOffType.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.publicHoliday.findMany({
+      where: {
+        date: {
+          gte: new Date(`${yearStart}T00:00:00.000Z`),
+          lte: new Date(`${yearEnd}T00:00:00.000Z`),
+        },
+      },
+    }),
+    prisma.timeOffRequest.findMany({
+      where: {
+        employeeId,
+        status: 'approved',
+        startDate: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
+        endDate: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
+      },
+      include: { timeOffType: true },
+    }),
+    prisma.timeOffRequest.findMany({
+      where: {
+        employeeId,
+        status: 'to_approve',
+        startDate: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
+        endDate: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
+      },
+    }),
+    prisma.timeOffAllocation.findMany({
+      where: {
+        employeeId,
+        status: 'approved',
+        validFrom: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
+        validTo: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
+      },
+    }),
+  ]);
+
+  const scheduleDays = employee.workingSchedule?.days ?? [];
+  const scheduledWeekdays = new Set(scheduleDays.map((d) => d.dayOfWeek));
+  const holidayMap = new Map<string, string>();
+  for (const h of holidays) {
+    holidayMap.set(toDateOnly(h.date), h.name);
+  }
+
+  // Build calendar days
+  const allDates = getDatesInRange(yearStart, yearEnd);
+  const days = allDates.map((dateStr) => {
+    // 1. Holiday
+    const holidayName = holidayMap.get(dateStr);
+    if (holidayName) {
+      return {
+        date: dateStr,
+        kind: 'holiday' as const,
+        timeOffTypeId: null,
+        color: null,
+        fraction: '1.00',
+        label: holidayName,
+      };
+    }
+
+    // 2. Non-working day
+    const weekday = getIsoWeekday(dateStr);
+    if (!scheduledWeekdays.has(weekday)) {
+      return {
+        date: dateStr,
+        kind: 'non_working' as const,
+        timeOffTypeId: null,
+        color: null,
+        fraction: '0.00',
+        label: null,
+      };
+    }
+
+    // 3. Leave check
+    const matchedRequest = approvedRequests.find(
+      (r) => dateStr >= toDateOnly(r.startDate) && dateStr <= toDateOnly(r.endDate),
+    );
+    if (matchedRequest) {
+      const isHalfDay = matchedRequest.durationType === 'half_day';
+      return {
+        date: dateStr,
+        kind: 'leave' as const,
+        timeOffTypeId: matchedRequest.timeOffTypeId,
+        color: matchedRequest.timeOffType.color,
+        fraction: isHalfDay ? '0.50' : '1.00',
+        label: matchedRequest.timeOffType.name,
+      };
+    }
+
+    // 4. Working day
+    return {
+      date: dateStr,
+      kind: 'working' as const,
+      timeOffTypeId: null,
+      color: null,
+      fraction: '1.00',
+      label: null,
+    };
+  });
+
+  // Build entitlements
+  const entitlements = types.map((t) => {
+    const typeAllocations = allocations.filter((a) => a.timeOffTypeId === t.id);
+    const typeApproved = approvedRequests.filter((r) => r.timeOffTypeId === t.id);
+    const typePending = pendingRequests.filter((r) => r.timeOffTypeId === t.id);
+
+    const isDays = t.unit === 'days';
+    let allocatedTotal = 0;
+    for (const a of typeAllocations) {
+      allocatedTotal += Number(a.allocated);
+    }
+    let takenTotal = 0;
+    for (const r of typeApproved) {
+      takenTotal += Number(isDays ? r.durationDays : r.durationHours);
+    }
+    let pendingTotal = 0;
+    for (const r of typePending) {
+      pendingTotal += Number(isDays ? r.durationDays : r.durationHours);
+    }
+
+    const remainingTotal = Math.max(0, allocatedTotal - takenTotal);
+
+    return {
+      timeOffType: mapTimeOffTypeRef(t),
+      allocated: quantityString(roundHalfUp(allocatedTotal, 2)),
+      taken: quantityString(roundHalfUp(takenTotal, 2)),
+      remaining: quantityString(roundHalfUp(remainingTotal, 2)),
+      pending: quantityString(roundHalfUp(pendingTotal, 2)),
+    };
+  });
+
+  // Unplanned leave summary
+  // Unplanned leave is leave on types with requiresAllocation === false (or Sick Leave)
+  const now = new Date();
+  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const d90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const d180 = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  let last30 = 0;
+  let last90 = 0;
+  let last180 = 0;
+  let thisYr = 0;
+
+  for (const r of approvedRequests) {
+    if (!r.timeOffType.requiresAllocation || r.timeOffType.code === 'SL') {
+      const dur = Number(r.durationDays);
+      const startStr = toDateOnly(r.startDate);
+      if (startStr >= d30) last30 += dur;
+      if (startStr >= d90) last90 += dur;
+      if (startStr >= d180) last180 += dur;
+      if (startStr >= yearStart && startStr <= yearEnd) thisYr += dur;
+    }
+  }
+
+  return {
+    employee: mapEmployeeRef(employee),
+    year,
+    workingSchedule: employee.workingSchedule
+      ? {
+          id: employee.workingSchedule.id,
+          name: employee.workingSchedule.name,
+          hoursPerWeek: quantityString(employee.workingSchedule.hoursPerWeek),
+        }
+      : {
+          id: '00000000-0000-0000-0000-000000000000',
+          name: 'Standard 40h',
+          hoursPerWeek: '40.00',
+        },
+    days,
+    entitlements,
     unplannedSummary: {
-      last30Days: '0.00',
-      last3Months: '1.00',
-      last6Months: '2.00',
-      thisYear: '3.00',
+      last30Days: quantityString(roundHalfUp(last30, 2)),
+      last3Months: quantityString(roundHalfUp(last90, 2)),
+      last6Months: quantityString(roundHalfUp(last180, 2)),
+      thisYear: quantityString(roundHalfUp(thisYr, 2)),
     },
   };
 }

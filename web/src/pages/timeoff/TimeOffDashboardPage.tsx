@@ -13,6 +13,7 @@ import { PageSkeleton } from '../../components/ui/Skeleton';
 
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 import { YearCalendar, type TimeOffCalendarDay } from './YearCalendar';
 
 const monthOptions = [
@@ -203,7 +204,9 @@ export default function TimeOffDashboardPage() {
 
   const entitlements = data.entitlements ?? [];
   const ptoEntitlement = entitlements.find((e) => e?.timeOffType?.code === 'PTO');
-  const remainingDays = ptoEntitlement?.remaining ?? '0.00';
+  const ptoPending = parseFloat(ptoEntitlement?.pending ?? '0');
+  const ptoRemaining = parseFloat(ptoEntitlement?.remaining ?? '0');
+  const ptoAvailable = Math.max(0, ptoRemaining - ptoPending).toFixed(2);
 
   const typesForCalendar = entitlements.map((e) => ({
     id: e.timeOffType.id,
@@ -213,6 +216,27 @@ export default function TimeOffDashboardPage() {
 
 
   const handleCalendarDateClick = (date: string) => {
+    const d = new Date(`${date}T00:00:00.000Z`);
+    const day = d.getUTCDay();
+    if (day === 0 || day === 6) {
+      showToast({
+        type: 'warning',
+        title: 'Invalid Selection',
+        message: 'Weekends (Saturday and Sunday) cannot be selected for leave requests.',
+      });
+      return;
+    }
+
+    const dayData = (data?.days ?? []).find((x) => x.date === date);
+    if (dayData?.kind === 'holiday') {
+      showToast({
+        type: 'warning',
+        title: 'Invalid Selection',
+        message: `${dayData.label ?? 'Public holiday'} cannot be selected for leave requests.`,
+      });
+      return;
+    }
+
     if (!selectedStartDate || selectedEndDate || date < selectedStartDate) {
       setSelectedStartDate(date);
       setSelectedEndDate(null);
@@ -229,6 +253,9 @@ export default function TimeOffDashboardPage() {
       search: {
         startDate: selectedStartDate,
         endDate: selectedEndDate ?? selectedStartDate,
+        ...(selectedEmployeeId && selectedEmployeeId !== 'my_records'
+          ? { employeeId: selectedEmployeeId }
+          : {}),
       },
     });
   };
@@ -237,7 +264,7 @@ export default function TimeOffDashboardPage() {
     <>
       <PageHeader
         title="My time off"
-        subtitle={`${data.employee.firstName} ${data.employee.lastName} · ${data.workingSchedule.name} · ${remainingDays} days remaining`}
+        subtitle={`${data.employee.firstName} ${data.employee.lastName} · ${data.workingSchedule.name} · ${ptoAvailable} days available${ptoPending > 0 ? ` (${ptoEntitlement?.pending} pending)` : ''}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canSwitchEmployee && (
@@ -308,18 +335,28 @@ export default function TimeOffDashboardPage() {
           <Card>
             <CardHeader title="Entitlements" subtitle="Taken, pending and remaining leave balance" />
             <CardBody className="space-y-6">
-              {entitlements.map((e) => (
-                <DonutRing
-                  key={`${data.employee.id}-${e.timeOffType.id}`}
-                  label={e.timeOffType.name}
-                  value={parseFloat(e.taken)}
-                  total={parseFloat(e.allocated)}
-                  pending={parseFloat(e.pending)}
-                  unit={e.timeOffType.unit === 'hours' ? 'h' : ''}
-                  color={e.timeOffType.color}
-                  isUnlimited={e.timeOffType.code === 'UL'}
-                />
-              ))}
+              {entitlements
+                .filter((e) => {
+                  const hasAllocation = parseFloat(e.allocated) > 0;
+                  const hasActivity = parseFloat(e.taken) > 0 || parseFloat(e.pending) > 0;
+                  // Show if has allocation (PTO, SICK, COMP), or has active leaves taken/pending
+                  return hasAllocation || e.timeOffType.code === 'PTO' || e.timeOffType.code === 'SICK' || hasActivity;
+                })
+                .map((e) => {
+                  const isUnpaid = e.timeOffType.code === 'UNPAID';
+                  return (
+                    <DonutRing
+                      key={`${data.employee.id}-${e.timeOffType.id}`}
+                      label={e.timeOffType.name}
+                      value={parseFloat(e.taken)}
+                      total={parseFloat(e.allocated)}
+                      pending={parseFloat(e.pending)}
+                      unit={e.timeOffType.unit === 'hours' ? 'h' : ''}
+                      color={e.timeOffType.color}
+                      isUnpaid={isUnpaid}
+                    />
+                  );
+                })}
             </CardBody>
           </Card>
 

@@ -10,10 +10,13 @@ import { DateTimePicker } from '../../components/ui/DateTimePicker';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Select } from '../../components/ui/Select';
 import { FormSkeleton } from '../../components/ui/Skeleton';
+import { formatWorkedHours } from '../../lib/format';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
+import { showToast } from '../../lib/toast';
 
 type AttendanceRecord = {
   id: string;
@@ -35,12 +38,6 @@ type AttendanceRecord = {
   isManualEdit: boolean;
 };
 
-type EmployeeOption = {
-  id: string;
-  firstName: string;
-  lastName: string;
-};
-
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
@@ -59,37 +56,67 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
 }
 
 export default function AttendanceFormPage() {
+  const { user } = useSession();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const params = useParams({ strict: false }) as { id?: string };
   const id = params.id ?? 'new';
   const isNew = id === 'new';
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { user } = useSession();
 
   const canEdit = user ? isHrManagerOrAbove(user.role) : false;
 
-  // For new record: fetch employees list
-  const { data: employeesData = [] } = useQuery<EmployeeOption[]>({
-    queryKey: ['employees', { pageSize: '100' }],
-    queryFn: () => apiRequest<EmployeeOption[]>('/api/employees?pageSize=100'),
+  const [employeePage, setEmployeePage] = useState(1);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeesList, setEmployeesList] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
+
+  useEffect(() => {
+    setEmployeePage(1);
+    setEmployeesList([]);
+  }, [employeeSearch]);
+
+  const { isFetching: isFetchingEmployees } = useQuery({
+    queryKey: ['employees', { page: employeePage, pageSize: 10, q: employeeSearch }],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '10' });
+      if (employeeSearch) qs.set('q', employeeSearch);
+      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
+      const data = Array.isArray(res) ? res : res?.data;
+      const meta = Array.isArray(res) ? undefined : res?.meta;
+      if (data) {
+        setEmployeesList((prev) => {
+          const merged = [...prev, ...data];
+          return Array.from(new Map(merged.map((e: any) => [e.id, e])).values());
+        });
+        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
+      }
+      return res;
+    },
     enabled: isNew && canEdit,
   });
 
-  const { data: record, isLoading, isError, refetch } = useQuery<AttendanceRecord>({
+  const {
+    data: record,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<AttendanceRecord>({
     queryKey: ['attendance', id],
     queryFn: () => apiRequest<AttendanceRecord>(`/api/attendance/${id}`),
     enabled: !isNew,
   });
 
+  // Form state
   const [employeeId, setEmployeeId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [overtimeHours, setOvertimeHours] = useState('0.00');
-  const [status, setStatus] = useState('present');
+  const [status, setStatus] = useState<'present' | 'late' | 'absent' | 'half_day' | 'on_leave'>('present');
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Prepopulate form when record loads
   useEffect(() => {
     if (record) {
       setEmployeeId(record.employee.id);
@@ -102,6 +129,7 @@ export default function AttendanceFormPage() {
     }
   }, [record]);
 
+  // Derived worked hours preview
   let derivedWorkedHours = record ? record.workedHours : '0.00';
   if (checkIn && checkOut) {
     try {
@@ -140,10 +168,20 @@ export default function AttendanceFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      showToast({
+        type: 'success',
+        title: isNew ? 'Attendance Created' : 'Attendance Saved',
+        message: 'Attendance record saved successfully.',
+      });
       navigate({ to: '/attendance' });
     },
     onError: (error: Error) => {
       setErrorMsg(error.message);
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Failed to save attendance',
+      });
     },
   });
 
@@ -165,7 +203,7 @@ export default function AttendanceFormPage() {
   const subtitle = isNew
     ? 'Record attendance manually'
     : `${record?.employee.departmentName} · ${record?.employee.jobPosition}`;
-  const selectedEmployee = employeesData.find((employee) => employee.id === employeeId);
+  const selectedEmployee = employeesList.find((employee) => employee.id === employeeId);
   const employeeName = isNew
     ? selectedEmployee
       ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
@@ -178,17 +216,20 @@ export default function AttendanceFormPage() {
         title={title}
         subtitle={subtitle}
         actions={
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" onClick={() => navigate({ to: '/attendance' })}>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => navigate({ to: '/attendance' })}
+            >
               Cancel
             </Button>
             {canEdit && (
               <Button
-                variant="primary"
+                variant="accent"
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
               >
-                {saveMutation.isPending ? 'Saving...' : 'Save record'}
+                {saveMutation.isPending ? 'Saving...' : isNew ? 'Create record' : 'Save record'}
               </Button>
             )}
           </div>
@@ -210,105 +251,115 @@ export default function AttendanceFormPage() {
             />
             <CardBody className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Employee">
-                {isNew ? (
-                  <Select
-                    options={employeesData.map((employee) => ({
-                      value: employee.id,
-                      label: `${employee.firstName} ${employee.lastName}`,
-                    }))}
-                    value={employeeId}
-                    onValueChange={setEmployeeId}
-                    searchable
-                    searchPlaceholder="Search employees"
+                <Field label="Employee">
+                  {isNew ? (
+                    <SearchableSelect
+                      options={[
+                        ...employeesList.map((e) => ({
+                          value: e.id,
+                          label: `${e.firstName} ${e.lastName}`,
+                        })),
+                        ...(hasMoreEmployees
+                          ? [{ value: 'load_more', label: isFetchingEmployees ? 'Loading...' : 'Show more' }]
+                          : []),
+                      ]}
+                      value={employeeId}
+                      onValueChange={(val) => {
+                        if (val === 'load_more') {
+                          setEmployeePage((p) => p + 1);
+                          return;
+                        }
+                        setEmployeeId(val);
+                      }}
+                      onSearch={setEmployeeSearch}
+                      loading={isFetchingEmployees}
+                    />
+                  ) : (
+                    <Input
+                      value={`${record?.employee.firstName} ${record?.employee.lastName}`}
+                      readOnly
+                      className="bg-surface-sunken"
+                    />
+                  )}
+                </Field>
+
+                <Field label="Date">
+                  <DatePicker
+                    mode="single"
+                    value={date}
+                    onChange={setDate}
+                    readOnly={!isNew}
+                    ariaLabel="Attendance date"
                   />
-                ) : (
+                </Field>
+
+                <Field label="Check in" help="Select a calendar date and local time">
+                  <DateTimePicker
+                    value={checkIn}
+                    onChange={setCheckIn}
+                    readOnly={!canEdit}
+                    ariaLabel="Check-in date and time"
+                  />
+                </Field>
+
+                <Field label="Check out" help="Select a calendar date and local time">
+                  <DateTimePicker
+                    value={checkOut}
+                    onChange={setCheckOut}
+                    readOnly={!canEdit}
+                    ariaLabel="Check-out date and time"
+                  />
+                </Field>
+
+                <Field label="Worked hours">
                   <Input
-                    value={`${record?.employee.firstName} ${record?.employee.lastName}`}
+                    value={formatWorkedHours(derivedWorkedHours)}
                     readOnly
-                    className="bg-surface-sunken"
+                    className="bg-surface-sunken font-mono"
                   />
-                )}
-              </Field>
+                </Field>
 
-              <Field label="Date">
-                <DatePicker
-                  mode="single"
-                  value={date}
-                  onChange={setDate}
-                  readOnly={!isNew}
-                  ariaLabel="Attendance date"
-                />
-              </Field>
-
-              <Field label="Check in" help="Select a calendar date and local time">
-                <DateTimePicker
-                  value={checkIn}
-                  onChange={setCheckIn}
-                  readOnly={!canEdit}
-                  ariaLabel="Check-in date and time"
-                />
-              </Field>
-              <Field label="Check out" help="Select a calendar date and local time">
-                <DateTimePicker
-                  value={checkOut}
-                  onChange={setCheckOut}
-                  readOnly={!canEdit}
-                  ariaLabel="Check-out date and time"
-                />
-              </Field>
-
-              <Field label="Worked hours">
-                <Input
-                  value={derivedWorkedHours}
-                  readOnly
-                  className="bg-surface-sunken font-mono"
-                />
-              </Field>
-
-              <Field label="Overtime hours">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={overtimeHours}
-                  onChange={(e) => setOvertimeHours(e.target.value)}
-                  readOnly={!canEdit}
-                  className="font-mono"
-                />
-              </Field>
-              <Field label="Status">
-                {canEdit ? (
-                  <Select
-                    options={[
-                      { value: 'present', label: 'Present' },
-                      { value: 'late', label: 'Late' },
-                      { value: 'absent', label: 'Absent' },
-                      { value: 'half_day', label: 'Half day' },
-                      { value: 'on_leave', label: 'On leave' },
-                    ]}
-                    value={status}
-                    onValueChange={(v: string) =>
-                      setStatus(
-                        v as 'present' | 'late' | 'absent' | 'half_day' | 'on_leave',
-                      )
-                    }
+                <Field label="Overtime hours">
+                  <Input
+                    value={overtimeHours}
+                    onChange={(e) => setOvertimeHours(e.target.value)}
+                    readOnly={!canEdit}
+                    className="font-mono"
                   />
-                ) : (
-                  <div className="pt-2">
-                    <Badge variant="neutral">{status}</Badge>
-                  </div>
-                )}
-              </Field>
+                </Field>
 
-              <Field label="Notes">
-                <Input
-                  value={notes}
-                  placeholder="Reason for a correction"
-                  onChange={(e) => setNotes(e.target.value)}
-                  readOnly={!canEdit}
-                />
-              </Field>
+                <Field label="Status">
+                  {canEdit ? (
+                    <Select
+                      options={[
+                        { value: 'present', label: 'Present' },
+                        { value: 'late', label: 'Late' },
+                        { value: 'absent', label: 'Absent' },
+                        { value: 'half_day', label: 'Half day' },
+                        { value: 'on_leave', label: 'On leave' },
+                      ]}
+                      value={status}
+                      onValueChange={(v: string) =>
+                        setStatus(
+                          v as 'present' | 'late' | 'absent' | 'half_day' | 'on_leave',
+                        )
+                      }
+                    />
+                  ) : (
+                    <div className="pt-2">
+                      <Badge variant="neutral">{status}</Badge>
+                    </div>
+                  )}
+                </Field>
+
+                <Field label="Notes">
+                  <Input
+                    value={notes}
+                    placeholder="Reason for a correction"
+                    onChange={(e) => setNotes(e.target.value)}
+                    readOnly={!canEdit}
+                  />
+                </Field>
               </div>
 
               <p className="border-t border-border pt-3 text-caption text-text-muted">
@@ -344,11 +395,11 @@ export default function AttendanceFormPage() {
                   </div>
                   <div className="attendance-record-summary__row">
                     <dt>Worked hours</dt>
-                    <dd className="attendance-record-summary__numeric">{derivedWorkedHours} h</dd>
+                    <dd className="attendance-record-summary__numeric">{formatWorkedHours(derivedWorkedHours)}</dd>
                   </div>
                   <div className="attendance-record-summary__row">
                     <dt>Overtime</dt>
-                    <dd className="attendance-record-summary__numeric">{overtimeHours || '0.00'} h</dd>
+                    <dd className="attendance-record-summary__numeric">{formatWorkedHours(overtimeHours)}</dd>
                   </div>
                   <div className="attendance-record-summary__row">
                     <dt>Status</dt>

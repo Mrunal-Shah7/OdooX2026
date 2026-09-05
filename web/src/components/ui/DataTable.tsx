@@ -174,6 +174,7 @@ export function DataTable<T>({
               {group.headers.map((header) => {
                 const colMeta = (header.column.columnDef.meta as ColumnMeta) ?? {};
                 const isRightAligned = colMeta.align === 'right';
+                const isCenterAligned = colMeta.align === 'center';
                 const canSort = enableSorting && header.column.getCanSort();
                 const isSorted = header.column.getIsSorted();
 
@@ -183,6 +184,7 @@ export function DataTable<T>({
                     className={cn(
                       'whitespace-nowrap border-b border-border bg-surface-sunken px-4 py-3 text-left text-label font-medium text-text-muted select-none',
                       isRightAligned && 'text-right font-mono',
+                      isCenterAligned && 'text-center font-mono',
                       canSort && 'cursor-pointer hover:bg-surface-raised',
                     )}
                     onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
@@ -191,6 +193,7 @@ export function DataTable<T>({
                       className={cn(
                         'flex items-center gap-1.5',
                         isRightAligned && 'justify-end',
+                        isCenterAligned && 'justify-center',
                       )}
                     >
                       <span>
@@ -239,6 +242,7 @@ export function DataTable<T>({
                 {row.getVisibleCells().map((cell) => {
                   const colMeta = (cell.column.columnDef.meta as ColumnMeta) ?? {};
                   const isRightAligned = colMeta.align === 'right';
+                  const isCenterAligned = colMeta.align === 'center';
                   const isCode = colMeta.code;
 
                   return (
@@ -247,6 +251,7 @@ export function DataTable<T>({
                       className={cn(
                         'border-b border-border px-4 py-3 leading-snug',
                         isRightAligned && 'text-right font-mono',
+                        isCenterAligned && 'text-center font-mono',
                         isCode && 'font-mono text-caption text-text-muted',
                       )}
                     >

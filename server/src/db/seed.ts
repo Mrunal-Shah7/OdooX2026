@@ -7,6 +7,7 @@ const DEMO_PASSWORD = 'Demo@1234';
 
 const USER_IDS = {
   admin: 'a0000000-0000-4000-8000-000000000001',
+  admin_dev: 'a0000000-0000-4000-8000-000000000006',
   hr_manager: 'a0000000-0000-4000-8000-000000000002',
   hr_payroll_user: 'a0000000-0000-4000-8000-000000000003',
   hr_payroll_manager: 'a0000000-0000-4000-8000-000000000004',
@@ -113,6 +114,7 @@ async function main(): Promise<void> {
   await truncateAll();
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
+  const personalAdminHash = await hashPassword('pmscrm007');
 
   const company = await prisma.company.create({
     data: {
@@ -532,6 +534,13 @@ async function main(): Promise<void> {
   await prisma.user.createMany({
     data: [
       { id: USER_IDS.admin, email: 'admin@peoplepay360.test', passwordHash, role: 'admin', status: 'active' },
+      {
+        id: USER_IDS.admin_dev,
+        email: 'shahmrunal777@gmail.com',
+        passwordHash: personalAdminHash,
+        role: 'admin',
+        status: 'active',
+      },
       {
         id: USER_IDS.hr_manager,
         email: 'hr.manager@peoplepay360.test',

@@ -26,20 +26,34 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-canvas p-5">
       <Card className="w-full max-w-[var(--container-narrow)]">
         <CardBody>
-          <h1 className="m-0 text-h1 font-semibold">Forgot password</h1>
+          <p className="m-0 text-h2 font-semibold">PeoplePay360</p>
+          <h1 className="m-0 mt-4 text-h1 font-semibold">Forgot password</h1>
           {submitted ? (
             <p className="mt-4 text-body-sm text-text-muted">
-              If an account exists for that email, a reset link has been sent.
+              If that address has an account, a link is on its way.
             </p>
           ) : (
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <Field label="Email" htmlFor="email">
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </Field>
-              <Button type="submit" variant="accent" disabled={loading}>
-                Send reset link
-              </Button>
-            </form>
+            <>
+              <p className="mt-1 text-body-sm text-text-muted">
+                Enter your work email and we will send a reset link.
+              </p>
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <Field label="Work email" htmlFor="email">
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="name@peoplepay360.test"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </Field>
+                <Button type="submit" variant="accent" className="w-full" disabled={loading}>
+                  {loading ? 'Sending…' : 'Send reset link'}
+                </Button>
+              </form>
+            </>
           )}
           <p className="mt-4 text-body-sm">
             <Link to="/login" className="text-accent">

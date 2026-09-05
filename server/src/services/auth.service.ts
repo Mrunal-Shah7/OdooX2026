@@ -1,13 +1,21 @@
 import { prisma } from '../db/client.js';
 import { ApiError } from '../lib/apiError.js';
-import { verifyPassword } from '../lib/password.js';
+import { env } from '../env.js';
+import { sendMail } from '../lib/mailer.js';
+import { hashPassword, verifyPassword } from '../lib/password.js';
 import {
   generateOpaqueToken,
   hashToken,
   REFRESH_TOKEN_MAX_AGE_MS,
   signAccessToken,
 } from '../lib/tokens.js';
-import type { UserRole } from '../../../shared/constants.js';
+import {
+  AUTH_TOKEN_PURPOSE,
+  USER_STATUS,
+  type UserRole,
+} from '../../../shared/constants.js';
+
+const AUTH_TOKEN_TTL_MS = 72 * 60 * 60 * 1000;
 
 const employeeInclude = {
   employee: {
@@ -131,12 +139,113 @@ export async function getCurrentUser(userId: string) {
   return toSessionUser(user);
 }
 
-export async function requestPasswordReset(_body: { email: string }) {
-  // TODO: STUB — auth_tokens + email
+export async function requestPasswordReset(body: { email: string }) {
+  const user = await prisma.user.findUnique({
+    where: { email: body.email.toLowerCase() },
+  });
+  if (!user || user.status !== USER_STATUS.active) {
+    return;
+  }
+
+  const rawToken = generateOpaqueToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + AUTH_TOKEN_TTL_MS);
+
+  await prisma.authToken.updateMany({
+    where: {
+      userId: user.id,
+      purpose: AUTH_TOKEN_PURPOSE.password_reset,
+      usedAt: null,
+    },
+    data: { usedAt: new Date() },
+  });
+
+  const created = await prisma.authToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      purpose: AUTH_TOKEN_PURPOSE.password_reset,
+      expiresAt,
+    },
+  });
+
+  const link = `${env.APP_URL}/set-password?token=${rawToken}`;
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Reset your PeoplePay360 password',
+      html: `<p>Reset your password using this link (expires in 72 hours):</p><p><a href="${link}">${link}</a></p>`,
+    });
+  } catch (err) {
+    await prisma.authToken.delete({ where: { id: created.id } });
+    throw err;
+  }
 }
 
-export async function setPassword(_body: { token: string; password: string }) {
-  // TODO: STUB — consume auth_tokens
+export async function setPassword(body: { token: string; password: string }) {
+  const tokenHash = hashToken(body.token);
+  const authToken = await prisma.authToken.findUnique({ where: { tokenHash } });
+  if (!authToken) {
+    throw ApiError.notFound('Invalid or unknown token');
+  }
+  if (authToken.usedAt) {
+    throw ApiError.conflict('Token has already been used');
+  }
+  if (authToken.expiresAt.getTime() <= Date.now()) {
+    throw ApiError.conflict('Token has expired');
+  }
+
+  const purpose = authToken.purpose;
+  if (
+    purpose !== AUTH_TOKEN_PURPOSE.invite &&
+    purpose !== AUTH_TOKEN_PURPOSE.password_reset
+  ) {
+    throw ApiError.notFound('Invalid or unknown token');
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: authToken.userId } });
+  if (!user) {
+    throw ApiError.notFound('Invalid or unknown token');
+  }
+  if (user.status === USER_STATUS.disabled) {
+    throw ApiError.conflict('User is disabled');
+  }
+  if (purpose === AUTH_TOKEN_PURPOSE.password_reset && user.status !== USER_STATUS.active) {
+    throw ApiError.conflict('Password reset is only valid for active users');
+  }
+  if (purpose === AUTH_TOKEN_PURPOSE.invite && user.status !== USER_STATUS.invited) {
+    throw ApiError.conflict('Invite token is no longer valid for this user');
+  }
+
+  const passwordHash = await hashPassword(body.password);
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        status: USER_STATUS.active,
+      },
+    }),
+    prisma.authToken.update({
+      where: { id: authToken.id },
+      data: { usedAt: now },
+    }),
+    prisma.authToken.updateMany({
+      where: {
+        userId: user.id,
+        purpose,
+        usedAt: null,
+        id: { not: authToken.id },
+      },
+      data: { usedAt: now },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: now },
+    }),
+  ]);
 }
 
 function toSessionUser(user: UserWithEmployee) {

@@ -340,4 +340,19 @@ router.get(
   },
 );
 
+router.post(
+  '/payslips/:id/send-email',
+  requireAuth,
+  requireRole(USER_ROLE.hr_payroll_user),
+  validate({ params: idParamSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await payslipsService.sendSinglePayslipEmail(pathId(req));
+      res.json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 export default router;

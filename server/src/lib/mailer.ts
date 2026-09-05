@@ -8,8 +8,12 @@ export async function sendMail(input: {
   html: string;
   attachments?: { filename: string; content: Buffer }[];
 }): Promise<void> {
-  if (!env.RESEND_API_KEY) {
-    throw ApiError.internal('Email is not configured');
+  if (!env.RESEND_API_KEY || env.RESEND_API_KEY === 'dummy') {
+    const attachmentInfo = input.attachments
+      ? ` | Attachments: ${input.attachments.map((a) => a.filename).join(', ')}`
+      : '';
+    console.log(`[Mock Mailer] Sent email to "${input.to}" | Subject: "${input.subject}"${attachmentInfo}`);
+    return;
   }
 
   const resend = new Resend(env.RESEND_API_KEY);
@@ -25,6 +29,7 @@ export async function sendMail(input: {
   });
 
   if (error) {
+    console.error(`[Mailer Error] Failed to send email to ${input.to}:`, error.message);
     throw ApiError.internal(error.message);
   }
 }

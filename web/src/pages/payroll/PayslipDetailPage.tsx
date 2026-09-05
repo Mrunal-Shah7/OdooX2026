@@ -19,6 +19,7 @@ export default function PayslipDetailPage() {
   const [loading, setLoading] = useState(true);
   const [archiving, setArchiving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<'contract' | 'payout'>('contract');
 
   const fetchDetail = () => {
@@ -80,6 +81,25 @@ export default function PayslipDetailPage() {
       showToast({ type: 'error', title: 'Download Failed', message: msg });
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!id) return;
+    setSendingEmail(true);
+    try {
+      const res = await payrollApi.sendPayslipEmail(id);
+      showToast({
+        type: 'success',
+        title: 'Email Sent',
+        message: `Payslip PDF emailed to ${res.sentTo}`,
+      });
+      fetchDetail();
+    } catch (err: any) {
+      const msg = err.message || 'Failed to email payslip PDF';
+      showToast({ type: 'error', title: 'Email Failed', message: msg });
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -208,6 +228,9 @@ export default function PayslipDetailPage() {
             )}
             <Button variant="secondary" onClick={handleDownloadPdf} disabled={downloading}>
               {downloading ? 'Downloading...' : 'Download PDF'}
+            </Button>
+            <Button variant="accent" onClick={handleSendEmail} disabled={sendingEmail}>
+              {sendingEmail ? 'Sending Email...' : 'Email PDF'}
             </Button>
             {ps && !ps.archived && (
               <Button variant="danger" onClick={handleArchive} disabled={archiving}>

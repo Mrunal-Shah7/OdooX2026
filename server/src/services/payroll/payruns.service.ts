@@ -1,11 +1,14 @@
 import { prisma } from '../../db/client.js';
 import { ApiError } from '../../lib/apiError.js';
+import { sendMail } from '../../lib/mailer.js';
 import { Decimal, moneyString, roundHalfUp } from '../../lib/money.js';
 import { paginationMeta } from '../../lib/pagination.js';
 import { NOTIFICATION_TYPE } from '../../../../shared/constants.js';
 import { getDayBreakdown } from '../dayAccounting.service.js';
 import { create as createNotification } from '../notifications.service.js';
 import { computePayslipForEmployee } from './compute.js';
+import { getPayslip } from './payslips.service.js';
+import { renderPayslipPdf } from './payslipPdf.js';
 
 async function notifyQuietly(input: {
   userId: string;
@@ -588,10 +591,31 @@ export async function sendPayslips(id: string) {
 
   for (const ps of payrun.payslips) {
     try {
+      const recipientEmail = ps.employee.workEmail;
+      if (!recipientEmail) {
+        throw new Error('Employee has no work email address');
+      }
+
+      const detail = await getPayslip(ps.id);
+      const pdfBuffer = renderPayslipPdf(detail);
+
+      await sendMail({
+        to: recipientEmail,
+        subject: `Payslip - ${payrun.name} - ${ps.employee.firstName} ${ps.employee.lastName}`,
+        html: `<p>Dear ${ps.employee.firstName},</p><p>Please find attached your official payslip PDF for period <strong>${payrun.name}</strong> (${ps.periodStart.toISOString().slice(0, 10)} to ${ps.periodEnd.toISOString().slice(0, 10)}).</p><p>Best regards,<br/>PeoplePay360 Payroll Team</p>`,
+        attachments: [
+          {
+            filename: `Payslip_${ps.employee.firstName}_${ps.employee.lastName}_${payrun.name}.pdf`,
+            content: pdfBuffer,
+          },
+        ],
+      });
+
       await prisma.payslip.update({
         where: { id: ps.id },
         data: { sentAt: now },
       });
+
       results.push({ payslipId: ps.id, sent: true, error: null });
 
       const userId = ps.employee.user?.id;
@@ -600,7 +624,7 @@ export async function sendPayslips(id: string) {
           userId,
           type: NOTIFICATION_TYPE.payslip_sent,
           title: 'Payslip available',
-          body: `Your payslip for ${payrun.name} has been sent.`,
+          body: `Your payslip for ${payrun.name} has been emailed to you.`,
           linkPath: `/payroll/payslips/${ps.id}`,
         });
       }

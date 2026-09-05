@@ -312,6 +312,10 @@ export const payrollApi = {
     return request(`/api/payroll/payslips/${id}/archive`, { method: 'POST' });
   },
 
+  sendPayslipEmail(id: string): Promise<{ success: boolean; sentTo: string }> {
+    return request(`/api/payroll/payslips/${id}/send-email`, { method: 'POST' });
+  },
+
   async downloadPayslipPdf(id: string): Promise<Blob> {
     const headers = new Headers();
     const token = getStoredAuthToken();

@@ -1,5 +1,6 @@
 import { prisma } from '../../db/client.js';
 import { ApiError } from '../../lib/apiError.js';
+import { sendMail } from '../../lib/mailer.js';
 import { paginationMeta } from '../../lib/pagination.js';
 import { renderPayslipPdf } from './payslipPdf.js';
 
@@ -171,4 +172,35 @@ export async function archivePayslip(id: string) {
 export async function getPayslipPdf(id: string): Promise<Buffer> {
   const detail = await getPayslip(id);
   return renderPayslipPdf(detail);
+}
+
+export async function sendSinglePayslipEmail(id: string): Promise<{ success: boolean; sentTo: string }> {
+  const detail = await getPayslip(id);
+  const emp = detail.payslip.employee;
+
+  if (!emp.workEmail) {
+    throw ApiError.validation('Employee has no work email address');
+  }
+
+  const pdfBuffer = renderPayslipPdf(detail);
+
+  await sendMail({
+    to: emp.workEmail,
+    subject: `Payslip - ${detail.payslip.payrunName || 'Period'} - ${emp.firstName} ${emp.lastName}`,
+    html: `<p>Dear ${emp.firstName},</p><p>Please find attached your official payslip PDF for period <strong>${detail.payslip.periodStart} to ${detail.payslip.periodEnd}</strong>.</p><p>Best regards,<br/>PeoplePay360 Payroll Team</p>`,
+    attachments: [
+      {
+        filename: `Payslip_${emp.firstName}_${emp.lastName}_${detail.payslip.periodStart}.pdf`,
+        content: pdfBuffer,
+      },
+    ],
+  });
+
+  const now = new Date();
+  await prisma.payslip.update({
+    where: { id },
+    data: { sentAt: now },
+  });
+
+  return { success: true, sentTo: emp.workEmail };
 }

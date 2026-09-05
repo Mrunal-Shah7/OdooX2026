@@ -17,12 +17,11 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { cn } from '../../lib/cn';
 import { EmptyState } from './EmptyState';
 import { Pagination } from './Pagination';
-import { Select } from './Select';
 
 export type ColumnMeta = {
-  align?: "left" | "right" | "center";
+  align?: 'left' | 'right' | 'center';
   code?: boolean;
-  filtejrVariant?: "text" | "date" | "select";
+  filterVariant?: 'text' | 'date' | 'select';
   filterOptions?: { label: string; value: string }[];
   filterPlaceholder?: string;
 };
@@ -63,7 +62,7 @@ export function DataTable<T>({
   enableSorting = true,
   enablePagination = true,
   isLoading = false,
-  emptyMessage = "No records found.",
+  emptyMessage = 'No records found.',
   totalCount,
   searchPlaceholder,
   globalFilter: externalGlobalFilter,
@@ -103,17 +102,13 @@ export function DataTable<T>({
 
   const [internalColumnFilters, setInternalColumnFilters] = useState<ColumnFiltersState>([]);
   const [internalSorting, setInternalSorting] = useState<SortingState>([]);
-  const [internalPagination, setInternalPagination] = useState<PaginationState>(
-    {
-      pageIndex: 0,
-      pageSize: 10,
-    },
-  );
+  const [internalPagination, setInternalPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
   const isControlledFilters = externalColumnFilters !== undefined;
-  const columnFilters = isControlledFilters
-    ? externalColumnFilters
-    : internalColumnFilters;
+  const columnFilters = isControlledFilters ? externalColumnFilters : internalColumnFilters;
   const setColumnFilters = onColumnFiltersChange ?? setInternalColumnFilters;
 
   const isControlledSorting = externalSorting !== undefined;
@@ -121,9 +116,7 @@ export function DataTable<T>({
   const setSorting = onSortingChange ?? setInternalSorting;
 
   const isControlledPagination = externalPagination !== undefined;
-  const pagination = isControlledPagination
-    ? externalPagination
-    : internalPagination;
+  const pagination = isControlledPagination ? externalPagination : internalPagination;
   const setPagination = onPaginationChange ?? setInternalPagination;
 
   const table = useReactTable({
@@ -141,16 +134,13 @@ export function DataTable<T>({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: isServerFiltered ? undefined : getFilteredRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
-    getPaginationRowModel: manualPagination
-      ? undefined
-      : getPaginationRowModel(),
+    getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
     manualPagination,
     manualFiltering: isServerFiltered,
     manualSorting,
     pageCount,
     meta,
   });
-
 
   const totalItems =
     totalCount !== undefined
@@ -182,9 +172,8 @@ export function DataTable<T>({
           {table.getHeaderGroups().map((group) => (
             <tr key={group.id}>
               {group.headers.map((header) => {
-                const colMeta =
-                  (header.column.columnDef.meta as ColumnMeta) ?? {};
-                const isRightAligned = colMeta.align === "right";
+                const colMeta = (header.column.columnDef.meta as ColumnMeta) ?? {};
+                const isRightAligned = colMeta.align === 'right';
                 const canSort = enableSorting && header.column.getCanSort();
                 const isSorted = header.column.getIsSorted();
 
@@ -192,35 +181,28 @@ export function DataTable<T>({
                   <th
                     key={header.id}
                     className={cn(
-                      "whitespace-nowrap border-b border-border bg-surface-sunken px-4 py-3 text-left text-label font-medium text-text-muted select-none",
-                      isRightAligned && "text-right font-mono",
-                      canSort && "cursor-pointer hover:bg-surface-raised",
+                      'whitespace-nowrap border-b border-border bg-surface-sunken px-4 py-3 text-left text-label font-medium text-text-muted select-none',
+                      isRightAligned && 'text-right font-mono',
+                      canSort && 'cursor-pointer hover:bg-surface-raised',
                     )}
-                    onClick={
-                      canSort
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
+                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                   >
                     <div
                       className={cn(
-                        "flex items-center gap-1.5",
-                        isRightAligned && "justify-end",
+                        'flex items-center gap-1.5',
+                        isRightAligned && 'justify-end',
                       )}
                     >
                       <span>
                         {header.isPlaceholder
                           ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
+                          : flexRender(header.column.columnDef.header, header.getContext())}
                       </span>
                       {canSort && (
                         <span className="text-text-muted">
-                          {isSorted === "asc" ? (
+                          {isSorted === 'asc' ? (
                             <ArrowUp className="size-3.5 text-accent" />
-                          ) : isSorted === "desc" ? (
+                          ) : isSorted === 'desc' ? (
                             <ArrowDown className="size-3.5 text-accent" />
                           ) : (
                             <ArrowUpDown className="size-3.5 opacity-50" />
@@ -233,78 +215,14 @@ export function DataTable<T>({
               })}
             </tr>
           ))}
-          {enableFiltering &&
-            table.getHeaderGroups().map((group) => (
-              <tr
-                key={`filter-row-${group.id}`}
-                className="border-b border-border bg-surface-sunken/60"
-              >
-                {group.headers.map((header) => {
-                  const colMeta =
-                    (header.column.columnDef.meta as ColumnMeta) ?? {};
-                  const canFilter =
-                    header.column.getCanFilter() &&
-                    header.column.columnDef.enableColumnFilter !== false;
-                  const filterValue =
-                    (header.column.getFilterValue() as string) ?? "";
-
-                  return (
-                    <th
-                      key={`filter-cell-${header.id}`}
-                      className="px-3 py-2 font-normal"
-                    >
-                      {canFilter ? (
-                        colMeta.filterVariant === "select" &&
-                        colMeta.filterOptions ? (
-                          <Select
-                            options={[
-                              { label: "All", value: "" },
-                              ...colMeta.filterOptions,
-                            ]}
-                            value={filterValue}
-                            onValueChange={(val) =>
-                              header.column.setFilterValue(val || undefined)
-                            }
-                            placeholder="All"
-                          />
-                        ) : colMeta.filterVariant === "date" ? (
-                          <DatePicker
-                            mode="single"
-                            value={filterValue}
-                            onChange={(value) =>
-                              header.column.setFilterValue(value || undefined)
-                            }
-                            ariaLabel={colMeta.filterPlaceholder ?? "Filter by date"}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={filterValue}
-                            onChange={(e) =>
-                              header.column.setFilterValue(
-                                e.target.value || undefined,
-                              )
-                            }
-                            placeholder={
-                              colMeta.filterPlaceholder ?? "Filter..."
-                            }
-                            className="w-full rounded border border-border bg-surface px-2.5 py-1 text-caption text-text outline-none focus:border-focus-ring"
-                          />
-                        )
-                      ) : null}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
         </thead>
         <tbody>
           {isLoading ? (
-            Array.from({ length: 8 }).map((_, rowIndex) => (
-              <tr key={rowIndex} className="border-b border-border">
-                {columns.map((_, columnIndex) => (
-                  <td key={columnIndex} className="px-4 py-4">
-                    <Skeleton className="h-4" />
+            Array.from({ length: 8 }).map((_, i) => (
+              <tr key={i} className="animate-pulse border-b border-border">
+                {columns.map((_, j) => (
+                  <td key={j} className="px-4 py-4">
+                    <div className="h-4 w-full rounded bg-surface-sunken"></div>
                   </td>
                 ))}
               </tr>
@@ -317,29 +235,22 @@ export function DataTable<T>({
             </tr>
           ) : (
             table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border hover:bg-primary-subtle"
-              >
+              <tr key={row.id} className="border-b border-border hover:bg-primary-subtle">
                 {row.getVisibleCells().map((cell) => {
-                  const colMeta =
-                    (cell.column.columnDef.meta as ColumnMeta) ?? {};
-                  const isRightAligned = colMeta.align === "right";
+                  const colMeta = (cell.column.columnDef.meta as ColumnMeta) ?? {};
+                  const isRightAligned = colMeta.align === 'right';
                   const isCode = colMeta.code;
 
                   return (
                     <td
                       key={cell.id}
                       className={cn(
-                        "border-b border-border px-4 py-3 leading-snug",
-                        isRightAligned && "text-right font-mono",
-                        isCode && "font-mono text-caption text-text-muted",
+                        'border-b border-border px-4 py-3 leading-snug',
+                        isRightAligned && 'text-right font-mono',
+                        isCode && 'font-mono text-caption text-text-muted',
                       )}
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   );
                 })}

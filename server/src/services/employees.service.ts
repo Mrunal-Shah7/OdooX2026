@@ -1,6 +1,8 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client.js';
 import { ApiError } from '../lib/apiError.js';
 import { paginationMeta } from '../lib/pagination.js';
+
 function mapDepartment(
   d: {
     id: string;
@@ -152,45 +154,187 @@ export async function deleteDepartment(id: string) {
   await prisma.department.delete({ where: { id } });
 }
 
-const stubEmployee = {
-  id: '11111111-1111-4111-8111-111111111111',
-  firstName: 'Priya',
-  lastName: 'Sharma',
-  workEmail: 'priya.sharma@peoplepay360.com',
-  personalEmail: 'priya.personal@gmail.com',
-  phone: '+91 98765 43210',
-  department: { id: '33333333-3333-4333-8333-333333333333', name: 'Engineering', code: 'ENG' },
-  jobPosition: 'Software Engineer',
-  workingSchedule: {
-    id: '66666666-6666-4666-8666-666666666666',
-    name: 'Standard 40h',
-    hoursPerWeek: '40.00',
-  },
-  employeeType: 'full_time' as const,
-  status: 'active' as const,
-  joiningDate: '2025-01-15',
-  workLocation: 'Bangalore',
-  bankName: 'HDFC Bank',
-  bankAccountHolder: 'Priya Sharma',
-  bankAccountLast4: '1234',
-  bankIfsc: 'HDFC0001234',
-  manager: null,
-};
+function mapEmployee(emp: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  workEmail: string;
+  personalEmail: string | null;
+  phone: string | null;
+  jobPosition: string;
+  employeeType: string;
+  status: string;
+  joiningDate: Date;
+  workLocation: string | null;
+  bankName: string | null;
+  bankAccountHolder: string | null;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  department: { id: string; name: string; code: string };
+  workingSchedule: { id: string; name: string; hoursPerWeek: Prisma.Decimal };
+  manager: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    jobPosition: string;
+  } | null;
+}) {
+  const joiningDateStr =
+    emp.joiningDate instanceof Date
+      ? emp.joiningDate.toISOString().split('T')[0]
+      : String(emp.joiningDate);
 
-export async function listEmployees(query: { page: number; pageSize: number }) {
-  // TODO: STUB
   return {
-    data: [stubEmployee],
-    meta: paginationMeta(query.page, query.pageSize, 1),
+    id: emp.id,
+    firstName: emp.firstName,
+    lastName: emp.lastName,
+    workEmail: emp.workEmail,
+    personalEmail: emp.personalEmail,
+    phone: emp.phone,
+    department: {
+      id: emp.department.id,
+      name: emp.department.name,
+      code: emp.department.code,
+    },
+    jobPosition: emp.jobPosition,
+    workingSchedule: {
+      id: emp.workingSchedule.id,
+      name: emp.workingSchedule.name,
+      hoursPerWeek: emp.workingSchedule.hoursPerWeek.toString(),
+    },
+    employeeType: emp.employeeType as 'full_time' | 'part_time' | 'contract' | 'intern',
+    status: emp.status as 'active' | 'inactive',
+    joiningDate: joiningDateStr,
+    workLocation: emp.workLocation,
+    bankName: emp.bankName,
+    bankAccountHolder: emp.bankAccountHolder,
+    bankAccountLast4: emp.bankAccountNumber ? emp.bankAccountNumber.slice(-4) : null,
+    bankIfsc: emp.bankIfsc,
+    manager: emp.manager
+      ? {
+          id: emp.manager.id,
+          firstName: emp.manager.firstName,
+          lastName: emp.manager.lastName,
+          workEmail: emp.manager.workEmail,
+          jobPosition: emp.manager.jobPosition,
+        }
+      : null,
+  };
+}
+
+const employeeInclude = {
+  department: { select: { id: true, name: true, code: true } },
+  workingSchedule: { select: { id: true, name: true, hoursPerWeek: true } },
+  manager: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      workEmail: true,
+      jobPosition: true,
+    },
+  },
+} as const;
+
+export async function listEmployees(query: {
+  page: number;
+  pageSize: number;
+  q?: string;
+  departmentId?: string;
+  employeeType?: string;
+  status?: string;
+  sort?: string;
+  order?: 'asc' | 'desc';
+}) {
+  const where: Prisma.EmployeeWhereInput = {};
+
+  if (query.q) {
+    where.OR = [
+      { firstName: { contains: query.q, mode: 'insensitive' } },
+      { lastName: { contains: query.q, mode: 'insensitive' } },
+      { workEmail: { contains: query.q, mode: 'insensitive' } },
+      { jobPosition: { contains: query.q, mode: 'insensitive' } },
+    ];
+  }
+
+  if (query.departmentId) {
+    where.departmentId = query.departmentId;
+  }
+
+  if (query.employeeType) {
+    where.employeeType = query.employeeType;
+  }
+
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  let orderBy: Prisma.EmployeeOrderByWithRelationInput = { createdAt: 'desc' };
+  if (query.sort) {
+    const orderDir = query.order ?? 'asc';
+    if (query.sort === 'name' || query.sort === 'firstName') {
+      orderBy = { firstName: orderDir };
+    } else if (query.sort === 'joiningDate') {
+      orderBy = { joiningDate: orderDir };
+    } else if (query.sort === 'jobPosition') {
+      orderBy = { jobPosition: orderDir };
+    } else {
+      orderBy = { [query.sort]: orderDir };
+    }
+  }
+
+  const skip = (query.page - 1) * query.pageSize;
+  const take = query.pageSize;
+
+  const [total, rows] = await Promise.all([
+    prisma.employee.count({ where }),
+    prisma.employee.findMany({
+      where,
+      skip,
+      take,
+      orderBy,
+      include: employeeInclude,
+    }),
+  ]);
+
+  return {
+    data: rows.map(mapEmployee),
+    meta: paginationMeta(query.page, query.pageSize, total),
   };
 }
 
 export async function getEmployee(id: string) {
-  // TODO: STUB
+  const emp = await prisma.employee.findUnique({
+    where: { id },
+    include: {
+      ...employeeInclude,
+      _count: {
+        select: {
+          contracts: true,
+          attendanceRecords: true,
+          timeOffRequests: true,
+          allocations: true,
+        },
+      },
+    },
+  });
+
+  if (!emp) throw ApiError.notFound('Employee not found');
+
   return {
-    employee: { ...stubEmployee, id },
-    counts: { contracts: 1, attendance: 22, timeOff: 3, allocations: 2 },
+    employee: mapEmployee(emp),
+    counts: {
+      contracts: emp._count.contracts,
+      attendance: emp._count.attendanceRecords,
+      timeOff: emp._count.timeOffRequests,
+      allocations: emp._count.allocations,
+    },
   };
+}
+
+export async function getEmployeeProfile(employeeId: string) {
+  return getEmployee(employeeId);
 }
 
 export async function createEmployee(body: {
@@ -211,27 +355,62 @@ export async function createEmployee(body: {
   bankAccountNumber?: string | null;
   bankIfsc?: string | null;
 }) {
-  // TODO: STUB
-  const last4 = body.bankAccountNumber ? body.bankAccountNumber.slice(-4) : null;
-  return {
-    ...stubEmployee,
-    id: '22222222-2222-4222-8222-222222222222',
-    firstName: body.firstName,
-    lastName: body.lastName,
-    workEmail: body.workEmail,
-    personalEmail: body.personalEmail ?? null,
-    phone: body.phone ?? null,
-    department: { ...stubEmployee.department, id: body.departmentId },
-    jobPosition: body.jobPosition,
-    workingSchedule: { ...stubEmployee.workingSchedule, id: body.workingScheduleId },
-    employeeType: body.employeeType,
-    joiningDate: body.joiningDate,
-    workLocation: body.workLocation ?? null,
-    bankName: body.bankName ?? null,
-    bankAccountHolder: body.bankAccountHolder ?? null,
-    bankAccountLast4: last4,
-    bankIfsc: body.bankIfsc ?? null,
-  };
+  const existing = await prisma.employee.findUnique({
+    where: { workEmail: body.workEmail },
+  });
+  if (existing) {
+    throw ApiError.conflict(`Employee with email "${body.workEmail}" already exists`);
+  }
+
+  const dept = await prisma.department.findUnique({ where: { id: body.departmentId } });
+  if (!dept) {
+    throw ApiError.validation('Department not found', [
+      { field: 'departmentId', message: 'Department does not exist' },
+    ]);
+  }
+
+  const schedule = await prisma.workingSchedule.findUnique({
+    where: { id: body.workingScheduleId },
+  });
+  if (!schedule) {
+    throw ApiError.validation('Working schedule not found', [
+      { field: 'workingScheduleId', message: 'Schedule does not exist' },
+    ]);
+  }
+
+  if (body.managerId) {
+    const manager = await prisma.employee.findUnique({ where: { id: body.managerId } });
+    if (!manager) {
+      throw ApiError.validation('Manager not found', [
+        { field: 'managerId', message: 'Manager does not exist' },
+      ]);
+    }
+  }
+
+  const created = await prisma.employee.create({
+    data: {
+      companyId: dept.companyId,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      workEmail: body.workEmail,
+      personalEmail: body.personalEmail ?? null,
+      phone: body.phone ?? null,
+      departmentId: body.departmentId,
+      jobPosition: body.jobPosition,
+      workingScheduleId: body.workingScheduleId,
+      employeeType: body.employeeType,
+      joiningDate: new Date(body.joiningDate),
+      managerId: body.managerId ?? null,
+      workLocation: body.workLocation ?? null,
+      bankName: body.bankName ?? null,
+      bankAccountHolder: body.bankAccountHolder ?? null,
+      bankAccountNumber: body.bankAccountNumber ?? null,
+      bankIfsc: body.bankIfsc ?? null,
+    },
+    include: employeeInclude,
+  });
+
+  return mapEmployee(created);
 }
 
 export async function updateEmployee(
@@ -254,33 +433,67 @@ export async function updateEmployee(
     bankIfsc: string | null;
   }>,
 ) {
-  // TODO: STUB
-  const last4 =
-    body.bankAccountNumber !== undefined
-      ? body.bankAccountNumber
-        ? body.bankAccountNumber.slice(-4)
-        : null
-      : stubEmployee.bankAccountLast4;
-  return {
-    ...stubEmployee,
-    id,
-    ...(body.firstName !== undefined ? { firstName: body.firstName } : {}),
-    ...(body.lastName !== undefined ? { lastName: body.lastName } : {}),
-    ...(body.personalEmail !== undefined ? { personalEmail: body.personalEmail } : {}),
-    ...(body.phone !== undefined ? { phone: body.phone } : {}),
-    ...(body.departmentId !== undefined
-      ? { department: { ...stubEmployee.department, id: body.departmentId } }
-      : {}),
-    ...(body.jobPosition !== undefined ? { jobPosition: body.jobPosition } : {}),
-    ...(body.workingScheduleId !== undefined
-      ? { workingSchedule: { ...stubEmployee.workingSchedule, id: body.workingScheduleId } }
-      : {}),
-    ...(body.employeeType !== undefined ? { employeeType: body.employeeType } : {}),
-    ...(body.status !== undefined ? { status: body.status } : {}),
-    ...(body.workLocation !== undefined ? { workLocation: body.workLocation } : {}),
-    ...(body.bankName !== undefined ? { bankName: body.bankName } : {}),
-    ...(body.bankAccountHolder !== undefined ? { bankAccountHolder: body.bankAccountHolder } : {}),
-    bankAccountLast4: last4,
-    ...(body.bankIfsc !== undefined ? { bankIfsc: body.bankIfsc } : {}),
-  };
+  const current = await prisma.employee.findUnique({ where: { id } });
+  if (!current) throw ApiError.notFound('Employee not found');
+
+  if (body.departmentId) {
+    const dept = await prisma.department.findUnique({ where: { id: body.departmentId } });
+    if (!dept) {
+      throw ApiError.validation('Department not found', [
+        { field: 'departmentId', message: 'Department does not exist' },
+      ]);
+    }
+  }
+
+  if (body.workingScheduleId) {
+    const schedule = await prisma.workingSchedule.findUnique({
+      where: { id: body.workingScheduleId },
+    });
+    if (!schedule) {
+      throw ApiError.validation('Working schedule not found', [
+        { field: 'workingScheduleId', message: 'Schedule does not exist' },
+      ]);
+    }
+  }
+
+  if (body.managerId) {
+    if (body.managerId === id) {
+      throw ApiError.conflict('An employee cannot be their own manager');
+    }
+    const manager = await prisma.employee.findUnique({ where: { id: body.managerId } });
+    if (!manager) {
+      throw ApiError.validation('Manager not found', [
+        { field: 'managerId', message: 'Manager does not exist' },
+      ]);
+    }
+  }
+
+  const updated = await prisma.employee.update({
+    where: { id },
+    data: {
+      ...(body.firstName !== undefined ? { firstName: body.firstName } : {}),
+      ...(body.lastName !== undefined ? { lastName: body.lastName } : {}),
+      ...(body.personalEmail !== undefined ? { personalEmail: body.personalEmail } : {}),
+      ...(body.phone !== undefined ? { phone: body.phone } : {}),
+      ...(body.departmentId !== undefined ? { departmentId: body.departmentId } : {}),
+      ...(body.jobPosition !== undefined ? { jobPosition: body.jobPosition } : {}),
+      ...(body.workingScheduleId !== undefined
+        ? { workingScheduleId: body.workingScheduleId }
+        : {}),
+      ...(body.employeeType !== undefined ? { employeeType: body.employeeType } : {}),
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.workLocation !== undefined ? { workLocation: body.workLocation } : {}),
+      ...(body.bankName !== undefined ? { bankName: body.bankName } : {}),
+      ...(body.bankAccountHolder !== undefined ? { bankAccountHolder: body.bankAccountHolder } : {}),
+      ...(body.bankAccountNumber !== undefined
+        ? { bankAccountNumber: body.bankAccountNumber }
+        : {}),
+      ...(body.bankIfsc !== undefined ? { bankIfsc: body.bankIfsc } : {}),
+      ...(body.managerId !== undefined ? { managerId: body.managerId } : {}),
+    },
+    include: employeeInclude,
+  });
+
+  return mapEmployee(updated);
 }
+

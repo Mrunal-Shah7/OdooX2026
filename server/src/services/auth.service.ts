@@ -1,10 +1,10 @@
 import { prisma } from '../db/client.js';
 import { ApiError } from '../lib/apiError.js';
 import { verifyPassword } from '../lib/password.js';
+import { signAccessToken } from '../lib/tokens.js';
 import type { UserRole } from '../../../shared/constants.js';
 
 export async function login(body: { email: string; password: string }) {
-  // TODO: STUB
   const user = await prisma.user.findUnique({
     where: { email: body.email.toLowerCase() },
     include: {
@@ -27,7 +27,17 @@ export async function login(body: { email: string; password: string }) {
   if (!valid) {
     throw ApiError.unauthenticated('Invalid email or password');
   }
-  return toSessionUser(user);
+
+  const token = signAccessToken({
+    sub: user.id,
+    role: user.role as UserRole,
+    employeeId: user.employeeId,
+  });
+
+  return {
+    ...toSessionUser(user),
+    token,
+  };
 }
 
 export async function logout(_userId: string) {

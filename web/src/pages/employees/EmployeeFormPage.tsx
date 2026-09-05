@@ -1,55 +1,442 @@
-import { useParams } from '@tanstack/react-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import { useEffect, useState, type FormEvent } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { Card, CardBody } from '../../components/ui/Card';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Spinner } from '../../components/ui/Spinner';
+import { apiClient, ApiClientError } from '../../lib/apiClient';
+import { queryKeys } from '../../lib/queryKeys';
+import { getStoredAuthToken } from '../../lib/session';
+
+type EmployeeDetailResponse = {
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    personalEmail: string | null;
+    phone: string | null;
+    department: { id: string; name: string; code: string };
+    jobPosition: string;
+    workingSchedule: { id: string; name: string; hoursPerWeek: string };
+    employeeType: 'full_time' | 'part_time' | 'contract' | 'intern';
+    status: 'active' | 'inactive';
+    joiningDate: string;
+    workLocation: string | null;
+    bankName: string | null;
+    bankAccountHolder: string | null;
+    bankAccountLast4: string | null;
+    bankIfsc: string | null;
+    manager: { id: string; firstName: string; lastName: string } | null;
+  };
+  counts: {
+    contracts: number;
+    attendance: number;
+    timeOff: number;
+    allocations: number;
+  };
+};
+
+type WorkingScheduleOption = {
+  id: string;
+  name: string;
+  hoursPerWeek: string;
+};
+
+async function fetchEmployeeDetail(id: string): Promise<EmployeeDetailResponse> {
+  const headers: Record<string, string> = {};
+  const token = getStoredAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const url = id === 'profile' ? '/api/profile' : `/api/employees/${id}`;
+  const res = await fetch(url, { headers, credentials: 'include' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new ApiClientError(
+      err?.error?.code ?? 'NOT_FOUND',
+      err?.error?.message ?? 'Failed to load employee details',
+    );
+  }
+  const body = await res.json();
+  return body.data;
+}
+
+async function fetchSchedules(): Promise<WorkingScheduleOption[]> {
+  const headers: Record<string, string> = {};
+  const token = getStoredAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch('/api/working-schedules', { headers, credentials: 'include' });
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.data ?? [];
+}
 
 export default function EmployeeFormPage() {
   const { id } = useParams({ from: '/app/employees/$id' });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isNew = id === 'new';
+
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    workEmail: '',
+    personalEmail: '',
+    phone: '',
+    departmentId: '',
+    jobPosition: '',
+    workingScheduleId: '',
+    employeeType: 'full_time' as 'full_time' | 'part_time' | 'contract' | 'intern',
+    status: 'active' as 'active' | 'inactive',
+    joiningDate: new Date().toISOString().split('T')[0],
+    workLocation: '',
+    bankName: '',
+    bankAccountHolder: '',
+    bankAccountNumber: '',
+    bankIfsc: '',
+  });
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const departmentsQuery = useQuery({
+    queryKey: queryKeys.departments.all,
+    queryFn: () => apiClient.listDepartments(),
+  });
+
+  const schedulesQuery = useQuery({
+    queryKey: queryKeys.schedules.all,
+    queryFn: fetchSchedules,
+  });
+
+  const employeeQuery = useQuery({
+    queryKey: queryKeys.employees.detail(id),
+    queryFn: () => fetchEmployeeDetail(id),
+    enabled: !isNew,
+  });
+
+  useEffect(() => {
+    if (employeeQuery.data?.employee) {
+      const emp = employeeQuery.data.employee;
+      setForm({
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        workEmail: emp.workEmail,
+        personalEmail: emp.personalEmail ?? '',
+        phone: emp.phone ?? '',
+        departmentId: emp.department.id,
+        jobPosition: emp.jobPosition,
+        workingScheduleId: emp.workingSchedule.id,
+        employeeType: emp.employeeType,
+        status: emp.status,
+        joiningDate: emp.joiningDate,
+        workLocation: emp.workLocation ?? '',
+        bankName: emp.bankName ?? '',
+        bankAccountHolder: emp.bankAccountHolder ?? '',
+        bankAccountNumber: emp.bankAccountLast4 ? `•••• ${emp.bankAccountLast4}` : '',
+        bankIfsc: emp.bankIfsc ?? '',
+      });
+    }
+  }, [employeeQuery.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        workEmail: form.workEmail,
+        personalEmail: form.personalEmail || null,
+        phone: form.phone || null,
+        departmentId: form.departmentId,
+        jobPosition: form.jobPosition,
+        workingScheduleId: form.workingScheduleId,
+        employeeType: form.employeeType,
+        joiningDate: form.joiningDate,
+        workLocation: form.workLocation || null,
+        bankName: form.bankName || null,
+        bankAccountHolder: form.bankAccountHolder || null,
+        bankAccountNumber: form.bankAccountNumber && !form.bankAccountNumber.startsWith('••') ? form.bankAccountNumber : undefined,
+        bankIfsc: form.bankIfsc || null,
+      };
+
+      const url = isNew ? '/api/employees' : `/api/employees/${id}`;
+      const method = isNew ? 'POST' : 'PATCH';
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = getStoredAuthToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(isNew ? payload : { ...payload, status: form.status }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new ApiClientError(
+          err?.error?.code ?? 'VALIDATION_FAILED',
+          err?.error?.message ?? 'Failed to save employee',
+          err?.error?.details ?? [],
+        );
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      navigate({ to: '/employees' });
+    },
+    onError: (err: unknown) => {
+      setFormError(err instanceof ApiClientError ? err.message : 'Save failed');
+    },
+  });
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setFormError(null);
+    saveMutation.mutate();
+  }
+
+  const departments = departmentsQuery.data ?? [];
+  const schedules = schedulesQuery.data ?? [];
+
+  const deptOptions = departments.map((d) => ({ value: d.id, label: d.name }));
+  const scheduleOptions = schedules.map((s) => ({ value: s.id, label: `${s.name} (${s.hoursPerWeek}h)` }));
+
+  const typeOptions = [
+    { value: 'full_time', label: 'Full time' },
+    { value: 'part_time', label: 'Part time' },
+    { value: 'contract', label: 'Contract' },
+    { value: 'intern', label: 'Intern' },
+  ];
+
+  const statusOptions = [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ];
+
+  if (!isNew && employeeQuery.isLoading) {
+    return <Spinner />;
+  }
+
+  if (!isNew && employeeQuery.isError) {
+    return <ErrorState onRetry={() => employeeQuery.refetch()} />;
+  }
+
+  const counts = employeeQuery.data?.counts ?? { contracts: 0, attendance: 0, timeOff: 0, allocations: 0 };
+  const empTitle = isNew ? 'New employee' : `${form.firstName} ${form.lastName}`;
+  const empSubtitle = isNew ? undefined : `${form.jobPosition || 'Employee'} · ${employeeQuery.data?.employee?.department?.name ?? 'Department'}`;
 
   return (
     <>
       <PageHeader
-        title={isNew ? 'New employee' : 'Aarav Mehta'}
-        subtitle={isNew ? undefined : 'Software Engineer · Engineering'}
+        title={empTitle}
+        subtitle={empSubtitle}
         actions={
           <>
-            <Button variant="secondary">Cancel</Button>
-            <Button variant="accent">Save employee</Button>
+            <Button variant="secondary" onClick={() => navigate({ to: '/employees' })}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={handleSubmit}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? 'Saving...' : 'Save employee'}
+            </Button>
           </>
         }
       />
       <div className="px-5 pb-6">
-        <div className="mb-5 flex gap-3">
-          {['Contracts', 'Attendance', 'Time off', 'Payslips'].map((label) => (
-            <button key={label} type="button" className="rounded-md border border-border-strong bg-surface px-4 py-2 text-left">
-              <span className="block text-caption text-text-muted">{label}</span>
-              <span className="block font-mono text-h3 font-semibold text-primary">2</span>
-            </button>
-          ))}
-        </div>
-        <Card>
-          <CardBody>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="First name"><Input defaultValue={isNew ? '' : 'Aarav'} /></Field>
-              <Field label="Last name"><Input defaultValue={isNew ? '' : 'Mehta'} /></Field>
-              <Field label="Work email"><Input defaultValue={isNew ? '' : 'aarav.mehta@peoplepay360.test'} /></Field>
-              <Field label="Department">
-                <Select options={[{ value: 'eng', label: 'Engineering' }]} value="eng" />
-              </Field>
-              <Field label="Employee type">
-                <Select options={[{ value: 'full_time', label: 'Full time' }]} value="full_time" />
-              </Field>
-              <Field label="Status">
-                <Badge variant="success">active</Badge>
-              </Field>
+        {!isNew && (
+          <div className="mb-5 flex flex-wrap gap-3">
+            {[
+              { label: 'Contracts', count: counts.contracts },
+              { label: 'Attendance', count: counts.attendance },
+              { label: 'Time off', count: counts.timeOff },
+              { label: 'Allocations', count: counts.allocations },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="min-w-28 rounded-md border border-border-strong bg-surface px-4 py-2 text-left"
+              >
+                <span className="block text-caption text-text-muted">{stat.label}</span>
+                <span className="block font-mono text-h3 font-semibold text-primary">
+                  {stat.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-h3 font-semibold">Basic Information</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="First name *">
+                  <Input
+                    value={form.firstName}
+                    onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field label="Last name *">
+                  <Input
+                    value={form.lastName}
+                    onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field label="Work email *">
+                  <Input
+                    type="email"
+                    value={form.workEmail}
+                    onChange={(e) => setForm((f) => ({ ...f, workEmail: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field label="Personal email">
+                  <Input
+                    type="email"
+                    value={form.personalEmail}
+                    onChange={(e) => setForm((f) => ({ ...f, personalEmail: e.target.value }))}
+                  />
+                </Field>
+
+                <Field label="Phone">
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  />
+                </Field>
+
+                <Field label="Joining date *">
+                  <Input
+                    type="date"
+                    value={form.joiningDate}
+                    onChange={(e) => setForm((f) => ({ ...f, joiningDate: e.target.value }))}
+                    required
+                  />
+                </Field>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-h3 font-semibold">Position & Work Schedule</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Department *">
+                  <Select
+                    options={deptOptions}
+                    value={form.departmentId}
+                    onValueChange={(val) => setForm((f) => ({ ...f, departmentId: val }))}
+                    placeholder="Select department..."
+                  />
+                </Field>
+
+                <Field label="Job position *">
+                  <Input
+                    value={form.jobPosition}
+                    onChange={(e) => setForm((f) => ({ ...f, jobPosition: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field label="Working schedule *">
+                  <Select
+                    options={scheduleOptions}
+                    value={form.workingScheduleId}
+                    onValueChange={(val) => setForm((f) => ({ ...f, workingScheduleId: val }))}
+                    placeholder="Select schedule..."
+                  />
+                </Field>
+
+                <Field label="Employee type *">
+                  <Select
+                    options={typeOptions}
+                    value={form.employeeType}
+                    onValueChange={(val) =>
+                      setForm((f) => ({ ...f, employeeType: val as any }))
+                    }
+                  />
+                </Field>
+
+                <Field label="Work location">
+                  <Input
+                    value={form.workLocation}
+                    onChange={(e) => setForm((f) => ({ ...f, workLocation: e.target.value }))}
+                  />
+                </Field>
+
+                {!isNew && (
+                  <Field label="Status">
+                    <Select
+                      options={statusOptions}
+                      value={form.status}
+                      onValueChange={(val) =>
+                        setForm((f) => ({ ...f, status: val as any }))
+                      }
+                    />
+                  </Field>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-h3 font-semibold">Bank Account Details</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Bank name">
+                  <Input
+                    value={form.bankName}
+                    onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))}
+                  />
+                </Field>
+
+                <Field label="Account holder name">
+                  <Input
+                    value={form.bankAccountHolder}
+                    onChange={(e) => setForm((f) => ({ ...f, bankAccountHolder: e.target.value }))}
+                  />
+                </Field>
+
+                <Field label="Account number">
+                  <Input
+                    value={form.bankAccountNumber}
+                    onChange={(e) => setForm((f) => ({ ...f, bankAccountNumber: e.target.value }))}
+                    placeholder="Enter bank account number"
+                  />
+                </Field>
+
+                <Field label="IFSC Code">
+                  <Input
+                    value={form.bankIfsc}
+                    onChange={(e) => setForm((f) => ({ ...f, bankIfsc: e.target.value }))}
+                  />
+                </Field>
+              </div>
+            </CardBody>
+          </Card>
+
+          {formError && (
+            <div className="rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
+              {formError}
             </div>
-          </CardBody>
-        </Card>
+          )}
+        </form>
       </div>
     </>
   );

@@ -14,7 +14,7 @@ import {
 } from '../schemas/schedules.schema.js';
 import * as schedulesService from '../services/schedules.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/working-schedules',

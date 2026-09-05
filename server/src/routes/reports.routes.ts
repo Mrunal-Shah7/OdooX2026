@@ -13,7 +13,7 @@ import {
 } from '../schemas/reports.schema.js';
 import * as reportsService from '../services/reports.service.js';
 
-const router = Router();
+const router: Router = Router();
 
 function sendReport(
   res: import('express').Response,

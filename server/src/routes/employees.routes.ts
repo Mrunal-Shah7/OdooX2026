@@ -3,6 +3,7 @@ import { USER_ROLE } from '../../../shared/constants.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { scopeToEmployee } from '../middleware/scopeToEmployee.js';
+import { ApiError } from '../lib/apiError.js';
 import { pathId, queryOf } from '../lib/request.js';
 import { validate } from '../middleware/validate.js';
 import {
@@ -15,14 +16,15 @@ import {
 } from '../schemas/employees.schema.js';
 import * as employeesService from '../services/employees.service.js';
 
-const router = Router();
+const router: Router = Router();
 
+// Employee list endpoint (supported on /employees and /admin/employees)
 router.get(
-  '/employees',
+  ['/employees', '/admin/employees'],
   requireAuth,
-  scopeToEmployee,
+  requireRole(USER_ROLE.admin),
   validate({ query: listEmployeesQuerySchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const result = await employeesService.listEmployees(queryOf(listEmployeesQuerySchema, req));
       res.json(result);
@@ -32,12 +34,13 @@ router.get(
   },
 );
 
+// Create employee (supported on /employees and /admin/employees)
 router.post(
-  '/employees',
+  ['/employees', '/admin/employees'],
   requireAuth,
-  requireRole(USER_ROLE.hr_manager),
+  requireRole(USER_ROLE.admin),
   validate({ body: createEmployeeSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const data = await employeesService.createEmployee(req.body);
       res.status(201).json({ data });
@@ -47,11 +50,30 @@ router.post(
   },
 );
 
+// User profile endpoint for the currently logged in employee (accessible by any authenticated user)
 router.get(
-  '/employees/:id',
+  ['/profile', '/employees/profile'],
   requireAuth,
+  async (req, res, next) => {
+    try {
+      if (!req.auth?.employeeId) {
+        throw ApiError.notFound('Employee profile not linked to user');
+      }
+      const data = await employeesService.getEmployeeProfile(req.auth.employeeId);
+      res.json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Get employee by ID (supported on /employees/:id and /admin/employees/:id)
+router.get(
+  ['/employees/:id', '/admin/employees/:id'],
+  requireAuth,
+  requireRole(USER_ROLE.admin),
   validate({ params: idParamSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const data = await employeesService.getEmployee(pathId(req));
       res.json({ data });
@@ -61,12 +83,13 @@ router.get(
   },
 );
 
+// Update employee (supported on /employees/:id and /admin/employees/:id)
 router.patch(
-  '/employees/:id',
+  ['/employees/:id', '/admin/employees/:id'],
   requireAuth,
-  requireRole(USER_ROLE.hr_manager),
+  requireRole(USER_ROLE.admin),
   validate({ params: idParamSchema, body: updateEmployeeSchema }),
-  async (req, res, next) => { // TODO: STUB
+  async (req, res, next) => {
     try {
       const data = await employeesService.updateEmployee(pathId(req), req.body);
       res.json({ data });
@@ -88,7 +111,7 @@ router.get('/departments', requireAuth, async (_req, res, next) => {
 router.post(
   '/departments',
   requireAuth,
-  requireRole(USER_ROLE.hr_manager),
+  requireRole(USER_ROLE.admin),
   validate({ body: createDepartmentSchema }),
   async (req, res, next) => {
     try {
@@ -103,7 +126,7 @@ router.post(
 router.patch(
   '/departments/:id',
   requireAuth,
-  requireRole(USER_ROLE.hr_manager),
+  requireRole(USER_ROLE.admin),
   validate({ params: idParamSchema, body: updateDepartmentSchema }),
   async (req, res, next) => {
     try {
@@ -118,7 +141,7 @@ router.patch(
 router.delete(
   '/departments/:id',
   requireAuth,
-  requireRole(USER_ROLE.hr_manager),
+  requireRole(USER_ROLE.admin),
   validate({ params: idParamSchema }),
   async (req, res, next) => {
     try {

@@ -139,10 +139,12 @@ export default function PayrunDetailPage() {
     () => [
       {
         id: 'employeeName',
+        accessorFn: (row) => `${row.employee?.firstName || ''} ${row.employee?.lastName || ''}`.trim(),
         header: 'Employee',
+        meta: { filterPlaceholder: 'Filter employee...' } as ColumnMeta,
         cell: (info) => {
           const ps = info.row.original;
-          const name = `${ps.employee?.firstName || ''} ${ps.employee?.lastName || ''}`.trim() || 'Employee';
+          const name = info.getValue() || 'Employee';
           return (
             <Link
               to="/payroll/payslips/$id"
@@ -157,35 +159,38 @@ export default function PayrunDetailPage() {
       {
         accessorKey: 'employee.departmentName',
         header: 'Department',
+        meta: { filterPlaceholder: 'Filter dept...' } as ColumnMeta,
         cell: (info) => info.getValue() || '—',
       },
       {
         accessorKey: 'workedDays',
         header: 'Worked days',
-        meta: { align: 'right' } as ColumnMeta,
+        meta: { align: 'right', filterPlaceholder: 'Filter days...' } as ColumnMeta,
         cell: (info) => info.getValue() ?? 0,
       },
       {
         accessorKey: 'basic',
         header: 'Basic',
-        meta: { align: 'right' } as ColumnMeta,
+        meta: { align: 'right', filterPlaceholder: 'Filter basic...' } as ColumnMeta,
         cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
       },
       {
         accessorKey: 'gross',
         header: 'Gross',
-        meta: { align: 'right' } as ColumnMeta,
+        meta: { align: 'right', filterPlaceholder: 'Filter gross...' } as ColumnMeta,
         cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
       },
       {
         accessorKey: 'net',
         header: 'Net',
-        meta: { align: 'right' } as ColumnMeta,
+        meta: { align: 'right', filterPlaceholder: 'Filter net...' } as ColumnMeta,
         cell: (info) => <Amount value={info.getValue() ?? '0.00'} />,
       },
       {
         id: 'warnings',
+        accessorFn: (row) => (row.warnings && row.warnings.length > 0 ? `${row.warnings.length} warning(s)` : 'None'),
         header: 'Warnings',
+        meta: { filterPlaceholder: 'Filter warnings...' } as ColumnMeta,
         cell: (info) => {
           const ps = info.row.original;
           if (ps.warnings && ps.warnings.length > 0) {
@@ -205,6 +210,15 @@ export default function PayrunDetailPage() {
       {
         accessorKey: 'status',
         header: 'Status',
+        meta: {
+          filterVariant: 'select',
+          filterOptions: [
+            { label: 'Draft', value: 'draft' },
+            { label: 'Computed', value: 'computed' },
+            { label: 'Validated', value: 'done' },
+            { label: 'Paid', value: 'paid' },
+          ],
+        } as ColumnMeta,
         cell: (info) => {
           const ps = info.row.original;
           if (ps.archived) return <Badge variant="neutral">archived</Badge>;
@@ -326,6 +340,7 @@ export default function PayrunDetailPage() {
             columns={columns}
             data={payslips}
             isLoading={loading}
+            enableFiltering={true}
             emptyMessage="No payslips found in this pay run. Click 'Compute' above to generate."
           />
         </Card>

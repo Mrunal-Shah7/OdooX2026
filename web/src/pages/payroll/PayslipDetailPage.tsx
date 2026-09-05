@@ -134,29 +134,40 @@ export default function PayslipDetailPage() {
       {
         accessorKey: 'sequence',
         header: 'Seq',
-        meta: { code: true } as ColumnMeta,
+        meta: { code: true, filterPlaceholder: 'Filter seq...' } as ColumnMeta,
         cell: (info) => info.getValue(),
       },
       {
         accessorKey: 'ruleCode',
         header: 'Rule Code',
-        meta: { code: true } as ColumnMeta,
+        meta: { code: true, filterPlaceholder: 'Filter code...' } as ColumnMeta,
         cell: (info) => <span className="font-medium text-text">{info.getValue()}</span>,
       },
       {
         accessorKey: 'ruleName',
         header: 'Rule Name',
+        meta: { filterPlaceholder: 'Filter rule...' } as ColumnMeta,
         cell: (info) => info.getValue(),
       },
       {
         accessorKey: 'category',
         header: 'Category',
+        meta: {
+          filterVariant: 'select',
+          filterOptions: [
+            { label: 'Basic', value: 'basic' },
+            { label: 'Allowance', value: 'allowance' },
+            { label: 'Gross', value: 'gross' },
+            { label: 'Deduction', value: 'deduction' },
+            { label: 'Net', value: 'net' },
+          ],
+        } as ColumnMeta,
         cell: (info) => getCategoryBadge(info.getValue()),
       },
       {
         accessorKey: 'amount',
         header: `Amount (${currentCurrencySymbol})`,
-        meta: { align: 'right' } as ColumnMeta,
+        meta: { align: 'right', filterPlaceholder: 'Filter amount...' } as ColumnMeta,
         cell: (info) => (
           <span className="font-mono font-semibold">
             <Amount value={formatConverted(info.getValue() ?? '0.00')} />
@@ -334,6 +345,7 @@ export default function PayslipDetailPage() {
                 columns={lineColumns}
                 data={lines}
                 isLoading={false}
+                enableFiltering={true}
                 emptyMessage="No computation lines found. Click 'Compute' on the pay run to execute salary rules."
               />
             </Card>

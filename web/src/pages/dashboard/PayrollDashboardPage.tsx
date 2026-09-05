@@ -106,24 +106,47 @@ async function fetchDepartments(): Promise<{ id: string; name: string }[]> {
   return json.data;
 }
 
+import { useSession } from "../../lib/session";
+import { isPayrollRole } from "../../lib/permissions";
+
 export default function PayrollDashboardPage() {
+  const { user } = useSession();
+  const canAccessPayroll = user && isPayrollRole(user.role);
+
   const [period, setPeriod] = useState("2026-09");
   const [departmentId, setDepartmentId] = useState("all");
-  const [employeeType, setEmployeeType] = useState("all");
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", "options"],
     queryFn: fetchDepartments,
+    enabled: !!canAccessPayroll,
   });
 
   const queryParams: Record<string, string> = { period };
   if (departmentId !== "all") queryParams["departmentId"] = departmentId;
-  if (employeeType !== "all") queryParams["employeeType"] = employeeType;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard", "payroll", queryParams],
     queryFn: () => fetchPayrollDashboard(queryParams),
+    enabled: !!canAccessPayroll,
   });
+
+  if (user && !canAccessPayroll) {
+    return (
+      <>
+        <PageHeader title="Payroll dashboard" />
+        <div className="p-8 text-center">
+          <Card className="max-w-md mx-auto p-6 space-y-4">
+            <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
+            <p className="text-body-sm text-text-muted">
+              Only payroll administrators and payroll users can access the
+              payroll dashboard.
+            </p>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -189,11 +212,7 @@ export default function PayrollDashboardPage() {
       <div className="space-y-5 px-5 pb-6">
         <div className="flex gap-3">
           <Select
-            options={[
-              { value: "2026-09", label: "September 2026" },
-              { value: "2026-08", label: "August 2026" },
-              { value: "2026-07", label: "July 2026" },
-            ]}
+            options={[{ value: "2026-09", label: "September 2026" }]}
             value={period}
             onValueChange={setPeriod}
           />
@@ -204,17 +223,6 @@ export default function PayrollDashboardPage() {
             ]}
             value={departmentId}
             onValueChange={setDepartmentId}
-          />
-          <Select
-            options={[
-              { value: "all", label: "All employee types" },
-              { value: "full_time", label: "Full-time" },
-              { value: "part_time", label: "Part-time" },
-              { value: "contract", label: "Contract" },
-              { value: "intern", label: "Intern" },
-            ]}
-            value={employeeType}
-            onValueChange={setEmployeeType}
           />
         </div>
 

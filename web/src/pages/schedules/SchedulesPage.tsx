@@ -3,6 +3,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { EmployeeNavTabs } from '../../components/layout/EmployeeNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -111,6 +112,7 @@ export default function SchedulesPage() {
           </Button>
         }
       />
+      <EmployeeNavTabs />
       <div className="space-y-4 px-5 pb-6">
         <Card className="p-0 overflow-hidden">
           <DataTable

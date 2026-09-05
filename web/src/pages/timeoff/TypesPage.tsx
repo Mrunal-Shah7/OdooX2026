@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { TimeOffNavTabs } from '../../components/layout/TimeOffNavTabs';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -91,33 +92,8 @@ export default function TypesPage() {
         }
       />
 
+      <TimeOffNavTabs />
       <div className="space-y-4 px-5 pb-6">
-        <div className="flex gap-4 border-b border-border text-label">
-          <Link
-            to="/time-off"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Overview
-          </Link>
-          <Link
-            to="/time-off/requests"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Requests
-          </Link>
-          <Link
-            to="/time-off/allocations"
-            className="pb-2 font-medium text-text-muted no-underline hover:text-text"
-          >
-            Allocations
-          </Link>
-          <Link
-            to="/time-off/types"
-            className="border-b-2 border-accent pb-2 font-semibold text-accent no-underline"
-          >
-            Types
-          </Link>
-        </div>
 
         <Card>
           {isLoading ? (

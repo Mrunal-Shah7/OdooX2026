@@ -25,7 +25,13 @@ type ReportData = {
   rows: Record<string, string | null>[];
 };
 
+import { useSession } from '../../lib/session';
+import { isHrManagerOrAbove, isPayrollRole } from '../../lib/permissions';
+
 export default function ReportsPage() {
+  const { user } = useSession();
+  const canAccessReports = user && (isHrManagerOrAbove(user.role) || isPayrollRole(user.role));
+
   const [activeTab, setActiveTab] = useState('salary');
 
   // Filters state
@@ -39,6 +45,7 @@ export default function ReportsPage() {
   const { data: departmentsData } = useQuery({
     queryKey: queryKeys.departments.all,
     queryFn: () => apiFetch<{ data: Array<{ id: string; name: string }> }>('/departments'),
+    enabled: !!canAccessReports,
   });
 
   const departmentOptions = [
@@ -317,6 +324,22 @@ export default function ReportsPage() {
       ),
     },
   ];
+
+  if (user && !canAccessReports) {
+    return (
+      <>
+        <PageHeader title="Reports" />
+        <div className="p-8 text-center">
+          <Card className="max-w-md mx-auto p-6 space-y-4">
+            <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
+            <p className="text-body-sm text-text-muted">
+              Only HR managers and payroll administrators can access reports.
+            </p>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

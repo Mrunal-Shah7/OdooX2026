@@ -265,7 +265,7 @@ export default function EmployeeFormPage() {
   }
 
   const { user } = useSession();
-  const isAdmin = user?.role === 'admin' || user?.role === 'hr_manager';
+  const isAdmin = user?.role === 'admin';
 
   if (isNew && !isAdmin) {
     return (
@@ -273,7 +273,7 @@ export default function EmployeeFormPage() {
         <Card className="max-w-md mx-auto p-6 space-y-4">
           <h2 className="text-h2 font-semibold text-danger">403 Forbidden</h2>
           <p className="text-body-sm text-text-muted">
-            Only administrators and HR managers can create new employees.
+            Only administrators can create new employees.
           </p>
           <Button variant="secondary" onClick={() => navigate({ to: '/employees' })}>
             Back to Employee Directory

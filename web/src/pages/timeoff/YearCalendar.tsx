@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 export type TimeOffCalendarDay = {
   date: string;
@@ -36,6 +37,48 @@ const MONTH_NAMES = [
 ];
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+export function YearCalendarSkeleton({ selectedMonth }: { selectedMonth?: number }) {
+  const rowCount = selectedMonth ? 1 : 12;
+
+  return (
+    <div className="timeoff-calendar-skeleton space-y-4" role="status" aria-label="Loading calendar">
+      <div className="timeoff-calendar-skeleton__legend">
+        {Array.from({ length: 5 }, (_, index) => (
+          <Skeleton key={index} />
+        ))}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-center font-mono text-caption">
+          <thead>
+            <tr className="border-b border-border bg-surface-sunken">
+              <th className="w-12 px-2 py-1" />
+              {Array.from({ length: 37 }, (_, index) => (
+                <th key={index} className="w-7 px-1 py-1">
+                  <Skeleton className="timeoff-calendar-skeleton__day" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: rowCount }, (_, rowIndex) => (
+              <tr key={rowIndex} className="border-b border-border">
+                <td className="px-2 py-1">
+                  <Skeleton className="timeoff-calendar-skeleton__month" />
+                </td>
+                {Array.from({ length: 37 }, (_, dayIndex) => (
+                  <td key={dayIndex} className="p-0.5">
+                    <Skeleton className="timeoff-calendar-skeleton__day" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export function YearCalendar({
   year,

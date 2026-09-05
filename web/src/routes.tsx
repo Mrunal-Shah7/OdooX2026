@@ -9,6 +9,7 @@ import {
 import { AppShell } from './components/layout/AppShell';
 import { apiClient } from './lib/apiClient';
 import { clearStoredUserId, homePathForRole } from './lib/session';
+import { isHrManagerOrAbove } from './lib/permissions';
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import SetPasswordPage from './pages/auth/SetPasswordPage';
@@ -55,6 +56,13 @@ async function requireAuthUser() {
   }
 }
 
+async function requireTimeOffManagementAccess() {
+  const user = await requireAuthUser();
+  if (!isHrManagerOrAbove(user.role)) {
+    throw redirect({ to: '/time-off' });
+  }
+}
+
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
 });
@@ -64,8 +72,8 @@ const loginRoute = createRoute({
   path: '/login',
   beforeLoad: async () => {
     try {
-      const user = await apiClient.getCurrentUser();
-      throw redirect({ to: homePathForRole(user.role) });
+      await apiClient.getCurrentUser();
+      throw redirect({ to: '/profile' });
     } catch (err) {
       if (isRedirect(err)) throw err;
       clearStoredUserId();
@@ -192,12 +200,14 @@ const timeOffRequestFormRoute = createRoute({
 const timeOffTypesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/time-off/types',
+  beforeLoad: requireTimeOffManagementAccess,
   component: TypesPage,
 });
 
 const timeOffTypeFormRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/time-off/types/$id',
+  beforeLoad: requireTimeOffManagementAccess,
   component: TypeFormPage,
 });
 

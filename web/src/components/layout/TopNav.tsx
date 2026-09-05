@@ -39,6 +39,7 @@ export function TopNav() {
               className="top-nav__profile-link"
               aria-label="Open my profile"
               title="My profile"
+              data-walkthrough-id="nav-profile"
             >
               <CircleUserRound className="size-5" aria-hidden="true" />
             </Link>

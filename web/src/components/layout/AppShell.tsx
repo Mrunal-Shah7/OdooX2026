@@ -4,6 +4,7 @@ import { apiClient } from '../../lib/apiClient';
 import { useSession } from '../../lib/session';
 import { PageSkeleton } from '../ui/Skeleton';
 import { TopNav } from './TopNav';
+import { RoleWalkthrough } from './RoleWalkthrough';
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export function AppShell() {
       <main>
         <Outlet />
       </main>
+      <RoleWalkthrough />
     </div>
   );
 }

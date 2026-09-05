@@ -230,6 +230,7 @@ export default function RequestsPage() {
     <>
       <PageHeader
         title="Time off requests"
+        subtitle="Review submitted leave requests and track their approval status"
         actions={
           <Button
             variant="accent"

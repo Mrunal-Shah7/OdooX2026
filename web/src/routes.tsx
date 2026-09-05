@@ -58,6 +58,18 @@ function requireTimeOffManagementAccess() {
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
+  notFoundComponent: NotFoundPage,
+  errorComponent: ({ error }) => (
+    <div className="p-8 text-center min-h-screen flex flex-col items-center justify-center bg-canvas">
+      <h1 className="text-h1 font-semibold text-danger">Something went wrong</h1>
+      <p className="mt-2 text-body-sm text-text-muted">
+        {error instanceof Error ? error.message : 'An unexpected error occurred.'}
+      </p>
+      <a href="/login" className="mt-4 inline-block px-4 py-2 bg-primary text-text-inverse rounded-md text-label font-medium">
+        Go to Sign In
+      </a>
+    </div>
+  ),
 });
 
 const loginRoute = createRoute({

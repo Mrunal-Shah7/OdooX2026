@@ -9,7 +9,6 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { formatWorkedHours } from '../../lib/format';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 
@@ -62,7 +61,7 @@ async function fetchAttendance(params: Record<string, string>): Promise<Attendan
 function formatTime(isoStr: string | null): string {
   if (!isoStr) return '—';
   try {
-    return new Date(isoStr).toLocaleTimeString('en-IN', {
+    return new Date(isoStr).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -82,7 +81,6 @@ function getStatusBadgeVariant(status: string) {
       return 'danger';
     case 'half_day':
     case 'on_leave':
-      return 'info';
     default:
       return 'neutral';
   }
@@ -93,7 +91,6 @@ export default function AttendancePage() {
   const navigate = useNavigate();
 
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
   const pageSize = 20;
 
   const canCreate = user ? isHrManagerOrAbove(user.role) : false;
@@ -102,25 +99,10 @@ export default function AttendancePage() {
     page: String(page),
     pageSize: String(pageSize),
   };
-  if (search) {
-    queryParams.q = search;
-  }
-  const { data, isLoading, isFetching, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'list', queryParams],
     queryFn: () => fetchAttendance(queryParams),
   });
-
-  const summary = useMemo(() => {
-    const records = data?.data ?? [];
-    return {
-      total: data?.meta.total ?? 0,
-      present: records.filter((record) => record.status === 'present').length,
-      late: records.filter((record) => record.status === 'late').length,
-      workedHours: records
-        .reduce((total, record) => total + Number(record.workedHours), 0)
-        .toFixed(2),
-    };
-  }, [data]);
 
   const baseColumns = useMemo<ColumnDef<AttendanceItem>[]>(
     () => [
@@ -148,25 +130,23 @@ export default function AttendancePage() {
         id: 'checkIn',
         header: 'Check in',
         accessorFn: (row) => formatTime(row.checkIn),
-        meta: { align: 'center', code: true, filterVariant: 'text' } as ColumnMeta,
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
       },
       {
         id: 'checkOut',
         header: 'Check out',
         accessorFn: (row) => formatTime(row.checkOut),
-        meta: { align: 'center', code: true, filterVariant: 'text' } as ColumnMeta,
+        meta: { code: true, filterVariant: 'text' } as ColumnMeta,
       },
       {
         accessorKey: 'workedHours',
         header: 'Worked hours',
-        meta: { align: 'center', filterVariant: 'text' } as ColumnMeta,
-        cell: ({ row }) => formatWorkedHours(row.original.workedHours),
+        meta: { align: 'right', filterVariant: 'text' } as ColumnMeta,
       },
       {
         accessorKey: 'overtimeHours',
         header: 'Overtime',
-        meta: { align: 'center', filterVariant: 'text' } as ColumnMeta,
-        cell: ({ row }) => formatWorkedHours(row.original.overtimeHours),
+        meta: { align: 'right', filterVariant: 'text' } as ColumnMeta,
       },
       {
         accessorKey: 'status',
@@ -208,10 +188,9 @@ export default function AttendancePage() {
   );
 
   return (
-    <div className="attendance-page">
+    <>
       <PageHeader
         title="Attendance records"
-        subtitle="Review daily work hours, overtime, and attendance status."
         actions={
           canCreate ? (
             <Button
@@ -226,59 +205,19 @@ export default function AttendancePage() {
         }
       />
 
-      <div className="attendance-page__content">
-        {!isError ? (
-          <section className="attendance-summary" aria-label="Attendance summary">
-            <div className="attendance-summary__item">
-              <span className="attendance-summary__label">Total records</span>
-              <strong className="attendance-summary__value">
-                {isLoading ? '—' : summary.total}
-              </strong>
-              <span className="attendance-summary__note">All matching records</span>
-            </div>
-            <div className="attendance-summary__item">
-              <span className="attendance-summary__label">Present</span>
-              <strong className="attendance-summary__value">
-                {isLoading ? '—' : summary.present}
-              </strong>
-              <span className="attendance-summary__note">On this page</span>
-            </div>
-            <div className="attendance-summary__item">
-              <span className="attendance-summary__label">Late arrivals</span>
-              <strong className="attendance-summary__value">
-                {isLoading ? '—' : summary.late}
-              </strong>
-              <span className="attendance-summary__note">On this page</span>
-            </div>
-            <div className="attendance-summary__item">
-              <span className="attendance-summary__label">Worked hours</span>
-              <strong className="attendance-summary__value">
-                {isLoading ? '—' : summary.workedHours}
-              </strong>
-              <span className="attendance-summary__note">Visible records</span>
-            </div>
-          </section>
-        ) : null}
-
+      <div className="space-y-4 px-5 pb-6">
         {isError ? (
           <Card>
             <ErrorState message="Could not load attendance records" onRetry={() => refetch()} />
           </Card>
         ) : (
-          <Card key={page} className="attendance-table-card overflow-hidden">
+          <Card className="overflow-hidden">
             <DataTable
               columns={columns}
               data={data?.data ?? []}
-              isLoading={isLoading || isFetching}
-              emptyMessage="No attendance records found."
-              searchPlaceholder="Search attendance records..."
-              globalFilter={search}
-              onGlobalFilterChange={(val) => {
-                setSearch(val);
-                setPage(1);
-              }}
+              isLoading={isLoading}
+              emptyMessage="No attendance records match your current filters."
               manualPagination={true}
-              manualFiltering={true}
               totalCount={data?.meta?.total ?? 0}
               pageCount={data?.meta ? Math.ceil(data.meta.total / pageSize) : 1}
               pagination={{
@@ -296,6 +235,6 @@ export default function AttendancePage() {
           </Card>
         )}
       </div>
-    </div>
+    </>
   );
 }

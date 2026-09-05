@@ -428,46 +428,32 @@ export default function RequestFormPage() {
                 )}
               </Field>
 
-              <div className="md:col-span-2">
-                <Field
-                  label={durationType === 'half_day' ? 'Request date' : 'Date range'}
-                  help={
-                    durationType === 'half_day'
-                      ? 'Half-day requests use one date'
-                      : 'Select the start and end dates'
-                  }
-                  error={
-                    (startDate && (new Date(`${startDate}T00:00:00.000Z`).getUTCDay() === 0 || new Date(`${startDate}T00:00:00.000Z`).getUTCDay() === 6)) ||
-                    (durationType !== 'half_day' && endDate && (new Date(`${endDate}T00:00:00.000Z`).getUTCDay() === 0 || new Date(`${endDate}T00:00:00.000Z`).getUTCDay() === 6))
-                      ? 'Cannot select a weekend (Saturday or Sunday)'
-                      : undefined
-                  }
-                >
-                  {durationType === 'half_day' ? (
-                    <DatePicker
-                      mode="single"
-                      value={startDate}
-                      onChange={(value) => {
-                        setStartDate(value);
-                        setEndDate(value);
-                      }}
-                      readOnly={!isNew}
-                      ariaLabel="Time off request date"
-                    />
-                  ) : (
-                    <DatePicker
-                      mode="range"
-                      value={{ startDate, endDate }}
-                      onChange={(value) => {
-                        setStartDate(value.startDate);
-                        setEndDate(value.endDate);
-                      }}
-                      readOnly={!isNew}
-                      ariaLabel="Time off date range"
-                    />
-                  )}
-                </Field>
-              </div>
+              <Field label="Start date">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (durationType === 'half_day') {
+                      setEndDate(e.target.value);
+                    }
+                  }}
+                  readOnly={!isNew}
+                  className={`font-mono ${!isNew ? 'bg-surface-sunken' : ''}`}
+                />
+              </Field>
+
+              <Field label="End date">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  readOnly={!isNew || durationType === 'half_day'}
+                  className={`font-mono ${
+                    !isNew || durationType === 'half_day' ? 'bg-surface-sunken' : ''
+                  }`}
+                />
+              </Field>
 
               <Field label="Duration type">
                 {isNew ? (

@@ -4,16 +4,13 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
-import { DatePicker } from '../../components/ui/DatePicker';
-import { DateTimePicker } from '../../components/ui/DateTimePicker';
+import { Card, CardBody } from '../../components/ui/Card';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
-import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Select } from '../../components/ui/Select';
-import { FormSkeleton } from '../../components/ui/Skeleton';
-import { formatWorkedHours } from '../../lib/format';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { formatWorkedHours, parseDateTimeInput } from '../../lib/format';
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 import { showToast } from '../../lib/toast';
@@ -59,8 +56,8 @@ export default function AttendanceFormPage() {
   const { user } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const params = useParams({ strict: false }) as { id?: string };
-  const id = params.id ?? 'new';
+  const { id: routeId } = useParams({ strict: false });
+  const id = routeId ?? 'new';
   const isNew = id === 'new';
 
   const canEdit = user ? isHrManagerOrAbove(user.role) : false;
@@ -86,7 +83,7 @@ export default function AttendanceFormPage() {
       if (data) {
         setEmployeesList((prev) => {
           const merged = [...prev, ...data];
-          return Array.from(new Map(merged.map((e: any) => [e.id, e])).values());
+          return Array.from(new Map(merged.map((e) => [e.id, e])).values());
         });
         setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
       }
@@ -95,12 +92,7 @@ export default function AttendanceFormPage() {
     enabled: isNew && canEdit,
   });
 
-  const {
-    data: record,
-    isLoading,
-    isError,
-    refetch,
-  } = useQuery<AttendanceRecord>({
+  const { data: record, isLoading, isError } = useQuery({
     queryKey: ['attendance', id],
     queryFn: () => apiRequest<AttendanceRecord>(`/api/attendance/${id}`),
     enabled: !isNew,
@@ -114,7 +106,6 @@ export default function AttendanceFormPage() {
   const [overtimeHours, setOvertimeHours] = useState('0.00');
   const [status, setStatus] = useState<'present' | 'late' | 'absent' | 'half_day' | 'on_leave'>('present');
   const [notes, setNotes] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
 
   // Prepopulate form when record loads
   useEffect(() => {
@@ -136,16 +127,15 @@ export default function AttendanceFormPage() {
       const ms = Math.max(0, new Date(checkOut).getTime() - new Date(checkIn).getTime());
       derivedWorkedHours = (ms / (1000 * 60 * 60)).toFixed(2);
     } catch {
-      // Keep the loaded value until both entries are valid.
+      // ignore
     }
   }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      setErrorMsg('');
-      const payload: Record<string, unknown> = {
-        checkIn: checkIn ? new Date(checkIn).toISOString() : null,
-        checkOut: checkOut ? new Date(checkOut).toISOString() : null,
+      const payload: Record<string, any> = {
+        checkIn: parseDateTimeInput(checkIn) ?? null,
+        checkOut: parseDateTimeInput(checkOut) ?? null,
         overtimeHours,
         status,
         notes: notes.trim() || null,
@@ -168,31 +158,27 @@ export default function AttendanceFormPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
-      showToast({
-        type: 'success',
-        title: isNew ? 'Attendance Created' : 'Attendance Saved',
-        message: 'Attendance record saved successfully.',
-      });
       navigate({ to: '/attendance' });
     },
-    onError: (error: Error) => {
-      setErrorMsg(error.message);
+    onError: (err: any) => {
       showToast({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Failed to save attendance',
+        message: err.message || 'Failed to save attendance',
       });
     },
   });
 
   if (!isNew && isLoading) {
-    return <FormSkeleton />;
+    return (
+      <div className="p-8 text-center text-text-muted">Loading record...</div>
+    );
   }
 
   if (!isNew && isError) {
     return (
       <div className="p-8">
-        <ErrorState message="Failed to load attendance record" onRetry={() => refetch()} />
+        <ErrorState message="Failed to load attendance record" />
       </div>
     );
   }
@@ -203,15 +189,8 @@ export default function AttendanceFormPage() {
   const subtitle = isNew
     ? 'Record attendance manually'
     : `${record?.employee.departmentName} · ${record?.employee.jobPosition}`;
-  const selectedEmployee = employeesList.find((employee) => employee.id === employeeId);
-  const employeeName = isNew
-    ? selectedEmployee
-      ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
-      : 'Not selected'
-    : `${record?.employee.firstName} ${record?.employee.lastName}`;
-
   return (
-    <div className="attendance-form-page">
+    <div className="mx-auto max-w-4xl space-y-6 pb-12">
       <PageHeader
         title={title}
         subtitle={subtitle}
@@ -225,31 +204,23 @@ export default function AttendanceFormPage() {
             </Button>
             {canEdit && (
               <Button
-                variant="accent"
+                variant="primary"
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
               >
-                {saveMutation.isPending ? 'Saving...' : isNew ? 'Create record' : 'Save record'}
+                {saveMutation.isPending ? 'Saving...' : (isNew ? 'Create' : 'Save Changes')}
               </Button>
             )}
           </div>
         }
       />
 
-      <div className="attendance-form-page__content">
-        {errorMsg && (
-          <div className="mb-4 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-            {errorMsg}
-          </div>
-        )}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
+          <Card>
+            <CardBody className="space-y-6">
+              <h2 className="text-h4 font-semibold text-text">Record Details</h2>
 
-        <div className="attendance-record-layout">
-          <Card className="attendance-record-form-card">
-            <CardHeader
-              title="Attendance details"
-              subtitle={isNew ? 'Create a manual attendance record' : 'Review or correct this record'}
-            />
-            <CardBody className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Employee">
                   {isNew ? (
@@ -284,30 +255,35 @@ export default function AttendanceFormPage() {
                 </Field>
 
                 <Field label="Date">
-                  <DatePicker
-                    mode="single"
+                  <Input
+                    type="date"
                     value={date}
-                    onChange={setDate}
-                    readOnly={!isNew}
-                    ariaLabel="Attendance date"
+                    onChange={(e) => setDate(e.target.value)}
+                    readOnly={!isNew || !canEdit}
                   />
                 </Field>
+              </div>
 
-                <Field label="Check in" help="Select a calendar date and local time">
-                  <DateTimePicker
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Field label="Check in" help="Format: DD/MM/YYYY; HH:mm:ss">
+                  <Input
+                    type="text"
+                    placeholder="DD/MM/YYYY; HH:mm:ss"
                     value={checkIn}
-                    onChange={setCheckIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
                     readOnly={!canEdit}
-                    ariaLabel="Check-in date and time"
+                    className="font-mono"
                   />
                 </Field>
 
-                <Field label="Check out" help="Select a calendar date and local time">
-                  <DateTimePicker
+                <Field label="Check out" help="Format: DD/MM/YYYY; HH:mm:ss">
+                  <Input
+                    type="text"
+                    placeholder="DD/MM/YYYY; HH:mm:ss"
                     value={checkOut}
-                    onChange={setCheckOut}
+                    onChange={(e) => setCheckOut(e.target.value)}
                     readOnly={!canEdit}
-                    ariaLabel="Check-out date and time"
+                    className="font-mono"
                   />
                 </Field>
 
@@ -318,133 +294,85 @@ export default function AttendanceFormPage() {
                     className="bg-surface-sunken font-mono"
                   />
                 </Field>
-
-                <Field label="Overtime hours">
-                  <Input
-                    value={overtimeHours}
-                    onChange={(e) => setOvertimeHours(e.target.value)}
-                    readOnly={!canEdit}
-                    className="font-mono"
-                  />
-                </Field>
-
-                <Field label="Status">
-                  {canEdit ? (
-                    <Select
-                      options={[
-                        { value: 'present', label: 'Present' },
-                        { value: 'late', label: 'Late' },
-                        { value: 'absent', label: 'Absent' },
-                        { value: 'half_day', label: 'Half day' },
-                        { value: 'on_leave', label: 'On leave' },
-                      ]}
-                      value={status}
-                      onValueChange={(v: string) =>
-                        setStatus(
-                          v as 'present' | 'late' | 'absent' | 'half_day' | 'on_leave',
-                        )
-                      }
-                    />
-                  ) : (
-                    <div className="pt-2">
-                      <Badge variant="neutral">{status}</Badge>
-                    </div>
-                  )}
-                </Field>
-
-                <Field label="Notes">
-                  <Input
-                    value={notes}
-                    placeholder="Reason for a correction"
-                    onChange={(e) => setNotes(e.target.value)}
-                    readOnly={!canEdit}
-                  />
-                </Field>
               </div>
 
-              <p className="border-t border-border pt-3 text-caption text-text-muted">
-                Worked hours are derived from check in and check out and cannot be typed.
-              </p>
+              <Field label="Status">
+                <Select
+                  value={status}
+                  onValueChange={(value) => {
+                    if (
+                      value === 'present' ||
+                      value === 'late' ||
+                      value === 'absent' ||
+                      value === 'half_day' ||
+                      value === 'on_leave'
+                    ) {
+                      setStatus(value);
+                    }
+                  }}
+                  disabled={!canEdit}
+                  options={[
+                    { value: 'present', label: 'Present' },
+                    { value: 'late', label: 'Late' },
+                    { value: 'absent', label: 'Absent' },
+                    { value: 'half_day', label: 'Half Day' },
+                    { value: 'on_leave', label: 'On Leave' },
+                  ]}
+                />
+              </Field>
+
+              <Field label="Notes (Optional)">
+                <textarea
+                  className="min-h-[100px] w-full rounded-md border border-border bg-surface px-3 py-2 text-body-sm text-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="Any context about this record..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  readOnly={!canEdit}
+                />
+              </Field>
             </CardBody>
           </Card>
+        </div>
 
-          <aside className="attendance-record-sidebar" aria-label="Attendance record summary">
+        <div className="space-y-6">
+          {!isNew && record && (
             <Card>
-              <CardHeader title="Record summary" subtitle="Updates as details change" />
-              <CardBody>
-                <dl className="attendance-record-summary">
-                  <div className="attendance-record-summary__row">
-                    <dt>Employee</dt>
-                    <dd>{employeeName}</dd>
+              <CardBody className="space-y-4">
+                <h3 className="text-label font-medium text-text-muted">Status summary</h3>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between">
+                    <span className="text-body-sm text-text-muted">Status</span>
+                    <Badge variant={status === 'present' ? 'success' : status === 'absent' ? 'danger' : 'warning'}>
+                      {status}
+                    </Badge>
                   </div>
-                  <div className="attendance-record-summary__row">
-                    <dt>Date</dt>
-                    <dd className="attendance-record-summary__numeric">{date || 'Not set'}</dd>
+                  <div className="flex justify-between">
+                    <span className="text-body-sm text-text-muted">Modified manually</span>
+                    <Badge variant={record.isManualEdit ? 'warning' : 'neutral'}>
+                      {record.isManualEdit ? 'Yes' : 'No'}
+                    </Badge>
                   </div>
-                  <div className="attendance-record-summary__row">
-                    <dt>Check in</dt>
-                    <dd className="attendance-record-summary__numeric">
-                      {checkIn ? checkIn.replace('T', ' ') : 'Not set'}
-                    </dd>
-                  </div>
-                  <div className="attendance-record-summary__row">
-                    <dt>Check out</dt>
-                    <dd className="attendance-record-summary__numeric">
-                      {checkOut ? checkOut.replace('T', ' ') : 'Not set'}
-                    </dd>
-                  </div>
-                  <div className="attendance-record-summary__row">
-                    <dt>Worked hours</dt>
-                    <dd className="attendance-record-summary__numeric">{formatWorkedHours(derivedWorkedHours)}</dd>
-                  </div>
-                  <div className="attendance-record-summary__row">
-                    <dt>Overtime</dt>
-                    <dd className="attendance-record-summary__numeric">{formatWorkedHours(overtimeHours)}</dd>
-                  </div>
-                  <div className="attendance-record-summary__row">
-                    <dt>Status</dt>
-                    <dd>
-                      <Badge variant="neutral">{status.replace('_', ' ')}</Badge>
-                    </dd>
-                  </div>
-                </dl>
+                </div>
               </CardBody>
             </Card>
+          )}
 
-            <Card>
-              <CardHeader title={isNew ? 'Before saving' : 'Record context'} />
-              <CardBody>
-                {isNew ? (
-                  <ul className="attendance-record-guidance">
-                    <li>Select the employee and attendance date.</li>
-                    <li>Check-in and check-out determine worked hours.</li>
-                    <li>Use notes to explain a manual correction.</li>
-                  </ul>
-                ) : (
-                  <dl className="attendance-record-summary">
-                    <div className="attendance-record-summary__row">
-                      <dt>Department</dt>
-                      <dd>{record?.employee.departmentName}</dd>
-                    </div>
-                    <div className="attendance-record-summary__row">
-                      <dt>Position</dt>
-                      <dd>{record?.employee.jobPosition}</dd>
-                    </div>
-                    <div className="attendance-record-summary__row">
-                      <dt>Work email</dt>
-                      <dd className="attendance-record-summary__numeric">
-                        {record?.employee.workEmail}
-                      </dd>
-                    </div>
-                    <div className="attendance-record-summary__row">
-                      <dt>Entry source</dt>
-                      <dd>{record?.isManualEdit ? 'Manually edited' : 'Recorded attendance'}</dd>
-                    </div>
-                  </dl>
-                )}
-              </CardBody>
-            </Card>
-          </aside>
+          <Card>
+            <CardBody className="space-y-4">
+              <h3 className="text-label font-medium text-text-muted">Overtime</h3>
+              <Field label="Overtime hours">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={overtimeHours}
+                  onChange={(e) => setOvertimeHours(e.target.value)}
+                  readOnly={!canEdit}
+                  className="font-mono"
+                />
+              </Field>
+            </CardBody>
+          </Card>
         </div>
       </div>
     </div>

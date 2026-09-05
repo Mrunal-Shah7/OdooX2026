@@ -297,6 +297,7 @@ router.get(
         query.employeeId,
         query.year,
         req.scopedEmployeeId,
+        req.auth?.employeeId ?? undefined,
       );
       res.json({ data });
     } catch (err) {

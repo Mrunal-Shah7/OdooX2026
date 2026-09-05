@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 import { YearCalendar, type TimeOffCalendarDay } from './YearCalendar';
@@ -70,26 +70,34 @@ export default function TimeOffDashboardPage() {
   const navigate = useNavigate();
 
   const [year, setYear] = useState(2026);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(user?.employee?.id ?? 'my_records');
   const [selectedStartDate, setSelectedStartDate] = useState<string | null>(null);
   const [selectedEndDate, setSelectedEndDate] = useState<string | null>(null);
 
   const canSwitchEmployee = user ? isHrManagerOrAbove(user.role) : false;
 
-  // If HR/admin, fetch employees list for the employee switcher
-  const { data: employeesData } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
-    queryKey: ['employees', { pageSize: '100' }],
+  const [employeePage, setEmployeePage] = useState(1);
+  const [employeesList, setEmployeesList] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
+
+  const { isFetching: isFetchingEmployees } = useQuery({
+    queryKey: ['employees', { page: employeePage, pageSize: 20 }],
     queryFn: async () => {
-      const res = await apiRequest<any>('/api/employees?pageSize=100');
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data)) return res.data;
-      return [];
+      const res = await apiRequest<any>(`/api/employees?page=${employeePage}&pageSize=20`);
+      if (res?.data) {
+        setEmployeesList((prev) => {
+          const merged = [...prev, ...res.data];
+          return Array.from(new Map(merged.map((e) => [e.id, e])).values());
+        });
+        setHasMoreEmployees(res.meta?.page < res.meta?.totalPages);
+      }
+      return res;
     },
     enabled: canSwitchEmployee,
   });
 
   const queryUrl = `/api/time-off/dashboard?year=${year}${
-    selectedEmployeeId ? `&employeeId=${selectedEmployeeId}` : ''
+    selectedEmployeeId && selectedEmployeeId !== 'my_records' ? `&employeeId=${selectedEmployeeId}` : ''
   }`;
 
   const { data, isLoading, isError, refetch } = useQuery<TimeOffDashboardData>({
@@ -99,8 +107,13 @@ export default function TimeOffDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Spinner />
+      <div className="animate-pulse space-y-6 px-5 pb-6 pt-6">
+        <div className="h-16 w-full rounded-md bg-surface-sunken"></div>
+        <div className="h-[400px] w-full rounded-md bg-surface-sunken"></div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="h-48 rounded-md bg-surface-sunken"></div>
+          <div className="h-48 rounded-md bg-surface-sunken"></div>
+        </div>
       </div>
     );
   }
@@ -123,11 +136,6 @@ export default function TimeOffDashboardPage() {
     color: e.timeOffType.color,
   }));
 
-  const employeeList: { id: string; firstName: string; lastName: string }[] = Array.isArray(employeesData)
-    ? employeesData
-    : Array.isArray((employeesData as any)?.data)
-    ? (employeesData as any).data
-    : [];
 
   const handleCalendarDateClick = (date: string) => {
     if (!selectedStartDate || selectedEndDate || date < selectedStartDate) {
@@ -161,14 +169,23 @@ export default function TimeOffDashboardPage() {
               <div className="w-48">
                 <Select
                   options={[
-                    { value: '', label: 'My records' },
-                    ...employeeList.map((e) => ({
+                    { value: user?.employee?.id ?? 'my_records', label: 'My records' },
+                    ...employeesList.map((e) => ({
                       value: e.id,
                       label: `${e.firstName} ${e.lastName}`,
                     })),
+                    ...(hasMoreEmployees
+                      ? [{ value: 'load_more', label: isFetchingEmployees ? 'Loading...' : 'Show more' }]
+                      : []),
                   ]}
                   value={selectedEmployeeId}
-                  onValueChange={setSelectedEmployeeId}
+                  onValueChange={(val) => {
+                    if (val === 'load_more') {
+                      setEmployeePage((p) => p + 1);
+                      return;
+                    }
+                    setSelectedEmployeeId(val);
+                  }}
                 />
               </div>
             )}
@@ -219,12 +236,13 @@ export default function TimeOffDashboardPage() {
             <CardBody className="space-y-6">
               {entitlements.map((e) => (
                 <DonutRing
-                  key={e.timeOffType.id}
+                  key={`${data.employee.id}-${e.timeOffType.id}`}
                   label={e.timeOffType.name}
                   value={parseFloat(e.taken)}
                   total={parseFloat(e.allocated)}
                   unit={e.timeOffType.unit === 'hours' ? 'h' : ''}
                   color={e.timeOffType.color}
+                  isUnlimited={e.timeOffType.code === 'UL'}
                 />
               ))}
             </CardBody>

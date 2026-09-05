@@ -6,6 +6,7 @@ type DonutRingProps = {
   label: string;
   unit?: string;
   color?: string;
+  isUnlimited?: boolean;
 };
 
 export function DonutRing({
@@ -14,15 +15,20 @@ export function DonutRing({
   label,
   unit = '',
   color = 'var(--color-chart-1)',
+  isUnlimited = false,
 }: DonutRingProps) {
   const remaining = Math.max(0, total - value);
-  const hasBalance = total > 0;
-  const data = hasBalance
-    ? [
-        { name: 'used', value },
-        { name: 'remaining', value: remaining },
-      ]
-    : [{ name: 'remaining', value: 1 }];
+  const hasBalance = isUnlimited || total > 0;
+  const data = isUnlimited
+    ? [{ name: 'unlimited', value: 1 }]
+    : hasBalance
+      ? [
+          { name: 'used', value },
+          { name: 'remaining', value: remaining },
+        ]
+      : [{ name: 'remaining', value: 1 }];
+
+  const trackColor = !isUnlimited && value === 0 && total > 0 ? `${color}40` : "var(--color-chart-track)";
 
   return (
     <div className="flex items-center gap-4">
@@ -38,8 +44,14 @@ export function DonutRing({
               endAngle={-270}
               stroke="none"
             >
-              {hasBalance ? <Cell fill={color} /> : null}
-              <Cell fill="var(--color-chart-track)" />
+              {isUnlimited ? (
+                <Cell fill={color} />
+              ) : (
+                <>
+                  {hasBalance ? <Cell fill={color} /> : null}
+                  <Cell fill={trackColor} />
+                </>
+              )}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
@@ -48,20 +60,33 @@ export function DonutRing({
         <div className="font-semibold text-text">{label}</div>
         <table className="mt-1 w-full border-collapse text-body-sm">
           <tbody>
-            <tr>
-              <td className="text-text-muted">Allocated</td>
-              <td className="text-right font-mono">{total.toFixed(2)}{unit ? ` ${unit}` : ''}</td>
-            </tr>
+            {!isUnlimited && (
+              <tr>
+                <td className="text-text-muted">Allocated</td>
+                <td className="text-right font-mono">{total.toFixed(2)}{unit ? ` ${unit}` : ''}</td>
+              </tr>
+            )}
             <tr>
               <td className="text-text-muted">Taken</td>
               <td className="text-right font-mono">{value.toFixed(2)}{unit ? ` ${unit}` : ''}</td>
             </tr>
-            <tr>
-              <td className="text-text-muted">Remaining</td>
-              <td className="text-right font-mono font-semibold text-text">
-                {remaining.toFixed(2)}{unit ? ` ${unit}` : ''}
-              </td>
-            </tr>
+            {isUnlimited ? (
+              <tr>
+                <td className="text-text-muted">Remaining</td>
+                <td className="text-right">
+                  <span className="inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-text-muted">
+                    Unlimited
+                  </span>
+                </td>
+              </tr>
+            ) : (
+              <tr>
+                <td className="text-text-muted">Remaining</td>
+                <td className="text-right font-mono font-semibold text-text">
+                  {remaining.toFixed(2)}{unit ? ` ${unit}` : ''}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

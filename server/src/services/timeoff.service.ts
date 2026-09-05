@@ -1158,8 +1158,9 @@ export async function getTimeOffDashboard(
   queryEmployeeId?: string,
   queryYear?: number,
   scopedEmployeeId?: string,
+  authEmployeeId?: string,
 ) {
-  let employeeId = scopedEmployeeId ?? queryEmployeeId;
+  let employeeId = scopedEmployeeId ?? queryEmployeeId ?? authEmployeeId;
   if (!employeeId) {
     const firstEmp = await prisma.employee.findFirst({
       where: { status: 'active' },
@@ -1214,6 +1215,7 @@ export async function getTimeOffDashboard(
         startDate: { lte: new Date(`${yearEnd}T00:00:00.000Z`) },
         endDate: { gte: new Date(`${yearStart}T00:00:00.000Z`) },
       },
+      include: { timeOffType: true },
     }),
     prisma.timeOffAllocation.findMany({
       where: {
@@ -1274,6 +1276,22 @@ export async function getTimeOffDashboard(
         color: matchedRequest.timeOffType.color,
         fraction: isHalfDay ? '0.50' : '1.00',
         label: matchedRequest.timeOffType.name,
+      };
+    }
+
+    const matchedPending = pendingRequests.find(
+      (r) => dateStr >= toDateOnly(r.startDate) && dateStr <= toDateOnly(r.endDate),
+    );
+    if (matchedPending) {
+      const isHalfDay = matchedPending.durationType === 'half_day';
+      return {
+        date: dateStr,
+        kind: 'leave' as const,
+        timeOffTypeId: matchedPending.timeOffTypeId,
+        color: matchedPending.timeOffType.color,
+        fraction: isHalfDay ? '0.50' : '1.00',
+        label: `${matchedPending.timeOffType.name} (Pending)`,
+        isPending: true,
       };
     }
 

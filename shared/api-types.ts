@@ -1611,6 +1611,8 @@ export interface components {
             color?: string | null;
             fraction?: components["schemas"]["Quantity"];
             label?: string | null;
+            /** @default false */
+            isPending: boolean;
         };
         TimeOffEntitlement: {
             timeOffType: components["schemas"]["TimeOffTypeRef"];

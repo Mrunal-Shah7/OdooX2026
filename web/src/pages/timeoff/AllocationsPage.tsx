@@ -131,6 +131,8 @@ export default function AllocationsPage() {
       {
         accessorKey: 'allocated',
         header: 'Allocated',
+        cell: ({ row }) =>
+          row.original.timeOffType.code === 'UL' ? 'Unlimited' : row.original.allocated,
         meta: { align: 'right', code: true, filterVariant: 'text' } as ColumnMeta,
       },
       {
@@ -141,9 +143,14 @@ export default function AllocationsPage() {
       {
         accessorKey: 'remaining',
         header: 'Remaining',
-        cell: ({ row }) => (
-          <span className="font-semibold">{row.original.remaining}</span>
-        ),
+        cell: ({ row }) =>
+          row.original.timeOffType.code === 'UL' ? (
+            <span className="inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-text-muted">
+              Unlimited
+            </span>
+          ) : (
+            <span className="font-semibold">{row.original.remaining}</span>
+          ),
         meta: { align: 'right', code: true, filterVariant: 'text' } as ColumnMeta,
       },
       {

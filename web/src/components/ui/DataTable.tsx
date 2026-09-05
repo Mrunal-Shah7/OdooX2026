@@ -17,7 +17,7 @@ import { cn } from '../../lib/cn';
 import { EmptyState } from './EmptyState';
 import { Pagination } from './Pagination';
 import { Select } from './Select';
-import { Spinner } from './Spinner';
+
 
 export type ColumnMeta = {
   align?: 'left' | 'right' | 'center';
@@ -215,11 +215,15 @@ export function DataTable<T>({
         </thead>
         <tbody>
           {isLoading ? (
-            <tr>
-              <td colSpan={columns.length} className="p-8 text-center">
-                <Spinner />
-              </td>
-            </tr>
+            Array.from({ length: 8 }).map((_, i) => (
+              <tr key={i} className="animate-pulse border-b border-border">
+                {columns.map((_, j) => (
+                  <td key={j} className="px-4 py-4">
+                    <div className="h-4 w-full rounded bg-surface-sunken"></div>
+                  </td>
+                ))}
+              </tr>
+            ))
           ) : table.getRowModel().rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="p-4">

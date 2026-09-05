@@ -9,7 +9,7 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+
 import { isHrManagerOrAbove } from '../../lib/permissions';
 import { useSession } from '../../lib/session';
 import { showToast } from '../../lib/toast';
@@ -67,14 +67,23 @@ export default function AttendanceFormPage() {
 
   const canEdit = user ? isHrManagerOrAbove(user.role) : false;
 
+  const [employeePage, setEmployeePage] = useState(1);
+  const [employeesList, setEmployeesList] = useState<EmployeeOption[]>([]);
+  const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
+
   // For new record: fetch employees list
-  const { data: employeesData } = useQuery<EmployeeOption[]>({
-    queryKey: ['employees', { pageSize: '100' }],
+  const { isFetching: isFetchingEmployees } = useQuery({
+    queryKey: ['employees', { page: employeePage, pageSize: 20 }],
     queryFn: async () => {
-      const res = await apiRequest<any>('/api/employees?pageSize=100');
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data)) return res.data;
-      return [];
+      const res = await apiRequest<any>(`/api/employees?page=${employeePage}&pageSize=20`);
+      if (res?.data) {
+        setEmployeesList((prev) => {
+          const merged = [...prev, ...res.data];
+          return Array.from(new Map(merged.map((e) => [e.id, e])).values());
+        });
+        setHasMoreEmployees(res.meta?.page < res.meta?.totalPages);
+      }
+      return res;
     },
     enabled: isNew && canEdit,
   });
@@ -105,8 +114,8 @@ export default function AttendanceFormPage() {
     if (record) {
       setEmployeeId(record.employee.id);
       setDate(record.date);
-      setCheckIn(record.checkIn ? record.checkIn.slice(0, 16) : '');
-      setCheckOut(record.checkOut ? record.checkOut.slice(0, 16) : '');
+      setCheckIn(record.checkIn ? record.checkIn.slice(0, 19) : '');
+      setCheckOut(record.checkOut ? record.checkOut.slice(0, 19) : '');
       setOvertimeHours(record.overtimeHours);
       setStatus(record.status);
       setNotes(record.notes ?? '');
@@ -161,8 +170,9 @@ export default function AttendanceFormPage() {
 
   if (!isNew && isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Spinner />
+      <div className="animate-pulse space-y-6 px-5 pb-6 pt-6">
+        <div className="h-16 w-full rounded-md bg-surface-sunken"></div>
+        <div className="h-96 w-full max-w-3xl rounded-md bg-surface-sunken"></div>
       </div>
     );
   }
@@ -215,17 +225,23 @@ export default function AttendanceFormPage() {
               <Field label="Employee">
                 {isNew ? (
                   <Select
-                    options={
-                      (Array.isArray(employeesData)
-                        ? employeesData
-                        : (employeesData as any)?.data ?? []
-                      ).map((e: any) => ({
+                    options={[
+                      ...employeesList.map((e) => ({
                         value: e.id,
                         label: `${e.firstName} ${e.lastName}`,
-                      }))
-                    }
+                      })),
+                      ...(hasMoreEmployees
+                        ? [{ value: 'load_more', label: isFetchingEmployees ? 'Loading...' : 'Show more' }]
+                        : []),
+                    ]}
                     value={employeeId}
-                    onValueChange={setEmployeeId}
+                    onValueChange={(val) => {
+                      if (val === 'load_more') {
+                        setEmployeePage((p) => p + 1);
+                        return;
+                      }
+                      setEmployeeId(val);
+                    }}
                   />
                 ) : (
                   <Input
@@ -249,6 +265,7 @@ export default function AttendanceFormPage() {
               <Field label="Check in" help="ISO timestamp or local time">
                 <Input
                   type="datetime-local"
+                  step="1"
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
                   readOnly={!canEdit}
@@ -259,6 +276,7 @@ export default function AttendanceFormPage() {
               <Field label="Check out" help="ISO timestamp or local time">
                 <Input
                   type="datetime-local"
+                  step="1"
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
                   readOnly={!canEdit}

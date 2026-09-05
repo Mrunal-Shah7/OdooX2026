@@ -9,8 +9,7 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
-import { showToast } from '../../lib/toast';
+
 
 type AllocationDetail = {
   id: string;
@@ -63,28 +62,26 @@ async function fetchAllocationDetail(id: string): Promise<AllocationDetail> {
   return json.data;
 }
 
-async function fetchEmployees(): Promise<{ id: string; firstName: string; lastName: string }[]> {
+async function fetchEmployees(page = 1): Promise<any> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
   const userId = sessionStorage.getItem('pp360_user_id');
   if (userId) {
     headers.set('x-user-id', userId);
   }
-  const res = await fetch('/api/employees?pageSize=100', { headers, credentials: 'include' });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json.data;
+  const res = await fetch(`/api/employees?page=${page}&pageSize=20`, { headers, credentials: 'include' });
+  if (!res.ok) throw new Error();
+  return res.json();
 }
 
-async function fetchTypes(): Promise<{ id: string; name: string }[]> {
+async function fetchTypes(page = 1): Promise<any> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
   const userId = sessionStorage.getItem('pp360_user_id');
   if (userId) {
     headers.set('x-user-id', userId);
   }
-  const res = await fetch('/api/time-off/types?pageSize=100', { headers, credentials: 'include' });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json.data;
+  const res = await fetch(`/api/time-off/types?page=${page}&pageSize=20`, { headers, credentials: 'include' });
+  if (!res.ok) throw new Error();
+  return res.json();
 }
 
 function getAllocationBadgeVariant(status: string) {
@@ -112,16 +109,41 @@ export default function AllocationFormPage() {
   const [validFrom, setValidFrom] = useState('2026-01-01');
   const [validTo, setValidTo] = useState('2026-12-31');
   const [description, setDescription] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { data: employees = [] } = useQuery({
-    queryKey: ['employees', 'options'],
-    queryFn: fetchEmployees,
+  const [employeePage, setEmployeePage] = useState(1);
+  const [employeesList, setEmployeesList] = useState<any[]>([]);
+  const [hasMoreEmployees, setHasMoreEmployees] = useState(false);
+
+  const { isFetching: isFetchingEmployees } = useQuery({
+    queryKey: ['employees', 'options', employeePage],
+    queryFn: async () => {
+      const res = await fetchEmployees(employeePage);
+      setEmployeesList((prev) => {
+        const merged = [...prev, ...res.data];
+        return Array.from(new Map(merged.map((e) => [e.id, e])).values());
+      });
+      setHasMoreEmployees(res.meta?.page < res.meta?.totalPages);
+      return res;
+    },
     enabled: isNew,
   });
 
-  const { data: types = [] } = useQuery({
-    queryKey: ['timeOff', 'types', 'options'],
-    queryFn: fetchTypes,
+  const [typePage, setTypePage] = useState(1);
+  const [typesList, setTypesList] = useState<any[]>([]);
+  const [hasMoreTypes, setHasMoreTypes] = useState(false);
+
+  const { isFetching: isFetchingTypes } = useQuery({
+    queryKey: ['timeOff', 'types', 'options', typePage],
+    queryFn: async () => {
+      const res = await fetchTypes(typePage);
+      setTypesList((prev) => {
+        const merged = [...prev, ...res.data];
+        return Array.from(new Map(merged.map((e) => [e.id, e])).values());
+      });
+      setHasMoreTypes(res.meta?.page < res.meta?.totalPages);
+      return res;
+    },
     enabled: isNew,
   });
 
@@ -267,8 +289,9 @@ export default function AllocationFormPage() {
 
   if (!isNew && isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Spinner />
+      <div className="animate-pulse space-y-6 px-5 pb-6 pt-6">
+        <div className="h-16 w-full rounded-md bg-surface-sunken"></div>
+        <div className="h-96 w-full max-w-3xl rounded-md bg-surface-sunken"></div>
       </div>
     );
   }
@@ -353,12 +376,23 @@ export default function AllocationFormPage() {
                 {isNew ? (
                   <Select
                     value={employeeId}
-                    onValueChange={setEmployeeId}
+                    onValueChange={(val) => {
+                      if (val === 'load_more') {
+                        setEmployeePage((p) => p + 1);
+                        return;
+                      }
+                      setEmployeeId(val);
+                    }}
                     placeholder="Select employee"
-                    options={employees.map((e) => ({
-                      value: e.id,
-                      label: `${e.firstName} ${e.lastName}`,
-                    }))}
+                    options={[
+                      ...employeesList.map((e) => ({
+                        value: e.id,
+                        label: `${e.firstName} ${e.lastName}`,
+                      })),
+                      ...(hasMoreEmployees
+                        ? [{ value: 'load_more', label: isFetchingEmployees ? 'Loading...' : 'Show more' }]
+                        : []),
+                    ]}
                   />
                 ) : (
                   <Input
@@ -373,12 +407,23 @@ export default function AllocationFormPage() {
                 {isNew ? (
                   <Select
                     value={timeOffTypeId}
-                    onValueChange={setTimeOffTypeId}
+                    onValueChange={(val) => {
+                      if (val === 'load_more') {
+                        setTypePage((p) => p + 1);
+                        return;
+                      }
+                      setTimeOffTypeId(val);
+                    }}
                     placeholder="Select type"
-                    options={types.map((t) => ({
-                      value: t.id,
-                      label: t.name,
-                    }))}
+                    options={[
+                      ...typesList.map((t) => ({
+                        value: t.id,
+                        label: t.name,
+                      })),
+                      ...(hasMoreTypes
+                        ? [{ value: 'load_more', label: isFetchingTypes ? 'Loading...' : 'Show more' }]
+                        : []),
+                    ]}
                   />
                 ) : (
                   <Input

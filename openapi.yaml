@@ -2384,6 +2384,7 @@ components:
         color: { type: [string, 'null'] }
         fraction: { $ref: '#/components/schemas/Quantity' }
         label: { type: [string, 'null'] }
+        isPending: { type: boolean, default: false }
     TimeOffEntitlement:
       type: object
       required: [timeOffType, allocated, taken, remaining]

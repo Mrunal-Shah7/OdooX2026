@@ -2,8 +2,24 @@ import { prisma } from '../../db/client.js';
 import { ApiError } from '../../lib/apiError.js';
 import { Decimal, moneyString, roundHalfUp } from '../../lib/money.js';
 import { paginationMeta } from '../../lib/pagination.js';
+import { NOTIFICATION_TYPE } from '../../../../shared/constants.js';
 import { getDayBreakdown } from '../dayAccounting.service.js';
+import { create as createNotification } from '../notifications.service.js';
 import { computePayslipForEmployee } from './compute.js';
+
+async function notifyQuietly(input: {
+  userId: string;
+  type: (typeof NOTIFICATION_TYPE)[keyof typeof NOTIFICATION_TYPE];
+  title: string;
+  body: string;
+  linkPath: string;
+}): Promise<void> {
+  try {
+    await createNotification(input);
+  } catch {
+    // Fire-and-forget; notification failure never fails the parent operation
+  }
+}
 
 export async function listEligibleEmployees(query: {
   periodStart: string;
@@ -494,6 +510,23 @@ export async function validatePayrun(id: string) {
     });
   });
 
+  const payslipCount = payrun.payslips.length;
+  const payrollUsers = await prisma.user.findMany({
+    where: {
+      role: { in: ['hr_payroll_user', 'hr_payroll_manager', 'admin'] },
+      status: 'active',
+    },
+  });
+  for (const u of payrollUsers) {
+    void notifyQuietly({
+      userId: u.id,
+      type: NOTIFICATION_TYPE.payrun_validated,
+      title: 'Pay run validated',
+      body: `${payrun.name} was validated with ${payslipCount} payslips.`,
+      linkPath: `/payroll/payruns/${id}`,
+    });
+  }
+
   return getPayrun(id);
 }
 
@@ -532,7 +565,11 @@ export async function sendPayslips(id: string) {
       payslips: {
         where: { archivedAt: null },
         include: {
-          employee: true,
+          employee: {
+            include: {
+              user: { select: { id: true } },
+            },
+          },
         },
       },
     },
@@ -556,8 +593,20 @@ export async function sendPayslips(id: string) {
         data: { sentAt: now },
       });
       results.push({ payslipId: ps.id, sent: true, error: null });
-    } catch (err: any) {
-      results.push({ payslipId: ps.id, sent: false, error: err.message });
+
+      const userId = ps.employee.user?.id;
+      if (userId) {
+        void notifyQuietly({
+          userId,
+          type: NOTIFICATION_TYPE.payslip_sent,
+          title: 'Payslip available',
+          body: `Your payslip for ${payrun.name} has been sent.`,
+          linkPath: `/payroll/payslips/${ps.id}`,
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Send failed';
+      results.push({ payslipId: ps.id, sent: false, error: message });
     }
   }
 

@@ -218,7 +218,7 @@ export default function ReportsPage() {
             <DataTable
               columns={buildDynamicColumns(salaryQuery.data?.data)}
               data={salaryQuery.data?.data?.rows ?? []}
-              isLoading={salaryQuery.isLoading}
+              isLoading={salaryQuery.isLoading || salaryQuery.isFetching}
               enablePagination={false}
               emptyMessage="No salary register records found."
             />
@@ -244,7 +244,7 @@ export default function ReportsPage() {
             <DataTable
               columns={buildDynamicColumns(attendanceQuery.data?.data)}
               data={attendanceQuery.data?.data?.rows ?? []}
-              isLoading={attendanceQuery.isLoading}
+              isLoading={attendanceQuery.isLoading || attendanceQuery.isFetching}
               enablePagination={false}
               emptyMessage="No attendance records found for this period."
             />
@@ -266,7 +266,7 @@ export default function ReportsPage() {
             <DataTable
               columns={buildDynamicColumns(leaveQuery.data?.data)}
               data={leaveQuery.data?.data?.rows ?? []}
-              isLoading={leaveQuery.isLoading}
+              isLoading={leaveQuery.isLoading || leaveQuery.isFetching}
               enablePagination={false}
               emptyMessage="No approved leave allocations found."
             />
@@ -301,7 +301,7 @@ export default function ReportsPage() {
             <DataTable
               columns={buildDynamicColumns(expiryQuery.data?.data)}
               data={expiryQuery.data?.data?.rows ?? []}
-              isLoading={expiryQuery.isLoading}
+              isLoading={expiryQuery.isLoading || expiryQuery.isFetching}
               enablePagination={false}
               emptyMessage="No contracts expiring within the selected window."
             />
@@ -340,7 +340,7 @@ export default function ReportsPage() {
             <DataTable
               columns={buildDynamicColumns(deptCostQuery.data?.data)}
               data={deptCostQuery.data?.data?.rows ?? []}
-              isLoading={deptCostQuery.isLoading}
+              isLoading={deptCostQuery.isLoading || deptCostQuery.isFetching}
               enablePagination={false}
               emptyMessage="No department cost records found."
             />

@@ -44,7 +44,7 @@ export default function ContractsPage() {
   const pageSize = 10;
   const [search, setSearch] = useState('');
 
-  const { data: response, isLoading } = useQuery({
+  const { data: response, isLoading, isFetching } = useQuery({
     queryKey: ['contracts', {
       page: String(page),
       pageSize: String(pageSize),
@@ -167,7 +167,7 @@ export default function ContractsPage() {
           <DataTable
             columns={columns}
             data={response?.data ?? []}
-            isLoading={isLoading}
+            isLoading={isLoading || isFetching}
             searchPlaceholder="Search contracts..."
             globalFilter={search}
             onGlobalFilterChange={(val) => {

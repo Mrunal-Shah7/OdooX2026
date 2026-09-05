@@ -78,7 +78,7 @@ export default function UsersPage() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   // Queries
-  const { data: usersData, isLoading: isUsersLoading, isError, refetch } = useQuery({
+  const { data: usersData, isLoading: isUsersLoading, isFetching: isUsersFetching, isError, refetch } = useQuery({
     queryKey: ['users', { q: search, page }],
     queryFn: () => {
       const q = new URLSearchParams({
@@ -314,7 +314,7 @@ export default function UsersPage() {
             <DataTable
               columns={columns}
               data={users}
-              isLoading={isUsersLoading}
+              isLoading={isUsersLoading || isUsersFetching}
               emptyMessage="No users found."
               searchPlaceholder="Search users..."
               globalFilter={search}

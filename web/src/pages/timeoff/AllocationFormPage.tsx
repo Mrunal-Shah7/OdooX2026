@@ -48,22 +48,6 @@ type AllocationDetail = {
   } | null;
 };
 
-async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  headers.set('Content-Type', 'application/json');
-  const userId = sessionStorage.getItem('pp360_user_id');
-  if (userId) {
-    headers.set('x-user-id', userId);
-  }
-  const res = await fetch(path, { ...options, headers, credentials: 'include' });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error?.message ?? 'Request failed');
-  }
-  const json = await res.json();
-  return json.data;
-}
-
 async function fetchAllocationDetail(id: string): Promise<AllocationDetail> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
   const userId = sessionStorage.getItem('pp360_user_id');
@@ -130,21 +114,29 @@ export default function AllocationFormPage() {
   }, [employeeSearch]);
 
   const { isFetching: isFetchingEmployees } = useQuery({
-    queryKey: ['employees', { page: employeePage, pageSize: 10, q: employeeSearch }],
+    queryKey: ['employees', { page: employeePage, pageSize: 8, q: employeeSearch }],
     queryFn: async () => {
-      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '10' });
+      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '8' });
       if (employeeSearch) qs.set('q', employeeSearch);
-      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
-      const data = Array.isArray(res) ? res : res?.data;
-      const meta = Array.isArray(res) ? undefined : res?.meta;
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+      const userId = sessionStorage.getItem('pp360_user_id');
+      if (userId) headers.set('x-user-id', userId);
+      const response = await fetch(`/api/employees?${qs.toString()}`, {
+        headers,
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to load employees');
+      const result = await response.json();
+      const data = result.data;
+      const meta = result.meta;
       if (data) {
         setEmployeesList((prev) => {
           const merged = [...prev, ...data];
           return Array.from(new Map(merged.map((e) => [e.id, e])).values());
         });
-        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
+        setHasMoreEmployees(meta ? meta.page * meta.pageSize < meta.total : false);
       }
-      return res;
+      return result;
     },
     enabled: isNew,
   });
@@ -161,7 +153,7 @@ export default function AllocationFormPage() {
         const merged = [...prev, ...res.data];
         return Array.from(new Map(merged.map((e) => [e.id, e])).values());
       });
-      setHasMoreTypes(res.meta?.page < res.meta?.totalPages);
+      setHasMoreTypes(res.meta ? res.meta.page * res.meta.pageSize < res.meta.total : false);
       return res;
     },
     enabled: isNew,

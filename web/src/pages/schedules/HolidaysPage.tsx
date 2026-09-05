@@ -28,7 +28,7 @@ export default function HolidaysPage() {
   const [newHolidayName, setNewHolidayName] = useState('');
   const [newHolidayDate, setNewHolidayDate] = useState(new Date().toISOString().slice(0, 10));
 
-  const { data: response, isLoading } = useQuery({
+  const { data: response, isLoading, isFetching } = useQuery({
     queryKey: queryKeys.holidays(selectedYear),
     queryFn: () =>
       apiFetch<{ data: PublicHoliday[] }>(`/public-holidays?year=${selectedYear}`),
@@ -141,7 +141,7 @@ export default function HolidaysPage() {
           <DataTable
             columns={columns}
             data={response?.data ?? []}
-            isLoading={isLoading}
+            isLoading={isLoading || isFetching}
             enablePagination={false}
             emptyMessage="No public holidays configured for this year."
           />

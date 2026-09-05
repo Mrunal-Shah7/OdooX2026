@@ -5,7 +5,6 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
-import { DatePicker } from '../../components/ui/DatePicker';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
@@ -108,21 +107,29 @@ export default function RequestFormPage() {
   }, [employeeSearch]);
 
   const { isFetching: isFetchingEmployees } = useQuery({
-    queryKey: ['employees', { page: employeePage, pageSize: 10, q: employeeSearch }],
+    queryKey: ['employees', { page: employeePage, pageSize: 8, q: employeeSearch }],
     queryFn: async () => {
-      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '10' });
+      const qs = new URLSearchParams({ page: String(employeePage), pageSize: '8' });
       if (employeeSearch) qs.set('q', employeeSearch);
-      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
-      const data = Array.isArray(res) ? res : res?.data;
-      const meta = Array.isArray(res) ? undefined : res?.meta;
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+      const userId = sessionStorage.getItem('pp360_user_id');
+      if (userId) headers.set('x-user-id', userId);
+      const response = await fetch(`/api/employees?${qs.toString()}`, {
+        headers,
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to load employees');
+      const result = await response.json();
+      const data = result.data;
+      const meta = result.meta;
       if (data) {
         setEmployeesList((prev) => {
           const merged = [...prev, ...data];
           return Array.from(new Map(merged.map((e: any) => [e.id, e])).values());
         });
-        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
+        setHasMoreEmployees(meta ? meta.page * meta.pageSize < meta.total : false);
       }
-      return res;
+      return result;
     },
     enabled: isNew && canApprove,
   });

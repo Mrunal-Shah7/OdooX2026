@@ -65,13 +65,15 @@ export function SearchableSelect({
         <PopoverPrimitive.Content
           align="start"
           sideOffset={4}
-          className="z-[500] flex flex-col w-[var(--radix-popover-trigger-width)] max-h-80 overflow-hidden rounded-md border border-border bg-surface-raised shadow-lg"
+          collisionPadding={8}
+          onWheel={(event) => event.stopPropagation()}
+          className="z-[500] flex max-h-60 w-[var(--radix-popover-trigger-width)] flex-col overflow-hidden overscroll-contain rounded-md border border-border bg-surface-raised shadow-lg"
         >
-          <div className="border-b border-border p-2">
-            <div className="flex items-center gap-2 rounded-md bg-surface px-2 border border-border focus-within:border-focus-ring focus-within:ring-1 focus-within:ring-focus-ring">
-              <Search className="size-4 text-text-muted shrink-0" />
+          <div className="border-b border-border p-1">
+            <div className="flex items-center gap-1 rounded-md border border-border bg-surface px-2 focus-within:border-focus-ring focus-within:ring-1 focus-within:ring-focus-ring">
+              <Search className="size-3.5 shrink-0 text-text-muted" />
               <input
-                className="h-8 w-full bg-transparent text-body-sm outline-none placeholder:text-text-muted"
+                className="h-6 w-full bg-transparent text-caption outline-none placeholder:text-text-muted"
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => {
@@ -82,7 +84,7 @@ export function SearchableSelect({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             {options.length === 0 ? (
               <div className="p-2 text-center text-body-sm text-text-muted">
                 {loading ? 'Loading...' : 'No results found'}

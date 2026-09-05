@@ -40,7 +40,7 @@ export default function NotificationsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: queryKeys.notifications.all({ page: 1, pageSize: 50 }),
     queryFn: () =>
       apiFetch<NotificationListResponse>('/notifications?page=1&pageSize=50'),
@@ -135,7 +135,7 @@ export default function NotificationsPage() {
             <DataTable
               columns={columns}
               data={rows}
-              isLoading={isLoading}
+              isLoading={isLoading || isFetching}
               emptyMessage="No notifications yet."
               enablePagination={false}
             />

@@ -4,13 +4,18 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
-import { Card, CardBody } from "../../components/ui/Card";
+import { Card, CardBody, CardHeader } from "../../components/ui/Card";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Select } from "../../components/ui/Select";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
-import { formatWorkedHours, parseDateTimeInput } from "../../lib/format";
+import { Select } from "../../components/ui/Select";
+import { FormSkeleton } from "../../components/ui/Skeleton";
+import {
+  formatDateTimeInput,
+  formatWorkedHours,
+  parseDateTimeInput,
+} from "../../lib/format";
 import { isHrManagerOrAbove } from "../../lib/permissions";
 import { useSession } from "../../lib/session";
 import { showToast } from "../../lib/toast";
@@ -84,25 +89,33 @@ export default function AttendanceFormPage() {
   const { isFetching: isFetchingEmployees } = useQuery({
     queryKey: [
       "employees",
-      { page: employeePage, pageSize: 10, q: employeeSearch },
+      { page: employeePage, pageSize: 8, q: employeeSearch },
     ],
     queryFn: async () => {
       const qs = new URLSearchParams({
         page: String(employeePage),
-        pageSize: "10",
+        pageSize: "8",
       });
       if (employeeSearch) qs.set("q", employeeSearch);
-      const res = await apiRequest<any>(`/api/employees?${qs.toString()}`);
-      const data = Array.isArray(res) ? res : res?.data;
-      const meta = Array.isArray(res) ? undefined : res?.meta;
+      const headers = new Headers({ "Content-Type": "application/json" });
+      const userId = sessionStorage.getItem("pp360_user_id");
+      if (userId) headers.set("x-user-id", userId);
+      const response = await fetch(`/api/employees?${qs.toString()}`, {
+        headers,
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to load employees");
+      const result = await response.json();
+      const data = result.data;
+      const meta = result.meta;
       if (data) {
         setEmployeesList((prev) => {
           const merged = [...prev, ...data];
           return Array.from(new Map(merged.map((e) => [e.id, e])).values());
         });
-        setHasMoreEmployees(meta ? meta.page < meta.totalPages : false);
+        setHasMoreEmployees(meta ? meta.page * meta.pageSize < meta.total : false);
       }
-      return res;
+      return result;
     },
     enabled: isNew && canEdit,
   });
@@ -133,8 +146,8 @@ export default function AttendanceFormPage() {
     if (record) {
       setEmployeeId(record.employee.id);
       setDate(record.date);
-      setCheckIn(record.checkIn ? record.checkIn.slice(0, 16) : "");
-      setCheckOut(record.checkOut ? record.checkOut.slice(0, 16) : "");
+      setCheckIn(formatDateTimeInput(record.checkIn));
+      setCheckOut(formatDateTimeInput(record.checkOut));
       setOvertimeHours(record.overtimeHours);
       setStatus(record.status);
       setNotes(record.notes ?? "");
@@ -145,11 +158,15 @@ export default function AttendanceFormPage() {
   let derivedWorkedHours = record ? record.workedHours : "0.00";
   if (checkIn && checkOut) {
     try {
-      const ms = Math.max(
-        0,
-        new Date(checkOut).getTime() - new Date(checkIn).getTime(),
-      );
-      derivedWorkedHours = (ms / (1000 * 60 * 60)).toFixed(2);
+      const inIso = parseDateTimeInput(checkIn);
+      const outIso = parseDateTimeInput(checkOut);
+      if (inIso && outIso) {
+        const ms = Math.max(
+          0,
+          new Date(outIso).getTime() - new Date(inIso).getTime(),
+        );
+        derivedWorkedHours = (ms / (1000 * 60 * 60)).toFixed(2);
+      }
     } catch {
       // ignore
     }
@@ -194,9 +211,7 @@ export default function AttendanceFormPage() {
   });
 
   if (!isNew && isLoading) {
-    return (
-      <div className="p-8 text-center text-text-muted">Loading record...</div>
-    );
+    return <FormSkeleton />;
   }
 
   if (!isNew && isError) {
@@ -217,7 +232,7 @@ export default function AttendanceFormPage() {
     : canEdit
       ? `${record?.employee.departmentName} · ${record?.employee.jobPosition}`
       : "Review your attendance details";
-  const selectedEmployee = employeesData.find(
+  const selectedEmployee = employeesList.find(
     (employee) => employee.id === employeeId,
   );
   const employeeName = isNew
@@ -268,15 +283,33 @@ export default function AttendanceFormPage() {
                 {canEdit ? (
                   <Field label="Employee">
                     {isNew ? (
-                      <Select
-                        options={employeesData.map((employee) => ({
-                          value: employee.id,
-                          label: `${employee.firstName} ${employee.lastName}`,
-                        }))}
+                      <SearchableSelect
+                        options={[
+                          ...employeesList.map((employee) => ({
+                            value: employee.id,
+                            label: `${employee.firstName} ${employee.lastName}`,
+                          })),
+                          ...(hasMoreEmployees
+                            ? [
+                                {
+                                  value: "load_more",
+                                  label: isFetchingEmployees
+                                    ? "Loading..."
+                                    : "Show more",
+                                },
+                              ]
+                            : []),
+                        ]}
                         value={employeeId}
-                        onValueChange={setEmployeeId}
-                        searchable
-                        searchPlaceholder="Search employees"
+                        onValueChange={(val) => {
+                          if (val === "load_more") {
+                            setEmployeePage((p) => p + 1);
+                            return;
+                          }
+                          setEmployeeId(val);
+                        }}
+                        onSearch={setEmployeeSearch}
+                        loading={isFetchingEmployees}
                       />
                     ) : (
                       <Input
@@ -299,25 +332,25 @@ export default function AttendanceFormPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Field label="Check in" help="Format: DD/MM/YYYY; HH:mm:ss">
+                <Field label="Check in">
                   <Input
                     type="text"
                     placeholder="DD/MM/YYYY; HH:mm:ss"
                     value={checkIn}
                     onChange={(e) => setCheckIn(e.target.value)}
                     readOnly={!canEdit}
-                    className="font-mono"
+                    className="font-mono text-caption"
                   />
                 </Field>
 
-                <Field label="Check out" help="Format: DD/MM/YYYY; HH:mm:ss">
+                <Field label="Check out">
                   <Input
                     type="text"
                     placeholder="DD/MM/YYYY; HH:mm:ss"
                     value={checkOut}
                     onChange={(e) => setCheckOut(e.target.value)}
                     readOnly={!canEdit}
-                    className="font-mono"
+                    className="font-mono text-caption"
                   />
                 </Field>
 
@@ -325,7 +358,7 @@ export default function AttendanceFormPage() {
                   <Input
                     value={formatWorkedHours(derivedWorkedHours)}
                     readOnly
-                    className="bg-surface-sunken font-mono"
+                    className="ml-1 w-20 bg-surface-sunken font-mono text-caption"
                   />
                 </Field>
               </div>

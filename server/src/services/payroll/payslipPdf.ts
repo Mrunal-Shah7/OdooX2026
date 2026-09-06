@@ -71,7 +71,6 @@ const LOGO_PATH = [
   path.resolve(__dirname, '../../../../web/public/logo.png'),
   path.resolve(__dirname, '../../../web/public/logo.png'),
 ].find((p) => fs.existsSync(p)) || path.resolve(process.cwd(), 'web/public/logo.png');
-
 const COMPANY_NAME = 'PeoplePay360';
 
 // ---------------------------------------------------------------------------
@@ -272,54 +271,6 @@ export async function renderPayslipPdf(detail: PayslipDetail): Promise<Buffer> {
   labelValue(col1X, colW, 'Work Email', emp.workEmail || '-');
   labelValue(col2X, colW, 'Payslip Status', ps.status.toUpperCase());
   y -= 28;
-
-  // Attendance summary strip
-  ensureSpace(50);
-  const attendance: [string, string][] = [
-    ['Scheduled', `${ps.scheduledDays}d`],
-    ['Worked', `${ps.workedDays}d`],
-    ['Paid Leave', `${ps.paidLeaveDays}d`],
-    ['Unpaid Leave', `${ps.unpaidLeaveDays}d`],
-    ['Absent', `${ps.absentDays}d`],
-    ['Overtime', `${ps.overtimeHours}h`],
-  ];
-  const stripHeight = 42;
-  page.drawRectangle({ x: MARGIN, y: y - stripHeight, width: CONTENT_WIDTH, height: stripHeight, color: COLOR.panel });
-  page.drawRectangle({
-    x: MARGIN,
-    y: y - stripHeight,
-    width: CONTENT_WIDTH,
-    height: stripHeight,
-    borderColor: COLOR.border,
-    borderWidth: 0.75,
-  });
-  const cellW = CONTENT_WIDTH / attendance.length;
-  attendance.forEach(([label, value], i) => {
-    const cx = MARGIN + cellW * i + cellW / 2;
-    page.drawText(label.toUpperCase(), {
-      x: centeredX(label.toUpperCase(), fontBold, 6.5, cx),
-      y: y - 16,
-      size: 6.5,
-      font: fontBold,
-      color: COLOR.faint,
-    });
-    page.drawText(value, {
-      x: centeredX(value, fontBold, 11, cx),
-      y: y - 31,
-      size: 11,
-      font: fontBold,
-      color: COLOR.ink,
-    });
-    if (i > 0) {
-      page.drawLine({
-        start: { x: MARGIN + cellW * i, y: y - 8 },
-        end: { x: MARGIN + cellW * i, y: y - stripHeight + 8 },
-        thickness: 0.5,
-        color: COLOR.border,
-      });
-    }
-  });
-  y -= stripHeight + 26;
 
   // ------------------------------------------------------------------
   // Earnings / Deductions tables

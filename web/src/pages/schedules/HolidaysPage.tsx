@@ -58,7 +58,7 @@ export default function HolidaysPage() {
     },
     onError: (err: any) => {
       const msg = err.message || 'Failed to add public holiday';
-      showToast({ type: 'error', title: 'Add Holiday Failed', message: msg });
+      showToast({ type: 'error', title: 'Error', message: msg });
     },
   });
 

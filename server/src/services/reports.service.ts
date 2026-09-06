@@ -35,8 +35,8 @@ export async function getSalaryRegister(query: {
 }) {
   const payslips = await prisma.payslip.findMany({
     where: {
-      periodStart: new Date(query.periodStart),
-      periodEnd: new Date(query.periodEnd),
+      periodStart: { gte: new Date(query.periodStart) },
+      periodEnd: { lte: new Date(query.periodEnd) },
       archivedAt: null,
       employee: {
         ...(query.departmentId ? { departmentId: query.departmentId } : {}),
@@ -85,11 +85,12 @@ export async function getAttendanceRegister(query: {
   employeeId?: string;
   format: 'json' | 'csv';
 }) {
-  const [yearStr = '2026', monthStr = '09'] = query.period.split('-');
+  const [yearStr = '2026', monthStr = '07'] = query.period.split('-');
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0);
+  const lastDay = new Date(year, month, 0).getDate();
+  const startDate = new Date(`${yearStr}-${monthStr.padStart(2, '0')}-01T00:00:00.000Z`);
+  const endDate = new Date(`${yearStr}-${monthStr.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`);
 
   const records = await prisma.attendanceRecord.findMany({
     where: {
@@ -261,8 +262,8 @@ export async function getDepartmentCostReport(query: {
         include: {
           payslips: {
             where: {
-              periodStart: new Date(query.periodStart),
-              periodEnd: new Date(query.periodEnd),
+              periodStart: { gte: new Date(query.periodStart) },
+              periodEnd: { lte: new Date(query.periodEnd) },
               archivedAt: null,
             },
           },

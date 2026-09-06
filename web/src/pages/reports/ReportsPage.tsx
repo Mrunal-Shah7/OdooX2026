@@ -36,9 +36,9 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('salary');
 
   // Filters state
-  const [periodStart, setPeriodStart] = useState('2026-09-01');
-  const [periodEnd, setPeriodEnd] = useState('2026-09-30');
-  const [attendancePeriod, setAttendancePeriod] = useState('2026-09');
+  const [periodStart, setPeriodStart] = useState('2026-07-01');
+  const [periodEnd, setPeriodEnd] = useState('2026-07-31');
+  const [attendancePeriod, setAttendancePeriod] = useState('2026-07');
   const [departmentId, setDepartmentId] = useState('');
   const [withinDays, setWithinDays] = useState('60');
 

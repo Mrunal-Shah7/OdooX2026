@@ -141,8 +141,8 @@ export default function RuleFormPage() {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      const msg = 'Please resolve the highlighted validation errors before saving.';
-      showToast({ type: 'error', title: 'Rule Validation Failed', message: msg });
+      const msg = 'Please fill the required details properly before saving.';
+      showToast({ type: 'error', title: 'Error', message: msg });
       return;
     }
 

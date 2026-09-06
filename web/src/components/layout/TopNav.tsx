@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CircleUserRound } from "lucide-react";
 import { BrandLogo } from "../BrandLogo";
+import { Dropdown } from "../ui/Dropdown";
 import { NavMenu } from "./NavMenu";
 import { NotificationBell } from "./NotificationBell";
 import { apiClient } from "../../lib/apiClient";
@@ -33,24 +34,33 @@ export function TopNav() {
       <div className="top-nav__actions">
         <NotificationBell />
         {user ? (
-          <div className="top-nav__account-actions">
-            <Link
-              to="/profile"
-              className="top-nav__profile-link"
-              aria-label="Open my profile"
-              title="My profile"
-              data-walkthrough-id="nav-profile"
-            >
-              <CircleUserRound className="size-5" aria-hidden="true" />
-            </Link>
-            <button
-              type="button"
-              className="top-nav__sign-out"
-              onClick={() => void signOut()}
-            >
-              Sign out
-            </button>
-          </div>
+          <Dropdown
+            trigger={
+              <button
+                type="button"
+                className="top-nav__profile-link"
+                aria-label="Account menu"
+                title="Account menu"
+                data-walkthrough-id="nav-profile"
+              >
+                <CircleUserRound className="size-5" aria-hidden="true" />
+              </button>
+            }
+            items={[
+              {
+                label: "My profile",
+                onSelect: () => {
+                  void navigate({ to: "/profile" });
+                },
+              },
+              {
+                label: "Sign out",
+                onSelect: () => {
+                  void signOut();
+                },
+              },
+            ]}
+          />
         ) : null}
       </div>
     </header>

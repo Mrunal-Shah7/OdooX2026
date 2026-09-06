@@ -205,25 +205,54 @@ export default function ContractFormPage() {
     },
   });
 
-  const employeeOptions = (employeesData?.data ?? []).map((e) => ({
-    value: e.id,
-    label: `${e.firstName} ${e.lastName}`,
-  }));
+  const employees = employeesData?.data ?? [];
+  const departments = departmentsData?.data ?? [];
+  const schedules = schedulesData?.data ?? [];
+  const structures = structuresData?.data ?? [];
+  const currentContract = contractData?.data;
 
-  const departmentOptions = (departmentsData?.data ?? []).map((d) => ({
-    value: d.id,
-    label: d.name,
-  }));
+  const employeeOptions = [
+    ...(currentContract && !employees.some((employee) => employee.id === currentContract.employee.id)
+      ? [{
+          value: currentContract.employee.id,
+          label: `${currentContract.employee.firstName} ${currentContract.employee.lastName}`,
+        }]
+      : []),
+    ...employees.map((employee) => ({
+      value: employee.id,
+      label: `${employee.firstName} ${employee.lastName}`,
+    })),
+  ];
 
-  const scheduleOptions = (schedulesData?.data ?? []).map((s) => ({
-    value: s.id,
-    label: s.name,
-  }));
+  const departmentOptions = [
+    ...(currentContract && !departments.some((department) => department.id === currentContract.department.id)
+      ? [{ value: currentContract.department.id, label: currentContract.department.name }]
+      : []),
+    ...departments.map((department) => ({
+      value: department.id,
+      label: department.name,
+    })),
+  ];
 
-  const structureOptions = (structuresData?.data ?? []).map((st) => ({
-    value: st.id,
-    label: st.name,
-  }));
+  const scheduleOptions = [
+    ...(currentContract && !schedules.some((schedule) => schedule.id === currentContract.workingSchedule.id)
+      ? [{ value: currentContract.workingSchedule.id, label: currentContract.workingSchedule.name }]
+      : []),
+    ...schedules.map((schedule) => ({
+      value: schedule.id,
+      label: schedule.name,
+    })),
+  ];
+
+  const structureOptions = [
+    ...(currentContract && !structures.some((structure) => structure.id === currentContract.salaryStructure.id)
+      ? [{ value: currentContract.salaryStructure.id, label: currentContract.salaryStructure.name }]
+      : []),
+    ...structures.map((structure) => ({
+      value: structure.id,
+      label: structure.name,
+    })),
+  ];
 
   if (!isNew && isContractLoading) {
     return <FormSkeleton />;

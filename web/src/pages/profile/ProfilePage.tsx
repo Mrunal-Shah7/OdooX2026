@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import type { components } from '../../../../shared/api-types';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { startRoleWalkthrough } from '../../components/layout/RoleWalkthrough';
@@ -14,6 +15,7 @@ import { PageSkeleton, Skeleton } from '../../components/ui/Skeleton';
 import { Tabs } from '../../components/ui/Tabs';
 import { apiFetch } from '../../lib/apiFetch';
 import { formatDate } from '../../lib/format';
+import { can, CAPABILITY } from '../../lib/permissions';
 import { queryKeys } from '../../lib/queryKeys';
 import { useSession } from '../../lib/session';
 
@@ -140,6 +142,14 @@ export default function ProfilePage() {
     ? `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`.toUpperCase()
     : fullName.slice(0, 2).toUpperCase();
   const role = user?.role ?? 'employee';
+  const availableWorkspaces = [
+    { label: 'Management', available: can(role, CAPABILITY.crudEmployeesHr) },
+    { label: 'Attendance', available: true },
+    { label: 'Time off', available: true },
+    { label: 'Payroll', available: can(role, CAPABILITY.readPayrollDashboardReports) },
+    { label: 'Reports', available: can(role, CAPABILITY.readPayrollDashboardReports) },
+    { label: 'User management', available: can(role, CAPABILITY.crudUsers) },
+  ].filter((workspace) => workspace.available);
   const isCheckedIn = attendance?.checkedIn ?? false;
   const completedToday = Boolean(attendance?.record?.checkOut);
   const hasCompleteBankDetails = Boolean(
@@ -209,131 +219,161 @@ export default function ProfilePage() {
                       </span>
                       <div>
                         <div className="flex flex-wrap items-center gap-3">
-                          <h2 className="m-0 text-h2 font-semibold text-text">{fullName}</h2>
-                          <Badge variant={user?.status === 'active' ? 'success' : 'neutral'}>
-                            {user?.status ?? 'active'}
+                          <h2 className="m-0 text-h2 font-semibold text-text">
+                            {employeeId ? fullName : 'Account profile'}
+                          </h2>
+                          <Badge
+                            variant={user?.status === 'active' ? 'success' : 'neutral'}
+                            className="font-sans font-medium capitalize tracking-normal"
+                          >
+                            {labelFor(user?.status ?? 'active')}
                           </Badge>
                         </div>
-                        <p className="m-0 mt-1 font-mono text-caption text-text-muted">
-                          {user?.email}
-                        </p>
+                        {user?.email ? (
+                          <p className="m-0 mt-1 font-mono text-caption text-text-muted">
+                            {user.email}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <ProfileFact label="Name">{fullName}</ProfileFact>
                       <ProfileFact label="Role">
-                        <Badge variant="info">{labelFor(role)}</Badge>
+                        <Badge
+                          variant="info"
+                          className="font-sans font-medium tracking-normal"
+                        >
+                          {labelFor(role)}
+                        </Badge>
                       </ProfileFact>
-                      <ProfileFact label="Work email" numeric>
-                        {employee?.workEmail ?? user?.email ?? 'Not available'}
+                      <ProfileFact label="Profile type">
+                        {employeeId ? 'Employee linked' : 'Account only'}
                       </ProfileFact>
-                      <ProfileFact label="Status">
-                        {labelFor(employee?.status ?? user?.status ?? 'active')}
-                      </ProfileFact>
-                    </CardBody>
-                  </Card>
-
-                  <Card className="lg:col-span-2">
-                    <CardHeader
-                      title="Today’s attendance"
-                      subtitle="Clock in at the start of work and clock out when you finish"
-                    />
-                    <CardBody className="space-y-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <ProfileFact label="Attendance status">
-                          <Badge variant={isCheckedIn ? 'success' : 'neutral'}>
-                            {isCheckedIn ? 'Clocked in' : completedToday ? 'Clocked out' : 'Not clocked in'}
-                          </Badge>
+                      {employee?.workEmail && employee.workEmail !== user?.email ? (
+                        <ProfileFact label="Work email" numeric>
+                          {employee.workEmail}
                         </ProfileFact>
-                        <ProfileFact label="Worked today" numeric>
-                          {attendance?.todayWorkedHours ?? '0.00'} h
-                        </ProfileFact>
-                        <ProfileFact label="Clock-in time" numeric>
-                          {checkedInAt ?? '—'}
-                        </ProfileFact>
-                        <ProfileFact label="Clock-out time" numeric>
-                          {attendance?.record?.checkOut
-                            ? new Date(attendance.record.checkOut).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false,
-                              })
-                            : '—'}
-                        </ProfileFact>
-                      </div>
-
-                      {attendanceError ? (
-                        <p className="m-0 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
-                          {attendanceError}
-                        </p>
                       ) : null}
-
-                      <div className="flex flex-wrap gap-3 border-t border-border pt-4">
-                        <Button
-                          variant="accent"
-                          disabled={
-                            !employeeId ||
-                            isCheckedIn ||
-                            completedToday ||
-                            attendanceQuery.isLoading ||
-                            attendanceMutation.isPending
-                          }
-                          onClick={() => attendanceMutation.mutate('check-in')}
-                        >
-                          {attendanceMutation.isPending ? 'Updating...' : 'Clock in'}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          disabled={!isCheckedIn || attendanceMutation.isPending}
-                          onClick={() => attendanceMutation.mutate('check-out')}
-                        >
-                          Clock out
-                        </Button>
-                      </div>
                     </CardBody>
                   </Card>
 
-                  <Card className="lg:col-span-3">
+                  {employeeId ? (
+                    <Card className="lg:col-span-2">
+                      <CardHeader
+                        title="Today’s attendance"
+                        subtitle="Clock in at the start of work and clock out when you finish"
+                      />
+                      <CardBody className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <ProfileFact label="Attendance status">
+                            <Badge
+                              variant={isCheckedIn ? 'success' : 'neutral'}
+                              className="font-sans font-medium tracking-normal"
+                            >
+                              {isCheckedIn ? 'Clocked in' : completedToday ? 'Clocked out' : 'Not clocked in'}
+                            </Badge>
+                          </ProfileFact>
+                          <ProfileFact label="Worked today" numeric>
+                            {attendance?.todayWorkedHours ?? '0.00'} h
+                          </ProfileFact>
+                          <ProfileFact label="Clock-in time" numeric>
+                            {checkedInAt ?? '—'}
+                          </ProfileFact>
+                          <ProfileFact label="Clock-out time" numeric>
+                            {attendance?.record?.checkOut
+                              ? new Date(attendance.record.checkOut).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: false,
+                                })
+                              : '—'}
+                          </ProfileFact>
+                        </div>
+
+                        {attendanceError ? (
+                          <p className="m-0 rounded-md border border-danger bg-danger-subtle p-3 text-body-sm text-danger">
+                            {attendanceError}
+                          </p>
+                        ) : null}
+
+                        <div className="flex flex-wrap gap-3 border-t border-border pt-4">
+                          <Button
+                            variant="accent"
+                            disabled={
+                              isCheckedIn ||
+                              completedToday ||
+                              attendanceQuery.isLoading ||
+                              attendanceMutation.isPending
+                            }
+                            onClick={() => attendanceMutation.mutate('check-in')}
+                          >
+                            {attendanceMutation.isPending ? 'Updating...' : 'Clock in'}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            disabled={!isCheckedIn || attendanceMutation.isPending}
+                            onClick={() => attendanceMutation.mutate('check-out')}
+                          >
+                            Clock out
+                          </Button>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ) : (
+                    <Card className="lg:col-span-2">
+                      <CardHeader
+                        title="Available workspaces"
+                        subtitle="Areas available to your account role"
+                      />
+                      <CardBody className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {availableWorkspaces.map((workspace) => (
+                          <ProfileFact key={workspace.label} label={workspace.label}>
+                            <span className="inline-flex items-center gap-2 font-medium text-success">
+                              <CheckCircle2 className="size-4" aria-hidden="true" />
+                              Included
+                            </span>
+                          </ProfileFact>
+                        ))}
+                      </CardBody>
+                    </Card>
+                  )}
+
+                  {employee ? (
+                    <Card className="lg:col-span-3">
                     <CardHeader
                       title="Employee snapshot"
                       subtitle="Your current organisation and contact details"
                     />
                     <CardBody>
-                      {employee ? (
-                        <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-                          <ProfileFact label="Job position">{employee.jobPosition}</ProfileFact>
-                          <ProfileFact label="Department">{employee.department.name}</ProfileFact>
-                          <ProfileFact label="Employee type">
-                            {labelFor(employee.employeeType)}
-                          </ProfileFact>
-                          <ProfileFact label="Joining date" numeric>
-                            {formatDate(employee.joiningDate)}
-                          </ProfileFact>
-                          <ProfileFact label="Manager">
-                            {employee.manager
-                              ? `${employee.manager.firstName} ${employee.manager.lastName}`
-                              : 'Not assigned'}
-                          </ProfileFact>
-                          <ProfileFact label="Working schedule">
-                            {employee.workingSchedule.name}
-                          </ProfileFact>
-                          <ProfileFact label="Personal email" numeric>
-                            {employee.personalEmail ?? 'Not configured'}
-                          </ProfileFact>
-                          <ProfileFact label="Phone" numeric>
-                            {employee.phone ?? 'Not configured'}
-                          </ProfileFact>
-                          <ProfileFact label="Work location">
-                            {employee.workLocation ?? 'Not configured'}
-                          </ProfileFact>
-                        </div>
-                      ) : (
-                        <p className="m-0 text-body-sm text-text-muted">
-                          This account is not linked to an employee record.
-                        </p>
-                      )}
+                      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <ProfileFact label="Job position">{employee.jobPosition}</ProfileFact>
+                        <ProfileFact label="Department">{employee.department.name}</ProfileFact>
+                        <ProfileFact label="Employee type">
+                          {labelFor(employee.employeeType)}
+                        </ProfileFact>
+                        <ProfileFact label="Joining date" numeric>
+                          {formatDate(employee.joiningDate)}
+                        </ProfileFact>
+                        <ProfileFact label="Manager">
+                          {employee.manager
+                            ? `${employee.manager.firstName} ${employee.manager.lastName}`
+                            : 'Not assigned'}
+                        </ProfileFact>
+                        <ProfileFact label="Working schedule">
+                          {employee.workingSchedule.name}
+                        </ProfileFact>
+                        <ProfileFact label="Personal email" numeric>
+                          {employee.personalEmail ?? 'Not configured'}
+                        </ProfileFact>
+                        <ProfileFact label="Phone" numeric>
+                          {employee.phone ?? 'Not configured'}
+                        </ProfileFact>
+                        <ProfileFact label="Work location">
+                          {employee.workLocation ?? 'Not configured'}
+                        </ProfileFact>
+                      </div>
                     </CardBody>
-                  </Card>
+                    </Card>
+                  ) : null}
                 </div>
               ),
             },
@@ -356,8 +396,11 @@ export default function ProfilePage() {
                       title="Employment terms"
                       subtitle="Your current active contract"
                       actions={
-                        <Badge variant={activeContract.status === 'running' ? 'success' : 'neutral'}>
-                          {activeContract.status}
+                        <Badge
+                          variant={activeContract.status === 'running' ? 'success' : 'neutral'}
+                          className="font-sans font-medium tracking-normal"
+                        >
+                          {labelFor(activeContract.status)}
                         </Badge>
                       }
                     />
@@ -465,7 +508,10 @@ export default function ProfilePage() {
                     <CardHeader title="Payout summary" subtitle="Payroll payment readiness" />
                     <CardBody className="space-y-4">
                       <ProfileFact label="Bank status">
-                        <Badge variant={hasCompleteBankDetails ? 'success' : 'warning'}>
+                        <Badge
+                          variant={hasCompleteBankDetails ? 'success' : 'warning'}
+                          className="font-sans font-medium tracking-normal"
+                        >
                           {hasCompleteBankDetails ? 'Ready for payroll' : 'Details incomplete'}
                         </Badge>
                       </ProfileFact>
@@ -558,11 +604,19 @@ export default function ProfilePage() {
                         {user?.email ?? 'Not available'}
                       </ProfileFact>
                       <ProfileFact label="Role">
-                        <Badge variant="info">{labelFor(role)}</Badge>
+                        <Badge
+                          variant="info"
+                          className="font-sans font-medium tracking-normal"
+                        >
+                          {labelFor(role)}
+                        </Badge>
                       </ProfileFact>
                       <ProfileFact label="Account status">
-                        <Badge variant={user?.status === 'active' ? 'success' : 'neutral'}>
-                          {user?.status ?? 'active'}
+                        <Badge
+                          variant={user?.status === 'active' ? 'success' : 'neutral'}
+                          className="font-sans font-medium tracking-normal"
+                        >
+                          {labelFor(user?.status ?? 'active')}
                         </Badge>
                       </ProfileFact>
                       <ProfileFact label="Employee record">

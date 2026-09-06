@@ -462,15 +462,9 @@
     font-size: var(--text-label);
   }
 
-  .top-nav__account-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .top-nav__profile-link,
-  .top-nav__sign-out {
+  .top-nav__profile-link {
     display: inline-flex;
+    width: var(--control-height);
     height: var(--control-height);
     align-items: center;
     justify-content: center;
@@ -478,34 +472,20 @@
     border-radius: var(--radius-md);
     background: var(--color-primary-hover);
     color: var(--color-on-primary);
+    cursor: pointer;
     transition:
       background-color var(--duration-fast) var(--easing-standard),
       border-color var(--duration-fast) var(--easing-standard),
       color var(--duration-fast) var(--easing-standard);
   }
 
-  .top-nav__profile-link {
-    width: var(--control-height);
-    text-decoration: none;
-  }
-
-  .top-nav__sign-out {
-    padding: 0 var(--space-3);
-    cursor: pointer;
-    font-family: var(--font-body);
-    font-size: var(--text-label);
-    font-weight: var(--weight-medium);
-  }
-
-  .top-nav__profile-link:hover,
-  .top-nav__sign-out:hover {
+  .top-nav__profile-link:hover {
     border-color: var(--color-on-primary);
     background: var(--color-accent);
     color: var(--color-on-accent);
   }
 
-  .top-nav__profile-link:focus-visible,
-  .top-nav__sign-out:focus-visible {
+  .top-nav__profile-link:focus-visible {
     outline: var(--border-width-strong) solid var(--color-focus-ring);
     outline-offset: var(--space-1);
   }
@@ -770,18 +750,22 @@
   .attendance-page,
   .attendance-form-page,
   .timeoff-request-page {
+    width: 100%;
     animation: attendance-page-enter var(--duration-base) var(--easing-standard);
   }
 
   .attendance-page__content,
   .attendance-form-page__content,
   .timeoff-request-page__content {
+    width: 100%;
+    box-sizing: border-box;
     padding: 0 var(--space-5) var(--space-5);
   }
 
   .attendance-record-layout,
   .timeoff-request-layout {
     display: grid;
+    width: 100%;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     align-items: start;
     gap: var(--space-4);
@@ -1352,7 +1336,7 @@
   .attendance-calendar__layout {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    align-items: stretch;
+    align-items: start;
   }
 
   .attendance-calendar__loading {
@@ -1362,6 +1346,7 @@
 
   .attendance-calendar__grid {
     display: grid;
+    min-width: var(--space-0);
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--border-width);
     background: var(--color-border);
@@ -1391,9 +1376,7 @@
     cursor: pointer;
     font-family: var(--font-body);
     text-align: left;
-    transition:
-      background-color var(--duration-fast) var(--easing-standard),
-      transform var(--duration-fast) var(--easing-standard);
+    transition: background-color var(--duration-fast) var(--easing-standard);
   }
 
   .attendance-calendar__day:hover,
@@ -1401,10 +1384,6 @@
   .attendance-calendar__day[data-active] {
     outline: var(--border-width-strong) solid var(--color-accent);
     outline-offset: calc(var(--border-width-strong) * -1);
-  }
-
-  .attendance-calendar__day:hover {
-    transform: translateY(calc(var(--space-1) * -1));
   }
 
   .attendance-calendar__day--outside {
@@ -1450,13 +1429,18 @@
   }
 
   .attendance-calendar__details {
+    display: flex;
+    width: 100%;
     min-width: var(--space-0);
+    flex-direction: column;
+    overflow: hidden;
     border-left: var(--border-width) solid var(--color-border);
     background: var(--color-surface-subtle);
   }
 
   .attendance-calendar__details-header {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
@@ -1476,17 +1460,24 @@
   }
 
   .attendance-calendar__record-list {
+    display: flex;
+    width: 100%;
+    min-width: var(--space-0);
     max-height: calc(var(--space-8) * 8);
+    flex-direction: column;
+    overflow-x: hidden;
     overflow-y: auto;
   }
 
   .attendance-calendar__record {
     display: grid;
+    width: 100%;
+    min-width: var(--space-0);
+    flex: 0 0 auto;
     gap: var(--space-3);
     padding: var(--space-4);
     border-bottom: var(--border-width) solid var(--color-border);
     background: var(--color-surface);
-    animation: attendance-row-enter var(--duration-base) var(--easing-standard) both;
   }
 
   .attendance-calendar__record:last-child {
@@ -1557,17 +1548,20 @@
   }
 
   .attendance-calendar__details-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    width: 100%;
     min-height: calc(var(--space-8) * 3);
+    flex: 1 1 auto;
+    place-items: center;
     padding: var(--space-5);
+    background: var(--color-surface-subtle);
     color: var(--color-text-muted);
     font-size: var(--text-body-sm);
     text-align: center;
   }
 
   .attendance-calendar__details-empty p {
+    max-width: 100%;
     margin: var(--space-0);
   }
 

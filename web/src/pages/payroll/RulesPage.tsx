@@ -77,15 +77,15 @@ export default function RulesPage() {
         title="Salary rules"
         subtitle="Manage individual salary calculation rules, sequence order, and formulas"
         actions={
-          <div className="flex items-center space-x-3">
-            <div className="w-56">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="w-full sm:w-56">
               <Input
                 placeholder="Search rule name or code..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <Select
                 value={selectedStructureId}
                 onValueChange={setSelectedStructureId}
@@ -106,7 +106,7 @@ export default function RulesPage() {
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         {error && (
           <div className="rounded-md bg-danger-subtle p-3 text-body-sm text-danger border border-danger">
             {error}
@@ -117,7 +117,8 @@ export default function RulesPage() {
           {loading ? (
             <Skeleton className="skeleton--panel" />
           ) : (
-            <table className="w-full border-collapse text-body-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-max border-collapse text-body-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
                   <th className="px-4 py-3">Structure</th>
@@ -161,6 +162,7 @@ export default function RulesPage() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
       </div>

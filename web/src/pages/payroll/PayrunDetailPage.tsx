@@ -301,9 +301,9 @@ export default function PayrunDetailPage() {
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         {successMessage && (
-          <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success flex justify-between items-center">
+          <div className="flex flex-col gap-2 rounded-md border border-success bg-success-subtle p-3 text-body-sm text-success sm:flex-row sm:items-center sm:justify-between">
             <span>{successMessage}</span>
             <button
               className="text-caption text-text-muted hover:text-text"

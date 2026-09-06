@@ -45,9 +45,15 @@ function ProfileFact({
   numeric?: boolean;
 }) {
   return (
-    <div className="border-b border-border pb-3 last:border-b-0 last:pb-0">
+    <div className="min-w-0">
       <span className="block text-caption text-text-muted">{label}</span>
-      <span className={numeric ? 'font-mono text-body-sm text-text' : 'text-body-sm text-text'}>
+      <span
+        className={
+          numeric
+            ? 'block break-words font-mono text-body-sm text-text'
+            : 'block text-body-sm text-text'
+        }
+      >
         {children}
       </span>
     </div>
@@ -191,83 +197,118 @@ export default function ProfilePage() {
     <>
       <PageHeader
         title="My profile"
-        subtitle="Your employee, contract, bank, and account information"
-        actions={
-          <Button
-            variant="accent"
-            onClick={startRoleWalkthrough}
-          >
-            Start walkthrough
-          </Button>
-        }
+        subtitle="Manage your personal information, employment details, and account security"
       />
 
-      <div className="px-5 pb-8">
+      <div className="px-4 pb-8 sm:px-5">
+        <Card className="mb-5 overflow-hidden">
+          <div className="flex flex-col justify-between gap-5 bg-surface-subtle p-5 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-h2 font-bold text-on-accent shadow-md">
+                {initials}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="m-0 text-h2 font-bold text-text">
+                    {employeeId ? fullName : 'Account profile'}
+                  </h2>
+                  <Badge variant={user?.status === 'active' ? 'success' : 'neutral'}>
+                    {labelFor(user?.status ?? 'active')}
+                  </Badge>
+                  <Badge variant="info">{labelFor(role)}</Badge>
+                </div>
+                {employee ? (
+                  <p className="m-0 mt-1 text-body-sm text-text-muted">
+                    {employee.jobPosition} · {employee.department.name} ·{' '}
+                    {employee.workLocation ?? 'Location not configured'}
+                  </p>
+                ) : (
+                  <p className="m-0 mt-1 text-body-sm text-text-muted">
+                    This account is not linked to an employee record.
+                  </p>
+                )}
+                {user?.email ? (
+                  <p className="m-0 mt-1 break-words font-mono text-caption text-text-muted">
+                    {user.email}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <Button variant="secondary" onClick={startRoleWalkthrough}>
+              Start walkthrough
+            </Button>
+          </div>
+        </Card>
+
         <Tabs
           defaultValue="overview"
           className="profile-tabs"
           items={[
             {
               value: 'overview',
-              label: 'Overview',
+              label: 'Personal & contact info',
               content: (
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                  <Card className="overflow-hidden">
-                    <div className="flex items-center gap-4 border-b border-border bg-surface-subtle p-5">
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-h2 font-bold text-on-accent shadow-md">
-                        {initials}
-                      </span>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <h2 className="m-0 text-h2 font-semibold text-text">
-                            {employeeId ? fullName : 'Account profile'}
-                          </h2>
-                          <Badge
-                            variant={user?.status === 'active' ? 'success' : 'neutral'}
-                            className="font-sans font-medium capitalize tracking-normal"
-                          >
-                            {labelFor(user?.status ?? 'active')}
-                          </Badge>
-                        </div>
-                        {user?.email ? (
-                          <p className="m-0 mt-1 font-mono text-caption text-text-muted">
-                            {user.email}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <ProfileFact label="Role">
-                        <Badge
-                          variant="info"
-                          className="font-sans font-medium tracking-normal"
-                        >
-                          {labelFor(role)}
+                  <Card className="lg:col-span-2">
+                    <CardHeader
+                      title="Contact & personal details"
+                      subtitle="Your personal contact information and work location"
+                    />
+                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2">
+                      <ProfileFact label="Personal email" numeric>
+                        {employee?.personalEmail ?? 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="Phone" numeric>
+                        {employee?.phone ?? 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="Work location">
+                        {employee?.workLocation ?? 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="Work email" numeric>
+                        {employee?.workEmail ?? user?.email ?? 'Not available'}
+                      </ProfileFact>
+                    </CardBody>
+                  </Card>
+
+                  <Card>
+                    <CardHeader
+                      title="Bank account payout"
+                      subtitle="Salary payout account details"
+                    />
+                    <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-1">
+                      <ProfileFact label="Bank">
+                        {employee?.bankName ?? 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="Account holder">
+                        {employee?.bankAccountHolder ?? 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="Account" numeric>
+                        {employee?.bankAccountLast4
+                          ? `•••• ${employee.bankAccountLast4}`
+                          : 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="IFSC / branch code" numeric>
+                        {employee?.bankIfsc ?? 'Not configured'}
+                      </ProfileFact>
+                      <ProfileFact label="Payout readiness">
+                        <Badge variant={hasCompleteBankDetails ? 'success' : 'warning'}>
+                          {hasCompleteBankDetails ? 'Ready for payroll' : 'Details incomplete'}
                         </Badge>
                       </ProfileFact>
-                      <ProfileFact label="Profile type">
-                        {employeeId ? 'Employee linked' : 'Account only'}
-                      </ProfileFact>
-                      {employee?.workEmail && employee.workEmail !== user?.email ? (
-                        <ProfileFact label="Work email" numeric>
-                          {employee.workEmail}
-                        </ProfileFact>
-                      ) : null}
                     </CardBody>
                   </Card>
 
                   {employeeId ? (
-                    <Card className="lg:col-span-2">
+                    <Card className="lg:col-span-3">
                       <CardHeader
                         title="Today’s attendance"
                         subtitle="Clock in at the start of work and clock out when you finish"
                       />
                       <CardBody className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                           <ProfileFact label="Attendance status">
                             <Badge
                               variant={isCheckedIn ? 'success' : 'neutral'}
-                              className="font-sans font-medium tracking-normal"
                             >
                               {isCheckedIn ? 'Clocked in' : completedToday ? 'Clocked out' : 'Not clocked in'}
                             </Badge>
@@ -319,12 +360,12 @@ export default function ProfilePage() {
                       </CardBody>
                     </Card>
                   ) : (
-                    <Card className="lg:col-span-2">
+                    <Card className="lg:col-span-3">
                       <CardHeader
                         title="Available workspaces"
                         subtitle="Areas available to your account role"
                       />
-                      <CardBody className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <CardBody className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                         {availableWorkspaces.map((workspace) => (
                           <ProfileFact key={workspace.label} label={workspace.label}>
                             <span className="inline-flex items-center gap-2 font-medium text-success">
@@ -337,14 +378,30 @@ export default function ProfilePage() {
                     </Card>
                   )}
 
+                </div>
+              ),
+            },
+            {
+              value: 'contract',
+              label: 'Employment & structure',
+              content: contractsQuery.isLoading ? (
+                <Skeleton className="skeleton--panel" />
+              ) : contractsQuery.isError ? (
+                <Card>
+                  <ErrorState
+                    message="Your contract information could not be loaded."
+                    onRetry={() => void contractsQuery.refetch()}
+                  />
+                </Card>
+              ) : activeContract ? (
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                   {employee ? (
                     <Card className="lg:col-span-3">
-                    <CardHeader
-                      title="Employee snapshot"
-                      subtitle="Your current organisation and contact details"
-                    />
-                    <CardBody>
-                      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <CardHeader
+                        title="Employee snapshot"
+                        subtitle="Your current organisation and employment details"
+                      />
+                      <CardBody className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
                         <ProfileFact label="Job position">{employee.jobPosition}</ProfileFact>
                         <ProfileFact label="Department">{employee.department.name}</ProfileFact>
                         <ProfileFact label="Employee type">
@@ -361,36 +418,16 @@ export default function ProfilePage() {
                         <ProfileFact label="Working schedule">
                           {employee.workingSchedule.name}
                         </ProfileFact>
-                        <ProfileFact label="Personal email" numeric>
-                          {employee.personalEmail ?? 'Not configured'}
+                        <ProfileFact label="Profile type">Employee linked</ProfileFact>
+                        <ProfileFact label="Employee status">
+                          <Badge variant={employee.status === 'active' ? 'success' : 'neutral'}>
+                            {labelFor(employee.status)}
+                          </Badge>
                         </ProfileFact>
-                        <ProfileFact label="Phone" numeric>
-                          {employee.phone ?? 'Not configured'}
-                        </ProfileFact>
-                        <ProfileFact label="Work location">
-                          {employee.workLocation ?? 'Not configured'}
-                        </ProfileFact>
-                      </div>
-                    </CardBody>
+                      </CardBody>
                     </Card>
                   ) : null}
-                </div>
-              ),
-            },
-            {
-              value: 'contract',
-              label: 'Contract info',
-              content: contractsQuery.isLoading ? (
-                <Skeleton className="skeleton--panel" />
-              ) : contractsQuery.isError ? (
-                <Card>
-                  <ErrorState
-                    message="Your contract information could not be loaded."
-                    onRetry={() => void contractsQuery.refetch()}
-                  />
-                </Card>
-              ) : activeContract ? (
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
                   <Card className="lg:col-span-2">
                     <CardHeader
                       title="Employment terms"
@@ -398,13 +435,12 @@ export default function ProfilePage() {
                       actions={
                         <Badge
                           variant={activeContract.status === 'running' ? 'success' : 'neutral'}
-                          className="font-sans font-medium tracking-normal"
                         >
                           {labelFor(activeContract.status)}
                         </Badge>
                       }
                     />
-                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                       <ProfileFact label="Reference" numeric>
                         {activeContract.reference}
                       </ProfileFact>
@@ -439,7 +475,7 @@ export default function ProfilePage() {
 
                   <Card className="lg:col-span-3">
                     <CardHeader title="Working schedule" />
-                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <CardBody className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
                       <ProfileFact label="Schedule name">
                         {activeContract.workingSchedule.name}
                       </ProfileFact>
@@ -469,67 +505,8 @@ export default function ProfilePage() {
               ),
             },
             {
-              value: 'bank',
-              label: 'Bank info',
-              content: (
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                  <Card className="lg:col-span-2">
-                    <CardHeader
-                      title="Bank information"
-                      subtitle="The account currently used for salary payouts"
-                    />
-                    <CardBody>
-                      {employee ? (
-                        <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-                          <ProfileFact label="Bank name">
-                            {employee.bankName ?? 'Not configured'}
-                          </ProfileFact>
-                          <ProfileFact label="Account holder">
-                            {employee.bankAccountHolder ?? 'Not configured'}
-                          </ProfileFact>
-                          <ProfileFact label="Account number" numeric>
-                            {employee.bankAccountLast4
-                              ? `•••• ${employee.bankAccountLast4}`
-                              : 'Not configured'}
-                          </ProfileFact>
-                          <ProfileFact label="IFSC / branch code" numeric>
-                            {employee.bankIfsc ?? 'Not configured'}
-                          </ProfileFact>
-                        </div>
-                      ) : (
-                        <p className="m-0 text-body-sm text-text-muted">
-                          This account is not linked to an employee bank record.
-                        </p>
-                      )}
-                    </CardBody>
-                  </Card>
-
-                  <Card>
-                    <CardHeader title="Payout summary" subtitle="Payroll payment readiness" />
-                    <CardBody className="space-y-4">
-                      <ProfileFact label="Bank status">
-                        <Badge
-                          variant={hasCompleteBankDetails ? 'success' : 'warning'}
-                          className="font-sans font-medium tracking-normal"
-                        >
-                          {hasCompleteBankDetails ? 'Ready for payroll' : 'Details incomplete'}
-                        </Badge>
-                      </ProfileFact>
-                      <ProfileFact label="Employee">{fullName}</ProfileFact>
-                      <ProfileFact label="Contract" numeric>
-                        {activeContract?.reference ?? 'Not assigned'}
-                      </ProfileFact>
-                      <ProfileFact label="Salary currency" numeric>
-                        {activeContract?.currency ?? 'Not available'}
-                      </ProfileFact>
-                    </CardBody>
-                  </Card>
-                </div>
-              ),
-            },
-            {
               value: 'security',
-              label: 'Security',
+              label: 'Security & password',
               content: (
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                   <Card className="lg:col-span-2">
@@ -606,7 +583,6 @@ export default function ProfilePage() {
                       <ProfileFact label="Role">
                         <Badge
                           variant="info"
-                          className="font-sans font-medium tracking-normal"
                         >
                           {labelFor(role)}
                         </Badge>
@@ -614,7 +590,6 @@ export default function ProfilePage() {
                       <ProfileFact label="Account status">
                         <Badge
                           variant={user?.status === 'active' ? 'success' : 'neutral'}
-                          className="font-sans font-medium tracking-normal"
                         >
                           {labelFor(user?.status ?? 'active')}
                         </Badge>

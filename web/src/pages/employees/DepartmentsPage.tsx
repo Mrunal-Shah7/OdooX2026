@@ -136,7 +136,7 @@ export default function DepartmentsPage() {
   return (
     <>
       <PageHeader title="Departments" actions={<Button variant="accent" onClick={openCreate}>New department</Button>} />
-      <div className="px-5 pb-6">
+      <div className="px-4 pb-6 sm:px-5">
         <Card>
           {departmentsQuery.isLoading || departmentsQuery.isFetching ? (
             <Skeleton className="skeleton--panel" />

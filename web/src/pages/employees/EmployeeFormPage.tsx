@@ -475,7 +475,7 @@ export default function EmployeeFormPage() {
           </>
         }
       />
-      <div className="px-5 pb-6">
+      <div className="px-4 pb-6 sm:px-5">
         {!isNew && showHrFields && (
           <div className="mb-5 flex flex-wrap gap-3">
             {[

@@ -279,7 +279,7 @@ export default function RequestFormPage() {
 
   if (!isNew && isError) {
     return (
-      <div className="px-5 py-12">
+      <div className="px-4 py-12 sm:px-5">
         <ErrorState message="Could not load time off request" onRetry={() => refetch()} />
       </div>
     );
@@ -318,7 +318,7 @@ export default function RequestFormPage() {
           ) : undefined
         }
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               onClick={() => navigate({ to: '/time-off/requests' })}

@@ -162,7 +162,7 @@ export default function ContractsPage() {
         }
       />
       <EmployeeNavTabs />
-      <div className="space-y-4 px-5 pb-6">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         <Card className="p-0 overflow-hidden">
           <DataTable
             columns={columns}

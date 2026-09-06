@@ -127,7 +127,7 @@ export default function NotificationsPage() {
           </Button>
         }
       />
-      <div className="px-5 pb-6">
+      <div className="px-4 pb-6 sm:px-5">
         {isError ? (
           <ErrorState message="Could not load notifications." onRetry={() => void refetch()} />
         ) : (

@@ -180,7 +180,7 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
         onOpenChange={setOpen}
         title={step === 1 ? 'New pay run — Step 1: Configuration' : 'New pay run — Step 2: Employee Selection'}
         footer={
-          <div className="flex items-center justify-end space-x-3 w-full">
+          <div className="flex w-full flex-wrap items-center justify-end gap-3">
             {step === 2 && (
               <Button variant="secondary" onClick={() => setStep(1)} disabled={loading}>
                 Back
@@ -228,7 +228,7 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
               />
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Period start">
                 <DatePicker
                   mode="single"
@@ -264,7 +264,7 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
               />
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Payout currency">
                 <Select
                   value={payoutCurrency}
@@ -286,7 +286,7 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-border pb-2">
+            <div className="flex flex-col gap-2 border-b border-border pb-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-body-sm font-medium text-text">
                 Eligible employees ({selectedEmployeeIds.size} of {eligibleEmployees.length} selected)
               </span>
@@ -308,7 +308,7 @@ export function PayrunWizard({ onSuccess }: PayrunWizardProps) {
                     <div
                       key={emp.id}
                       onClick={() => handleToggleEmployee(emp.id)}
-                      className={`flex items-center justify-between p-2.5 rounded-md cursor-pointer border transition-colors ${
+                      className={`flex flex-col gap-2 rounded-md border p-3 cursor-pointer transition-colors sm:flex-row sm:items-center sm:justify-between ${
                         isChecked
                           ? 'border-accent bg-accent-subtle/30'
                           : 'border-border hover:bg-surface-sunken'

@@ -233,7 +233,7 @@ export default function RuleFormPage() {
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         {success && (
           <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
             {success}
@@ -246,7 +246,7 @@ export default function RuleFormPage() {
           <Card>
             <CardHeader title="Salary Rule Configuration" />
             <CardBody className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Salary Structure *" error={fieldErrors.structureId}>
                   <Select
                     value={structureId}
@@ -325,7 +325,7 @@ export default function RuleFormPage() {
               )}
 
               {computation === 'percentage' && (
-                <div className="rounded-lg bg-surface-sunken p-4 border border-border grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface-sunken p-4 sm:grid-cols-2">
                   <Field label="Percentage Value (%) *" error={fieldErrors.percentage}>
                     <Input
                       value={percentage}
@@ -349,7 +349,7 @@ export default function RuleFormPage() {
 
               {computation === 'formula' && (
                 <div className="rounded-lg bg-surface-sunken p-4 border border-border space-y-3">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <label className="text-body-sm font-medium text-text">Formula Expression</label>
                     <Button variant="secondary" onClick={handleValidateFormula}>
                       Validate Syntax

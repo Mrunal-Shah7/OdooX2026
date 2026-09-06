@@ -39,17 +39,20 @@ export function SearchableSelect({
   useEffect(() => {
     if (!open) return;
 
-    function closeOnViewportChange() {
+    const initialViewportWidth = window.visualViewport?.width ?? window.innerWidth;
+
+    function closeOnViewportWidthChange() {
+      const currentViewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      if (currentViewportWidth === initialViewportWidth) return;
+
       setOpen(false);
       setSearchQuery('');
       onSearch?.('');
     }
 
-    window.addEventListener('scroll', closeOnViewportChange);
-    window.addEventListener('resize', closeOnViewportChange);
+    window.addEventListener('resize', closeOnViewportWidthChange);
     return () => {
-      window.removeEventListener('scroll', closeOnViewportChange);
-      window.removeEventListener('resize', closeOnViewportChange);
+      window.removeEventListener('resize', closeOnViewportWidthChange);
     };
   }, [onSearch, open]);
 

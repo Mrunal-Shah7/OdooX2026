@@ -198,8 +198,8 @@ export default function PayrollDashboardPage() {
     <>
       <PageHeader title="Payroll dashboard" subtitle="September 2026" />
       <PayrollNavTabs />
-      <div className="space-y-5 px-5 pb-6">
-        <div className="flex gap-3">
+      <div className="space-y-5 px-4 pb-6 sm:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Select
             options={[{ value: "2026-09", label: "September 2026" }]}
             value={period}
@@ -363,8 +363,8 @@ export default function PayrollDashboardPage() {
           {/* Card 2: Attendance overview */}
           <Card>
             <CardHeader title="Attendance overview" />
-            <CardBody className="p-0">
-              <table className="w-full border-collapse text-body-sm">
+            <CardBody className="overflow-x-auto p-0">
+              <table className="w-full min-w-max border-collapse text-body-sm">
                 <tbody>
                   <tr className="border-b border-border">
                     <td className="px-4 py-3 text-text">Present</td>
@@ -416,8 +416,8 @@ export default function PayrollDashboardPage() {
           {/* Card 3: Time off overview */}
           <Card>
             <CardHeader title="Time off overview" />
-            <CardBody className="p-0">
-              <table className="w-full border-collapse text-body-sm">
+            <CardBody className="overflow-x-auto p-0">
+              <table className="w-full min-w-max border-collapse text-body-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
                     <th className="px-4 py-3">Type</th>
@@ -469,7 +469,7 @@ export default function PayrollDashboardPage() {
           />
           <CardBody className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body-sm">
+              <table className="w-full min-w-max border-collapse text-body-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
                     <th className="px-4 py-3">Department</th>

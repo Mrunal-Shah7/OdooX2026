@@ -298,7 +298,7 @@ export default function UsersPage() {
       />
       <EmployeeNavTabs />
 
-      <div className="space-y-4 px-5 pb-6">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         {actionSuccess ? (
           <div className="rounded-md border border-success/30 bg-success-subtle px-4 py-2.5 text-body-sm text-success font-medium">
             {actionSuccess}
@@ -382,7 +382,7 @@ export default function UsersPage() {
             />
           </Field>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-4">
             <Button variant="secondary" type="button" onClick={() => setIsInviteOpen(false)}>
               Cancel
             </Button>
@@ -433,7 +433,7 @@ export default function UsersPage() {
             />
           </Field>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-4">
             <Button variant="secondary" type="button" onClick={() => setEditingUser(null)}>
               Cancel
             </Button>

@@ -138,7 +138,7 @@ export default function StructureFormPage() {
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         {success && (
           <div className="rounded-md bg-success-subtle p-3 text-body-sm text-success border border-success">
             {success}
@@ -152,7 +152,7 @@ export default function StructureFormPage() {
             {/* Form Inputs Card */}
             <Card>
               <CardHeader title="Structure Details" />
-              <CardBody className="grid grid-cols-2 gap-4">
+              <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Structure Name *" error={fieldErrors.name}>
                   <Input
                     placeholder="e.g. Regular Salary"
@@ -167,7 +167,7 @@ export default function StructureFormPage() {
                     onChange={(e) => setCode(e.target.value)}
                   />
                 </Field>
-                <div className="col-span-2 flex items-center space-x-2 pt-2">
+                <div className="flex items-center space-x-2 pt-2 sm:col-span-2">
                   <Checkbox id="active-struct" checked={active} onCheckedChange={(c) => setActive(Boolean(c))} />
                   <label htmlFor="active-struct" className="text-body-sm font-medium cursor-pointer">
                     Active Structure (available for employee contracts & pay runs)
@@ -191,8 +191,8 @@ export default function StructureFormPage() {
                     </Button>
                   }
                 />
-                <CardBody className="p-0">
-                  <table className="w-full border-collapse text-body-sm">
+                <CardBody className="overflow-x-auto p-0">
+                  <table className="w-full min-w-max border-collapse text-body-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
                         <th className="px-4 py-3 font-mono">Seq</th>

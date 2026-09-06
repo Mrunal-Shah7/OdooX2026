@@ -243,7 +243,7 @@ export default function PayslipDetailPage() {
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         {loading ? (
           <Skeleton className="skeleton--panel" />
         ) : !ps ? (
@@ -267,27 +267,27 @@ export default function PayslipDetailPage() {
             )}
 
             {/* Header Details Card */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader title="Employee & Contract Details" />
                 <CardBody className="space-y-2 text-body-sm">
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Employee Name</span>
                     <span className="font-medium text-text">{emp?.firstName} {emp?.lastName}</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Work Email</span>
                     <span className="font-mono text-caption text-text">{emp?.workEmail}</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Department</span>
                     <span className="text-text">{emp?.departmentName || 'Unassigned'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Job Position</span>
                     <span className="text-text">{emp?.jobPosition || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Contract Reference</span>
                     <span className="font-mono text-caption text-text">{contract?.reference || 'N/A'}</span>
                   </div>
@@ -297,23 +297,23 @@ export default function PayslipDetailPage() {
               <Card>
                 <CardHeader title="Worked Days & Proration Breakdown" />
                 <CardBody className="space-y-2 text-body-sm">
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Scheduled Working Days</span>
                     <span className="font-mono text-text">{ps.scheduledDays} days</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Worked Days (Present + Paid Leave)</span>
                     <span className="font-mono font-medium text-text">{ps.workedDays} days</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Paid / Unpaid Leave</span>
                     <span className="font-mono text-text">{ps.paidLeaveDays} paid / {ps.unpaidLeaveDays} unpaid</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
+                  <div className="flex flex-col gap-1 border-b border-border/50 pb-2 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Absent Days / Overtime</span>
                     <span className="font-mono text-text">{ps.absentDays} abs / {ps.overtimeHours} hrs OT</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                     <span className="text-text-muted">Proration Ratio</span>
                     <span className="font-mono font-bold text-accent">
                       {(Number(ps.proration) * 100).toFixed(1)}%
@@ -329,7 +329,7 @@ export default function PayslipDetailPage() {
                 title="Financial Summary"
                 subtitle={`Values in ${currentCurrencySymbol} ${ps.currency !== ps.payoutCurrency ? `(Fx: ${ps.exchangeRate})` : ''}`}
               />
-              <CardBody className="grid grid-cols-4 gap-4 font-mono text-body-sm">
+              <CardBody className="grid grid-cols-1 gap-4 font-mono text-body-sm sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <span className="text-text-muted">Basic Salary</span>
                   <p className="m-0 text-title-sm font-semibold">

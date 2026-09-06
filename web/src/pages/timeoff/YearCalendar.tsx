@@ -52,7 +52,7 @@ export function YearCalendarSkeleton({ selectedMonth }: { selectedMonth?: number
         <table className="w-full border-collapse text-center font-mono text-caption">
           <thead>
             <tr className="border-b border-border bg-surface-sunken">
-              <th className="w-12 px-2 py-1" />
+              <th className="timeoff-calendar__month-cell w-12 px-2 py-1" />
               {Array.from({ length: 37 }, (_, index) => (
                 <th key={index} className="w-7 px-1 py-1">
                   <Skeleton className="timeoff-calendar-skeleton__day" />
@@ -63,7 +63,7 @@ export function YearCalendarSkeleton({ selectedMonth }: { selectedMonth?: number
           <tbody>
             {Array.from({ length: rowCount }, (_, rowIndex) => (
               <tr key={rowIndex} className="border-b border-border">
-                <td className="px-2 py-1">
+                <td className="timeoff-calendar__month-cell px-2 py-1">
                   <Skeleton className="timeoff-calendar-skeleton__month" />
                 </td>
                 {Array.from({ length: 37 }, (_, dayIndex) => (
@@ -105,82 +105,84 @@ export function YearCalendar({
     return `${y}-${m}-${d}`;
   }, []);
 
+  const legend = useMemo(() => {
+    const visibleDays = selectedMonth
+      ? days.filter((day) => Number(day.date.slice(5, 7)) === selectedMonth)
+      : days;
+    const leaveTypeIds = new Set(
+      visibleDays
+        .filter((day) => day.kind === 'leave' && day.timeOffTypeId)
+        .map((day) => day.timeOffTypeId),
+    );
+    const hasSelectedDate = visibleDays.some((day) => {
+      if (!selectedStartDate) return false;
+      if (!selectedEndDate) return day.date === selectedStartDate;
+      return day.date >= selectedStartDate && day.date <= selectedEndDate;
+    });
+
+    return {
+      types: types.filter((type) => leaveTypeIds.has(type.id)),
+      hasHoliday: visibleDays.some((day) => day.kind === 'holiday'),
+      hasNonWorking: visibleDays.some((day) => day.kind === 'non_working'),
+      hasPending: visibleDays.some((day) => day.kind === 'leave' && day.isPending),
+      hasToday: visibleDays.some((day) => day.date === todayStr),
+      hasSelectedDate,
+    };
+  }, [days, selectedEndDate, selectedMonth, selectedStartDate, todayStr, types]);
+
   return (
     <div className="space-y-4">
       {/* Legend at the top */}
       <div className="flex flex-wrap items-center gap-4 text-body-sm text-text-muted">
-        {(types ?? []).length > 0 ? (
-          (types ?? []).map((t) => (
-            <span key={t.id} className="flex items-center gap-1.5">
-              <span className="inline-block size-3 rounded-sm" style={{ background: t.color }} />
-              <span>{t.name}</span>
-            </span>
-          ))
-        ) : (
-          <>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="inline-block size-3 rounded-sm"
-                style={{ background: 'var(--color-chart-1)' }}
-              />
-              <span>Paid Time Off</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="inline-block size-3 rounded-sm"
-                style={{ background: 'var(--color-chart-5)' }}
-              />
-              <span>Sick Leave</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="inline-block size-3 rounded-sm"
-                style={{ background: 'var(--color-chart-4)' }}
-              />
-              <span>Comp Off</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="inline-block size-3 rounded-sm"
-                style={{ background: 'var(--color-chart-3)' }}
-              />
-              <span>Unpaid Leave</span>
-            </span>
-          </>
-        )}
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block size-3 rounded-sm border border-border-strong"
-            style={{ background: 'var(--color-border-strong)' }}
-          />
-          <span>Public holiday</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block size-3 rounded-sm"
-            style={{ background: 'var(--color-surface-sunken)' }}
-          />
-          <span>Non-working</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-sm border-2 border-dashed border-text-muted" />
-          <span>Pending approval</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-sm outline outline-2 outline-accent -outline-offset-1" />
-          <span>Today</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-sm bg-accent/20 ring-1 ring-accent" />
-          <span>Selected range</span>
-        </span>
+        {legend.types.map((type) => (
+          <span key={type.id} className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm" style={{ background: type.color }} />
+            <span>{type.name}</span>
+          </span>
+        ))}
+        {legend.hasHoliday ? (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block size-3 rounded-sm border border-border-strong"
+              style={{ background: 'var(--color-border-strong)' }}
+            />
+            <span>Public holiday</span>
+          </span>
+        ) : null}
+        {legend.hasNonWorking ? (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block size-3 rounded-sm"
+              style={{ background: 'var(--color-surface-sunken)' }}
+            />
+            <span>Non-working</span>
+          </span>
+        ) : null}
+        {legend.hasPending ? (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm border-2 border-dashed border-text-muted" />
+            <span>Pending approval</span>
+          </span>
+        ) : null}
+        {legend.hasToday ? (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm outline outline-2 outline-accent -outline-offset-1" />
+            <span>Today</span>
+          </span>
+        ) : null}
+        {legend.hasSelectedDate ? (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm bg-accent/20 ring-1 ring-accent" />
+            <span>Selected range</span>
+          </span>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-center font-mono text-caption">
           <thead>
             <tr className="border-b border-border bg-surface-sunken text-text-muted">
-              <th className="w-12 px-2 py-1 text-left font-sans text-label font-medium"></th>
+              <th className="timeoff-calendar__month-cell w-12 px-2 py-1 text-left font-sans text-label font-medium"></th>
               {Array.from({ length: 37 }, (_, i) => {
                 const isWeekendCol = i % 7 === 5 || i % 7 === 6;
                 return (
@@ -202,7 +204,7 @@ export function YearCalendar({
               const daysInMonth = new Date(year, mIdx + 1, 0).getDate();
               return (
                 <tr key={monthName} className="border-b border-border">
-                  <td className="px-2 py-1 text-left font-sans text-label font-medium text-text-muted">
+                  <td className="timeoff-calendar__month-cell px-2 py-1 text-left font-sans text-label font-medium text-text-muted">
                     {monthName}
                   </td>
                   {Array.from({ length: 37 }, (_, dIdx) => {

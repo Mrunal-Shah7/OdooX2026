@@ -301,7 +301,7 @@ export default function ContractFormPage() {
           </>
         }
       />
-      <div className="px-5 pb-6">
+      <div className="px-4 pb-6 sm:px-5">
         <Card>
           <CardBody className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

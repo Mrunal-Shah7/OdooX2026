@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --force",
+    "dev": "vite --force --host",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview"

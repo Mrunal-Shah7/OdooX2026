@@ -47,12 +47,13 @@ export default function StructuresPage() {
       />
       <PayrollNavTabs />
 
-      <div className="px-5 pb-6 space-y-4">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         <Card>
           {loading ? (
             <Skeleton className="skeleton--panel" />
           ) : (
-            <table className="w-full border-collapse text-body-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-max border-collapse text-body-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-sunken text-left text-label text-text-muted">
                   <th className="px-4 py-3">Structure Name</th>
@@ -90,6 +91,7 @@ export default function StructuresPage() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
       </div>

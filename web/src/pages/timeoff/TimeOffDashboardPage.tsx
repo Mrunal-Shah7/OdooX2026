@@ -185,7 +185,7 @@ export default function TimeOffDashboardPage() {
 
   if (isError || !data) {
     return (
-      <div className="px-5 py-12">
+      <div className="px-4 py-12 sm:px-5">
         <ErrorState
           message="Could not load time off dashboard"
           onRetry={() => refetch()}
@@ -270,7 +270,7 @@ export default function TimeOffDashboardPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canSwitchEmployee && (
-              <div className="w-48">
+              <div className="w-full sm:w-48">
                 <SearchableSelect
                   options={[
                     {
@@ -333,7 +333,7 @@ export default function TimeOffDashboardPage() {
       />
 
       <TimeOffNavTabs />
-      <div className="space-y-6 px-5 pb-6">
+      <div className="space-y-6 px-4 pb-6 sm:px-5">
         <Card>
           <CardHeader
             title="Year calendar"

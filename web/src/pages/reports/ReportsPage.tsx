@@ -7,8 +7,11 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { DataTable, type ColumnMeta } from '../../components/ui/DataTable';
 import { DatePicker } from '../../components/ui/DatePicker';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Tabs, type TabItem } from '../../components/ui/Tabs';
 import { apiFetch } from '../../lib/apiFetch';
 import { queryKeys } from '../../lib/queryKeys';
@@ -25,6 +28,94 @@ type ReportData = {
   columns: ReportColumn[];
   rows: Record<string, string | null>[];
 };
+
+type ReportResultsProps = {
+  reportData?: ReportData;
+  columns: ColumnDef<Record<string, string | null>, string>[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  emptyMessage: string;
+};
+
+function ReportValue({ column, value }: { column: ReportColumn; value: string | null }) {
+  if (value === null || value === '') return <span>—</span>;
+  if (column.type === 'money') return <Amount value={value} />;
+  if (column.type === 'date') return <span className="font-mono text-caption">{value}</span>;
+  if (column.type === 'number' || column.type === 'quantity') {
+    return <span className="font-mono">{value}</span>;
+  }
+  return <span>{value}</span>;
+}
+
+function ReportResults({
+  reportData,
+  columns,
+  isLoading,
+  isError,
+  onRetry,
+  emptyMessage,
+}: ReportResultsProps) {
+  if (isError) {
+    return (
+      <Card className="p-5">
+        <ErrorState message="Could not load this report" onRetry={onRetry} />
+      </Card>
+    );
+  }
+
+  if (!isLoading && (reportData?.rows.length ?? 0) === 0) {
+    return (
+      <Card className="p-5">
+        <EmptyState message={emptyMessage} />
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card className="hidden overflow-hidden p-0 lg:block">
+        <DataTable
+          columns={columns}
+          data={reportData?.rows ?? []}
+          isLoading={isLoading}
+          enablePagination={false}
+          emptyMessage={emptyMessage}
+        />
+      </Card>
+
+      <div className="space-y-3 lg:hidden">
+        {isLoading
+          ? Array.from({ length: 3 }, (_, index) => (
+              <Card key={index} className="space-y-3 p-4">
+                <Skeleton className="h-5 w-1/2" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </Card>
+            ))
+          : reportData?.rows.map((row, rowIndex) => (
+              <Card key={rowIndex} className="p-4">
+                <dl className="space-y-3">
+                  {reportData.columns.map((column, columnIndex) => (
+                    <div
+                      key={column.key}
+                      className={`grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-4 ${
+                        columnIndex > 0 ? 'border-t border-border pt-3' : ''
+                      }`}
+                    >
+                      <dt className="min-w-0 text-label text-text-muted">{column.label}</dt>
+                      <dd className="min-w-0 break-words text-left text-body-sm text-text sm:text-right">
+                        <ReportValue column={column} value={row[column.key] ?? null} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </Card>
+            ))}
+      </div>
+    </>
+  );
+}
 
 import { useSession } from '../../lib/session';
 import { isHrManagerOrAbove, isPayrollRole } from '../../lib/permissions';
@@ -154,7 +245,7 @@ export default function ReportsPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  function buildDynamicColumns(reportData?: ReportData): ColumnDef<Record<string, string | null>, any>[] {
+  function buildDynamicColumns(reportData?: ReportData): ColumnDef<Record<string, string | null>, string>[] {
     if (!reportData?.columns) return [];
     return reportData.columns.map((col) => {
       const isNumeric = col.type === 'money' || col.type === 'number' || col.type === 'quantity';
@@ -167,7 +258,7 @@ export default function ReportsPage() {
           code: col.type === 'date',
         } as ColumnMeta,
         cell: (info) => {
-          const val = info.getValue() as string;
+          const val = info.getValue();
           if (col.type === 'money') {
             return <Amount value={val} />;
           }
@@ -190,7 +281,7 @@ export default function ReportsPage() {
       content: (
         <div className="space-y-4" onClick={() => setActiveTab('salary')}>
           <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span className="text-caption font-medium text-text-muted">Start:</span>
               <DatePicker
                 mode="single"
@@ -200,7 +291,7 @@ export default function ReportsPage() {
                 ariaLabel="Salary period start date"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span className="text-caption font-medium text-text-muted">End:</span>
               <DatePicker
                 mode="single"
@@ -210,19 +301,18 @@ export default function ReportsPage() {
                 ariaLabel="Salary period end date"
               />
             </div>
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <Select options={departmentOptions} value={departmentId} onValueChange={setDepartmentId} />
             </div>
           </div>
-          <Card className="p-0 overflow-hidden">
-            <DataTable
-              columns={buildDynamicColumns(salaryQuery.data?.data)}
-              data={salaryQuery.data?.data?.rows ?? []}
-              isLoading={salaryQuery.isLoading || salaryQuery.isFetching}
-              enablePagination={false}
-              emptyMessage="No salary register records found."
-            />
-          </Card>
+          <ReportResults
+            reportData={salaryQuery.data?.data}
+            columns={buildDynamicColumns(salaryQuery.data?.data)}
+            isLoading={salaryQuery.isLoading || salaryQuery.isFetching}
+            isError={salaryQuery.isError}
+            onRetry={() => void salaryQuery.refetch()}
+            emptyMessage="No salary register records found."
+          />
         </div>
       ),
     },
@@ -232,23 +322,22 @@ export default function ReportsPage() {
       content: (
         <div className="space-y-4" onClick={() => setActiveTab('attendance')}>
           <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span className="text-caption font-medium text-text-muted">Period (YYYY-MM):</span>
-              <Input type="month" value={attendancePeriod} onChange={(e) => setAttendancePeriod(e.target.value)} className="w-40" />
+              <Input type="month" value={attendancePeriod} onChange={(e) => setAttendancePeriod(e.target.value)} className="w-full sm:w-40" />
             </div>
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <Select options={departmentOptions} value={departmentId} onValueChange={setDepartmentId} />
             </div>
           </div>
-          <Card className="p-0 overflow-hidden">
-            <DataTable
-              columns={buildDynamicColumns(attendanceQuery.data?.data)}
-              data={attendanceQuery.data?.data?.rows ?? []}
-              isLoading={attendanceQuery.isLoading || attendanceQuery.isFetching}
-              enablePagination={false}
-              emptyMessage="No attendance records found for this period."
-            />
-          </Card>
+          <ReportResults
+            reportData={attendanceQuery.data?.data}
+            columns={buildDynamicColumns(attendanceQuery.data?.data)}
+            isLoading={attendanceQuery.isLoading || attendanceQuery.isFetching}
+            isError={attendanceQuery.isError}
+            onRetry={() => void attendanceQuery.refetch()}
+            emptyMessage="No attendance records found for this period."
+          />
         </div>
       ),
     },
@@ -257,20 +346,19 @@ export default function ReportsPage() {
       label: 'Leave Balance',
       content: (
         <div className="space-y-4" onClick={() => setActiveTab('leave')}>
-          <div className="flex items-center gap-3 bg-surface p-3 border border-border rounded-md">
-            <div className="w-48">
+          <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
+            <div className="w-full sm:w-48">
               <Select options={departmentOptions} value={departmentId} onValueChange={setDepartmentId} />
             </div>
           </div>
-          <Card className="p-0 overflow-hidden">
-            <DataTable
-              columns={buildDynamicColumns(leaveQuery.data?.data)}
-              data={leaveQuery.data?.data?.rows ?? []}
-              isLoading={leaveQuery.isLoading || leaveQuery.isFetching}
-              enablePagination={false}
-              emptyMessage="No approved leave allocations found."
-            />
-          </Card>
+          <ReportResults
+            reportData={leaveQuery.data?.data}
+            columns={buildDynamicColumns(leaveQuery.data?.data)}
+            isLoading={leaveQuery.isLoading || leaveQuery.isFetching}
+            isError={leaveQuery.isError}
+            onRetry={() => void leaveQuery.refetch()}
+            emptyMessage="No approved leave allocations found."
+          />
         </div>
       ),
     },
@@ -280,7 +368,7 @@ export default function ReportsPage() {
       content: (
         <div className="space-y-4" onClick={() => setActiveTab('contracts')}>
           <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span className="text-caption font-medium text-text-muted">Expiring within (days):</span>
               <Select
                 options={[
@@ -293,19 +381,18 @@ export default function ReportsPage() {
                 onValueChange={setWithinDays}
               />
             </div>
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <Select options={departmentOptions} value={departmentId} onValueChange={setDepartmentId} />
             </div>
           </div>
-          <Card className="p-0 overflow-hidden">
-            <DataTable
-              columns={buildDynamicColumns(expiryQuery.data?.data)}
-              data={expiryQuery.data?.data?.rows ?? []}
-              isLoading={expiryQuery.isLoading || expiryQuery.isFetching}
-              enablePagination={false}
-              emptyMessage="No contracts expiring within the selected window."
-            />
-          </Card>
+          <ReportResults
+            reportData={expiryQuery.data?.data}
+            columns={buildDynamicColumns(expiryQuery.data?.data)}
+            isLoading={expiryQuery.isLoading || expiryQuery.isFetching}
+            isError={expiryQuery.isError}
+            onRetry={() => void expiryQuery.refetch()}
+            emptyMessage="No contracts expiring within the selected window."
+          />
         </div>
       ),
     },
@@ -315,7 +402,7 @@ export default function ReportsPage() {
       content: (
         <div className="space-y-4" onClick={() => setActiveTab('dept')}>
           <div className="flex flex-wrap items-center gap-3 bg-surface p-3 border border-border rounded-md">
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span className="text-caption font-medium text-text-muted">Start:</span>
               <DatePicker
                 mode="single"
@@ -325,7 +412,7 @@ export default function ReportsPage() {
                 ariaLabel="Department cost period start date"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span className="text-caption font-medium text-text-muted">End:</span>
               <DatePicker
                 mode="single"
@@ -336,15 +423,14 @@ export default function ReportsPage() {
               />
             </div>
           </div>
-          <Card className="p-0 overflow-hidden">
-            <DataTable
-              columns={buildDynamicColumns(deptCostQuery.data?.data)}
-              data={deptCostQuery.data?.data?.rows ?? []}
-              isLoading={deptCostQuery.isLoading || deptCostQuery.isFetching}
-              enablePagination={false}
-              emptyMessage="No department cost records found."
-            />
-          </Card>
+          <ReportResults
+            reportData={deptCostQuery.data?.data}
+            columns={buildDynamicColumns(deptCostQuery.data?.data)}
+            isLoading={deptCostQuery.isLoading || deptCostQuery.isFetching}
+            isError={deptCostQuery.isError}
+            onRetry={() => void deptCostQuery.refetch()}
+            emptyMessage="No department cost records found."
+          />
         </div>
       ),
     },
@@ -377,8 +463,8 @@ export default function ReportsPage() {
           </Button>
         }
       />
-      <div className="px-5 pb-6">
-        <Tabs items={tabItems} defaultValue="salary" />
+      <div className="min-w-0 px-4 pb-6 sm:px-5">
+        <Tabs items={tabItems} defaultValue="salary" className="reports-tabs" />
       </div>
     </>
   );

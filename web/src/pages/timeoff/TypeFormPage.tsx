@@ -158,7 +158,7 @@ export default function TypeFormPage() {
 
   if (!isNew && isError) {
     return (
-      <div className="px-5 py-12">
+      <div className="px-4 py-12 sm:px-5">
         <ErrorState message="Could not load time off type" onRetry={() => refetch()} />
       </div>
     );
@@ -176,7 +176,7 @@ export default function TypeFormPage() {
           ) : undefined
         }
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
               onClick={() => navigate({ to: '/time-off/types' })}
@@ -194,7 +194,7 @@ export default function TypeFormPage() {
         }
       />
 
-      <div className="space-y-4 px-5 pb-6">
+      <div className="space-y-4 px-4 pb-6 sm:px-5">
         <Card>
           <CardBody>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

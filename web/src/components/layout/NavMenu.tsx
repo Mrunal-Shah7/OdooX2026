@@ -2,7 +2,12 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import { useSession } from '../../lib/session';
 import { can, CAPABILITY } from '../../lib/permissions';
 
-export function NavMenu() {
+type NavMenuProps = {
+  open?: boolean;
+  onNavigate?: () => void;
+};
+
+export function NavMenu({ open = false, onNavigate }: NavMenuProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useSession();
   const role = user?.role;
@@ -23,7 +28,12 @@ export function NavMenu() {
   ];
 
   return (
-    <nav aria-label="Primary navigation" className="top-nav__menu">
+    <nav
+      id="primary-navigation"
+      aria-label="Primary navigation"
+      className="top-nav__menu"
+      data-open={open || undefined}
+    >
       {items.map((item) => {
         const active = item.prefixes.some(
           (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -36,6 +46,7 @@ export function NavMenu() {
             className="top-nav__link"
             data-active={active || undefined}
             data-walkthrough-id={item.walkthroughId}
+            onClick={onNavigate}
           >
             {item.label}
           </Link>

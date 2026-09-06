@@ -1,6 +1,6 @@
 # PeoplePay360
 
-![PeoplePay360 Banner](/path/to/banner-placeholder.png) <!-- Placeholder for a project banner -->
+![PeoplePay360 Banner](/web/public/logo.png) <!-- Placeholder for a project banner -->
 
 PeoplePay360 is an integrated HR and payroll platform built to bridge the gap between employee management and payroll processing. Traditional HR tools often silo employee records, attendance, and leave data, forcing payroll teams to manually reconcile this information every month. 
 

@@ -113,7 +113,7 @@ export function YearCalendar({
           (types ?? []).map((t) => (
             <span key={t.id} className="flex items-center gap-1.5">
               <span className="inline-block size-3 rounded-sm" style={{ background: t.color }} />
-              <span>{t.name} (approved)</span>
+              <span>{t.name}</span>
             </span>
           ))
         ) : (
@@ -160,7 +160,7 @@ export function YearCalendar({
             className="inline-block size-3 rounded-sm"
             style={{ background: 'var(--color-surface-sunken)' }}
           />
-          <span>Non-working (Sat / Sun)</span>
+          <span>Non-working</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block size-3 rounded-sm border-2 border-dashed border-text-muted" />

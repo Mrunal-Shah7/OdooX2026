@@ -107,6 +107,12 @@ export default function TimeOffDashboardPage() {
   );
   const [selectedEndDate, setSelectedEndDate] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (user?.employee?.id && selectedEmployeeId === "my_records") {
+      setSelectedEmployeeId(user.employee.id);
+    }
+  }, [user?.employee?.id]);
+
   const canSwitchEmployee = user ? isHrManagerOrAbove(user.role) : false;
 
   const [employeePage, setEmployeePage] = useState(1);
@@ -155,10 +161,13 @@ export default function TimeOffDashboardPage() {
     enabled: canSwitchEmployee,
   });
 
-  const queryUrl = `/api/time-off/dashboard?year=${year}${
+  const effectiveEmployeeId =
     selectedEmployeeId && selectedEmployeeId !== "my_records"
-      ? `&employeeId=${selectedEmployeeId}`
-      : ""
+      ? selectedEmployeeId
+      : user?.employee?.id;
+
+  const queryUrl = `/api/time-off/dashboard?year=${year}${
+    effectiveEmployeeId ? `&employeeId=${effectiveEmployeeId}` : ""
   }`;
 
   const { data, isLoading, isFetching, isError, refetch } =

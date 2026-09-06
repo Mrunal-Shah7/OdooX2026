@@ -1273,8 +1273,18 @@ export async function getTimeOffDashboard(
   queryYear?: number,
   scopedEmployeeId?: string,
   authEmployeeId?: string,
+  userId?: string,
 ) {
   let employeeId = scopedEmployeeId ?? queryEmployeeId ?? authEmployeeId;
+  if (!employeeId && userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { employeeId: true },
+    });
+    if (user?.employeeId) {
+      employeeId = user.employeeId;
+    }
+  }
   if (!employeeId) {
     const firstEmp = await prisma.employee.findFirst({
       where: { status: 'active' },

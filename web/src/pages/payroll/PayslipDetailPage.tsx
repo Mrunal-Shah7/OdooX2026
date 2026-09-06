@@ -12,6 +12,39 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { payrollApi, type PayslipDetail, type PayslipLine } from './payrollApi';
 import { showToast } from '../../lib/toast';
 
+function getStatusBadge(status?: string, archived?: boolean) {
+  if (archived) return <Badge variant="neutral">archived</Badge>;
+  switch (status) {
+    case 'draft':
+      return <Badge variant="warning">draft</Badge>;
+    case 'computed':
+      return <Badge variant="warning">computed</Badge>;
+    case 'done':
+      return <Badge variant="info">validated</Badge>;
+    case 'paid':
+      return <Badge variant="success">paid</Badge>;
+    default:
+      return <Badge variant="neutral">{status || 'unknown'}</Badge>;
+  }
+}
+
+function getCategoryBadge(category: string) {
+  switch (category) {
+    case 'basic':
+      return <Badge variant="neutral">basic</Badge>;
+    case 'allowance':
+      return <Badge variant="info">allowance</Badge>;
+    case 'gross':
+      return <Badge variant="warning">gross</Badge>;
+    case 'deduction':
+      return <Badge variant="danger">deduction</Badge>;
+    case 'net':
+      return <Badge variant="success">net</Badge>;
+    default:
+      return <Badge variant="neutral">{category}</Badge>;
+  }
+}
+
 export default function PayslipDetailPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
   const navigate = useNavigate();
@@ -38,16 +71,13 @@ export default function PayslipDetailPage() {
     fetchDetail();
   }, [id]);
 
-  if (!id) {
-    return <div className="p-6 text-danger">Invalid payslip ID.</div>;
-  }
-
   const ps = data?.payslip;
   const lines = data?.lines || [];
   const emp = ps?.employee;
   const contract = ps?.contract;
 
   const handleArchive = async () => {
+    if (!id) return;
     if (!confirm('Are you sure you want to archive this payslip?')) return;
     setArchiving(true);
     try {
@@ -100,39 +130,6 @@ export default function PayslipDetailPage() {
       showToast({ type: 'error', title: 'Email Failed', message: msg });
     } finally {
       setSendingEmail(false);
-    }
-  };
-
-  const getStatusBadge = (status?: string, archived?: boolean) => {
-    if (archived) return <Badge variant="neutral">archived</Badge>;
-    switch (status) {
-      case 'draft':
-        return <Badge variant="warning">draft</Badge>;
-      case 'computed':
-        return <Badge variant="warning">computed</Badge>;
-      case 'done':
-        return <Badge variant="info">validated</Badge>;
-      case 'paid':
-        return <Badge variant="success">paid</Badge>;
-      default:
-        return <Badge variant="neutral">{status || 'unknown'}</Badge>;
-    }
-  };
-
-  const getCategoryBadge = (category: string) => {
-    switch (category) {
-      case 'basic':
-        return <Badge variant="neutral">basic</Badge>;
-      case 'allowance':
-        return <Badge variant="info">allowance</Badge>;
-      case 'gross':
-        return <Badge variant="warning">gross</Badge>;
-      case 'deduction':
-        return <Badge variant="danger">deduction</Badge>;
-      case 'net':
-        return <Badge variant="success">net</Badge>;
-      default:
-        return <Badge variant="neutral">{category}</Badge>;
     }
   };
 
@@ -198,6 +195,10 @@ export default function PayslipDetailPage() {
     ],
     [displayCurrency, ps],
   );
+
+  if (!id) {
+    return <div className="p-6 text-danger">Invalid payslip ID.</div>;
+  }
 
   return (
     <>

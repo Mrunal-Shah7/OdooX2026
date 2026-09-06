@@ -16,6 +16,21 @@ import {
 } from './payrollApi';
 import { showToast } from '../../lib/toast';
 
+function getStatusBadge(status?: string) {
+  switch (status) {
+    case 'draft':
+      return <Badge variant="warning">draft</Badge>;
+    case 'computed':
+      return <Badge variant="warning">computed</Badge>;
+    case 'validated':
+      return <Badge variant="info">validated</Badge>;
+    case 'paid':
+      return <Badge variant="success">paid</Badge>;
+    default:
+      return <Badge variant="neutral">{status || 'unknown'}</Badge>;
+  }
+}
+
 export default function PayrunDetailPage() {
   const { id } = useParams({ strict: false }) as { id?: string };
   const navigate = useNavigate();
@@ -41,113 +56,6 @@ export default function PayrunDetailPage() {
   useEffect(() => {
     fetchDetail();
   }, [id]);
-
-  if (!id) {
-    return <div className="p-6 text-danger">Invalid pay run ID.</div>;
-  }
-
-  if (loading && !data) {
-    return <PageSkeleton />;
-  }
-
-  const payrun = data?.payrun;
-  const payslips = data?.payslips || [];
-
-  const handleCompute = async () => {
-    setActionLoading(true);
-    try {
-      const res = await payrollApi.computePayrun(id);
-      setData(res);
-      const msg = 'Pay run computed successfully.';
-      setSuccessMessage(msg);
-      showToast({ type: 'success', title: 'Pay Run Computed', message: msg });
-    } catch (err: any) {
-      const errMsg = err.message || 'Compute failed';
-      showToast({ type: 'error', title: 'Compute Failed', message: errMsg });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleValidate = async () => {
-    setActionLoading(true);
-    try {
-      const res = await payrollApi.validatePayrun(id);
-      setData(res);
-      const msg = 'Pay run validated and locked.';
-      setSuccessMessage(msg);
-      showToast({ type: 'success', title: 'Pay Run Validated', message: msg });
-    } catch (err: any) {
-      const errMsg = err.message || 'Validation failed';
-      showToast({ type: 'error', title: 'Validation Failed', message: errMsg });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleMarkPaid = async () => {
-    setActionLoading(true);
-    try {
-      const res = await payrollApi.markPayrunPaid(id);
-      setData(res);
-      const msg = 'Pay run marked as paid.';
-      setSuccessMessage(msg);
-      showToast({ type: 'success', title: 'Pay Run Paid', message: msg });
-    } catch (err: any) {
-      const errMsg = err.message || 'Mark paid failed';
-      showToast({ type: 'error', title: 'Action Failed', message: errMsg });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSendPayslips = async () => {
-    setActionLoading(true);
-    try {
-      const results = await payrollApi.sendPayslips(id);
-      const sentCount = results.filter((r) => r.sent).length;
-      const msg = `Payslip PDFs emailed to ${sentCount} employee(s).`;
-      setSuccessMessage(msg);
-      showToast({ type: 'success', title: 'Payslips Sent', message: msg });
-      fetchDetail();
-    } catch (err: any) {
-      const errMsg = err.message || 'Send payslips failed';
-      showToast({ type: 'error', title: 'Send Failed', message: errMsg });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'draft':
-        return <Badge variant="warning">draft</Badge>;
-      case 'computed':
-        return <Badge variant="warning">computed</Badge>;
-      case 'validated':
-        return <Badge variant="info">validated</Badge>;
-      case 'paid':
-        return <Badge variant="success">paid</Badge>;
-      default:
-        return <Badge variant="neutral">{status || 'unknown'}</Badge>;
-    }
-  };
-
-  // Collect all warnings across payslips
-  const allWarnings: { code: string; message: string; blocking: boolean; employeeName: string }[] = [];
-  payslips.forEach((ps) => {
-    if (!ps.archived && ps.warnings) {
-      ps.warnings.forEach((w) => {
-        allWarnings.push({
-          ...w,
-          employeeName: `${ps.employee?.firstName || ''} ${ps.employee?.lastName || ''}`.trim(),
-        });
-      });
-    }
-  });
-
-  const blockingWarnings = allWarnings.filter((w) => w.blocking);
-  const advisoryWarnings = allWarnings.filter((w) => !w.blocking);
 
   const columns = useMemo<ColumnDef<PayslipSummary, any>[]>(
     () => [
@@ -242,6 +150,102 @@ export default function PayrunDetailPage() {
     ],
     [],
   );
+
+  if (!id) {
+    return <div className="p-6 text-danger">Invalid pay run ID.</div>;
+  }
+
+  if (loading && !data) {
+    return <PageSkeleton />;
+  }
+
+  const payrun = data?.payrun;
+  const payslips = data?.payslips || [];
+
+  const handleCompute = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const res = await payrollApi.computePayrun(id);
+      setData(res);
+      const msg = 'Pay run computed successfully.';
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Pay Run Computed', message: msg });
+    } catch (err: any) {
+      const errMsg = err.message || 'Compute failed';
+      showToast({ type: 'error', title: 'Compute Failed', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleValidate = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const res = await payrollApi.validatePayrun(id);
+      setData(res);
+      const msg = 'Pay run validated and locked.';
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Pay Run Validated', message: msg });
+    } catch (err: any) {
+      const errMsg = err.message || 'Validation failed';
+      showToast({ type: 'error', title: 'Validation Failed', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const res = await payrollApi.markPayrunPaid(id);
+      setData(res);
+      const msg = 'Pay run marked as paid.';
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Pay Run Paid', message: msg });
+    } catch (err: any) {
+      const errMsg = err.message || 'Mark paid failed';
+      showToast({ type: 'error', title: 'Action Failed', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendPayslips = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const results = await payrollApi.sendPayslips(id);
+      const sentCount = results.filter((r) => r.sent).length;
+      const msg = `Payslip PDFs emailed to ${sentCount} employee(s).`;
+      setSuccessMessage(msg);
+      showToast({ type: 'success', title: 'Payslips Sent', message: msg });
+      fetchDetail();
+    } catch (err: any) {
+      const errMsg = err.message || 'Send payslips failed';
+      showToast({ type: 'error', title: 'Send Failed', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Collect all warnings across payslips
+  const allWarnings: { code: string; message: string; blocking: boolean; employeeName: string }[] = [];
+  payslips.forEach((ps) => {
+    if (!ps.archived && ps.warnings) {
+      ps.warnings.forEach((w) => {
+        allWarnings.push({
+          ...w,
+          employeeName: `${ps.employee?.firstName || ''} ${ps.employee?.lastName || ''}`.trim(),
+        });
+      });
+    }
+  });
+
+  const blockingWarnings = allWarnings.filter((w) => w.blocking);
+  const advisoryWarnings = allWarnings.filter((w) => !w.blocking);
 
   return (
     <>

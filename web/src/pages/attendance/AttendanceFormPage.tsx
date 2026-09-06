@@ -5,17 +5,15 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card, CardBody, CardHeader } from "../../components/ui/Card";
+import { DatePicker } from "../../components/ui/DatePicker";
+import { DateTimePicker } from "../../components/ui/DateTimePicker";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Select } from "../../components/ui/Select";
 import { FormSkeleton } from "../../components/ui/Skeleton";
-import {
-  formatDateTimeInput,
-  formatWorkedHours,
-  parseDateTimeInput,
-} from "../../lib/format";
+import { formatWorkedHours, parseDateTimeInput } from "../../lib/format";
 import { isHrManagerOrAbove } from "../../lib/permissions";
 import { useSession } from "../../lib/session";
 import { showToast } from "../../lib/toast";
@@ -39,6 +37,14 @@ type AttendanceRecord = {
   notes: string | null;
   isManualEdit: boolean;
 };
+
+function toDateTimePickerValue(isoStr: string | null | undefined): string {
+  if (!isoStr) return "";
+  const date = new Date(isoStr);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 async function apiRequest<T>(
   path: string,
@@ -146,8 +152,8 @@ export default function AttendanceFormPage() {
     if (record) {
       setEmployeeId(record.employee.id);
       setDate(record.date);
-      setCheckIn(formatDateTimeInput(record.checkIn));
-      setCheckOut(formatDateTimeInput(record.checkOut));
+      setCheckIn(toDateTimePickerValue(record.checkIn));
+      setCheckOut(toDateTimePickerValue(record.checkOut));
       setOvertimeHours(record.overtimeHours);
       setStatus(record.status);
       setNotes(record.notes ?? "");
@@ -242,7 +248,7 @@ export default function AttendanceFormPage() {
     : `${record?.employee.firstName} ${record?.employee.lastName}`;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-12">
+    <div className="attendance-form-page">
       <PageHeader
         title={title}
         subtitle={subtitle}
@@ -271,9 +277,9 @@ export default function AttendanceFormPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
-          <Card>
+      <div className="attendance-form-page__content">
+        <div className="attendance-record-layout">
+          <Card className="attendance-record-form-card">
             <CardBody className="space-y-6">
               <h2 className="text-h4 font-semibold text-text">
                 Record Details
@@ -322,35 +328,32 @@ export default function AttendanceFormPage() {
                 ) : null}
 
                 <Field label="Date">
-                  <Input
-                    type="date"
+                  <DatePicker
+                    mode="single"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={setDate}
                     readOnly={!isNew || !canEdit}
+                    ariaLabel="Attendance date"
                   />
                 </Field>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Check in">
-                  <Input
-                    type="text"
-                    placeholder="DD/MM/YYYY; HH:mm:ss"
+                  <DateTimePicker
                     value={checkIn}
-                    onChange={(e) => setCheckIn(e.target.value)}
+                    onChange={setCheckIn}
                     readOnly={!canEdit}
-                    className="font-mono text-caption"
+                    ariaLabel="Check in date and time"
                   />
                 </Field>
 
                 <Field label="Check out">
-                  <Input
-                    type="text"
-                    placeholder="DD/MM/YYYY; HH:mm:ss"
+                  <DateTimePicker
                     value={checkOut}
-                    onChange={(e) => setCheckOut(e.target.value)}
+                    onChange={setCheckOut}
                     readOnly={!canEdit}
-                    className="font-mono text-caption"
+                    ariaLabel="Check out date and time"
                   />
                 </Field>
 
@@ -358,7 +361,19 @@ export default function AttendanceFormPage() {
                   <Input
                     value={formatWorkedHours(derivedWorkedHours)}
                     readOnly
-                    className="ml-1 w-20 bg-surface-sunken font-mono text-caption"
+                    className="bg-surface-sunken font-mono text-caption"
+                  />
+                </Field>
+
+                <Field label="Overtime hours">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={overtimeHours}
+                    onChange={(event) => setOvertimeHours(event.target.value)}
+                    readOnly={!canEdit}
+                    className="font-mono"
                   />
                 </Field>
               </div>
@@ -395,63 +410,6 @@ export default function AttendanceFormPage() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   readOnly={!canEdit}
-                />
-              </Field>
-            </CardBody>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          {!isNew && record && (
-            <Card>
-              <CardBody className="space-y-4">
-                <h3 className="text-label font-medium text-text-muted">
-                  Status summary
-                </h3>
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-body-sm text-text-muted">Status</span>
-                    <Badge
-                      variant={
-                        status === "present"
-                          ? "success"
-                          : status === "absent"
-                            ? "danger"
-                            : "warning"
-                      }
-                    >
-                      {status}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-body-sm text-text-muted">
-                      Modified manually
-                    </span>
-                    <Badge
-                      variant={record.isManualEdit ? "warning" : "neutral"}
-                    >
-                      {record.isManualEdit ? "Yes" : "No"}
-                    </Badge>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-
-          <Card>
-            <CardBody className="space-y-4">
-              <h3 className="text-label font-medium text-text-muted">
-                Overtime
-              </h3>
-              <Field label="Overtime hours">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={overtimeHours}
-                  onChange={(e) => setOvertimeHours(e.target.value)}
-                  readOnly={!canEdit}
-                  className="font-mono"
                 />
               </Field>
             </CardBody>
@@ -507,54 +465,69 @@ export default function AttendanceFormPage() {
                   <div className="attendance-record-summary__row">
                     <dt>Status</dt>
                     <dd>
-                      <Badge variant="neutral">
+                      <Badge
+                        variant={
+                          status === "present"
+                            ? "success"
+                            : status === "absent"
+                              ? "danger"
+                              : status === "late"
+                                ? "warning"
+                                : "info"
+                        }
+                      >
                         {status.replace("_", " ")}
                       </Badge>
                     </dd>
                   </div>
+                  {!isNew && record ? (
+                    <>
+                      <div className="attendance-record-summary__row">
+                        <dt>Modified manually</dt>
+                        <dd>
+                          <Badge
+                            variant={record.isManualEdit ? "warning" : "neutral"}
+                          >
+                            {record.isManualEdit ? "Yes" : "No"}
+                          </Badge>
+                        </dd>
+                      </div>
+                      {canEdit ? (
+                        <>
+                          <div className="attendance-record-summary__row">
+                            <dt>Department</dt>
+                            <dd>{record.employee.departmentName}</dd>
+                          </div>
+                          <div className="attendance-record-summary__row">
+                            <dt>Position</dt>
+                            <dd>{record.employee.jobPosition}</dd>
+                          </div>
+                          <div className="attendance-record-summary__row">
+                            <dt>Work email</dt>
+                            <dd className="attendance-record-summary__numeric">
+                              {record.employee.workEmail}
+                            </dd>
+                          </div>
+                        </>
+                      ) : null}
+                      <div className="attendance-record-summary__row">
+                        <dt>Entry source</dt>
+                        <dd>
+                          {record.isManualEdit
+                            ? "Manually edited"
+                            : "Recorded attendance"}
+                        </dd>
+                      </div>
+                    </>
+                  ) : null}
                 </dl>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader title={isNew ? "Before saving" : "Record context"} />
-              <CardBody>
                 {isNew ? (
-                  <ul className="attendance-record-guidance">
+                  <ul className="attendance-record-guidance mt-4 border-t border-border pt-4">
                     <li>Select the employee and attendance date.</li>
                     <li>Check-in and check-out determine worked hours.</li>
                     <li>Use notes to explain a manual correction.</li>
                   </ul>
-                ) : (
-                  <dl className="attendance-record-summary">
-                    {canEdit ? (
-                      <>
-                        <div className="attendance-record-summary__row">
-                          <dt>Department</dt>
-                          <dd>{record?.employee.departmentName}</dd>
-                        </div>
-                        <div className="attendance-record-summary__row">
-                          <dt>Position</dt>
-                          <dd>{record?.employee.jobPosition}</dd>
-                        </div>
-                        <div className="attendance-record-summary__row">
-                          <dt>Work email</dt>
-                          <dd className="attendance-record-summary__numeric">
-                            {record?.employee.workEmail}
-                          </dd>
-                        </div>
-                      </>
-                    ) : null}
-                    <div className="attendance-record-summary__row">
-                      <dt>Entry source</dt>
-                      <dd>
-                        {record?.isManualEdit
-                          ? "Manually edited"
-                          : "Recorded attendance"}
-                      </dd>
-                    </div>
-                  </dl>
-                )}
+                ) : null}
               </CardBody>
             </Card>
           </aside>

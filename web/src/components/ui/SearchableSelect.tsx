@@ -1,6 +1,6 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { ChevronDown, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../../lib/cn';
 
 export type SelectOption = { value: string; label: string };
@@ -36,6 +36,23 @@ export function SearchableSelect({
     [options, value]
   );
 
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnViewportChange() {
+      setOpen(false);
+      setSearchQuery('');
+      onSearch?.('');
+    }
+
+    window.addEventListener('scroll', closeOnViewportChange);
+    window.addEventListener('resize', closeOnViewportChange);
+    return () => {
+      window.removeEventListener('scroll', closeOnViewportChange);
+      window.removeEventListener('resize', closeOnViewportChange);
+    };
+  }, [onSearch, open]);
+
   return (
     <PopoverPrimitive.Root
       open={open}
@@ -66,6 +83,7 @@ export function SearchableSelect({
           align="start"
           sideOffset={4}
           collisionPadding={8}
+          hideWhenDetached
           onWheel={(event) => event.stopPropagation()}
           className="z-[500] flex max-h-60 w-[var(--radix-popover-trigger-width)] flex-col overflow-hidden overscroll-contain rounded-md border border-border bg-surface-raised shadow-lg"
         >

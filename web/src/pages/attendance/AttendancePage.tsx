@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -163,8 +163,11 @@ export default function AttendancePage() {
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
-  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const [defaultDate, setDefaultDate] = useState<string | null>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const [lockedDate, setLockedDate] = useState<string | null>(null);
   const canManage = user ? isHrManagerOrAbove(user.role) : false;
+  const activeDate = lockedDate ?? hoveredDate ?? defaultDate;
 
   const monthStart = formatDateKey(visibleMonth);
   const monthEnd = formatDateKey(
@@ -210,12 +213,29 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (records.length === 0) {
-      setActiveDate(null);
+      setDefaultDate(null);
+      setHoveredDate(null);
+      setLockedDate(null);
       return;
     }
     const today = formatDateKey(new Date());
-    setActiveDate(recordsByDate.has(today) ? today : records[0].date);
+    setDefaultDate(recordsByDate.has(today) ? today : records[0].date);
   }, [records, recordsByDate]);
+
+  // Release a locked day details panel on the next click anywhere.
+  useEffect(() => {
+    if (!lockedDate) return;
+    function releaseLock() {
+      setLockedDate(null);
+    }
+    const timer = window.setTimeout(() => {
+      document.addEventListener("click", releaseLock);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("click", releaseLock);
+    };
+  }, [lockedDate]);
 
   const summary = useMemo(
     () => ({
@@ -234,14 +254,31 @@ export default function AttendancePage() {
       (current) =>
         new Date(current.getFullYear(), current.getMonth() + offset, 1),
     );
-    setActiveDate(null);
+    setDefaultDate(null);
+    setHoveredDate(null);
+    setLockedDate(null);
+  }
+
+  function previewDate(date: string) {
+    if (lockedDate) return;
+    setHoveredDate(date);
+  }
+
+  function lockDate(date: string, event: MouseEvent) {
+    event.stopPropagation();
+    setHoveredDate(date);
+    if (lockedDate) {
+      setLockedDate(null);
+      return;
+    }
+    setLockedDate(date);
   }
 
   return (
     <>
       <PageHeader
         title="Attendance calendar"
-        subtitle="Hover or focus a date to review attendance details."
+        subtitle="Hover a date to preview details. Click to lock the panel until the next click."
         actions={
           canManage ? (
             <Button
@@ -376,16 +413,19 @@ export default function AttendancePage() {
                     const dayRecords = recordsByDate.get(day.date) ?? [];
                     const dayStatus = getDayStatus(dayRecords);
                     const isActive = day.date === activeDate;
+                    const isLocked = day.date === lockedDate;
                     return (
                       <button
                         key={day.date}
                         type="button"
                         className={`attendance-calendar__day attendance-calendar__day--${dayStatus}`}
                         data-active={isActive || undefined}
-                        onMouseEnter={() => setActiveDate(day.date)}
-                        onFocus={() => setActiveDate(day.date)}
-                        onClick={() => setActiveDate(day.date)}
+                        data-locked={isLocked || undefined}
+                        onMouseEnter={() => previewDate(day.date)}
+                        onFocus={() => previewDate(day.date)}
+                        onClick={(event) => lockDate(day.date, event)}
                         aria-label={`${day.date}: ${dayRecords.length} attendance ${dayRecords.length === 1 ? "record" : "records"}`}
+                        aria-pressed={isLocked}
                       >
                         <span className="attendance-calendar__day-number">
                           {day.dayNumber}
@@ -425,15 +465,19 @@ export default function AttendancePage() {
                 <aside
                   className="attendance-calendar__details"
                   aria-live="polite"
+                  onClick={(event) => event.stopPropagation()}
                 >
                   <div className="attendance-calendar__details-header">
                     <span>Day details</span>
                     <strong className="font-mono">
-                      {activeDate ?? "Hover a date"}
+                      {activeDate ?? "Select a date"}
                     </strong>
                   </div>
                   {selectedRecords.length > 0 ? (
-                    <div className="attendance-calendar__record-list">
+                    <div
+                      key={`records-${activeDate}`}
+                      className="attendance-calendar__record-list"
+                    >
                       {selectedRecords.map((record) => (
                         <article
                           key={record.id}
@@ -483,13 +527,16 @@ export default function AttendancePage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="attendance-calendar__details-empty">
+                    <div
+                      key={`empty-${activeDate ?? "none"}`}
+                      className="attendance-calendar__details-empty"
+                    >
                       <p>
                         {activeDate
                           ? "No attendance records were logged on this date."
                           : records.length === 0
                             ? `No attendance records were found for ${monthLabel}.`
-                            : "Hover or focus a calendar date to see its records."}
+                            : "Hover a date to preview, or click to lock its records."}
                       </p>
                     </div>
                   )}

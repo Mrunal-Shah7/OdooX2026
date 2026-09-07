@@ -9,7 +9,8 @@
     "db:generate": "npm run db:generate --prefix server",
     "db:push": "npm run db:push --prefix server",
     "db:seed": "npm run db:seed --prefix server",
-    "build": "npm run build --prefix server && npm run build --prefix web"
+    "build": "npm run build --prefix server && npm run build --prefix web",
+    "start": "npm run start --prefix server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
